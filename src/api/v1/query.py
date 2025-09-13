@@ -21,7 +21,10 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
     """
     try:
         start_time = time.time()
-        event_data = {"query_body": request.body, "body_size": len(str(request.body))}
+        event_data = {
+            "query_body": request.body, 
+            "body_size": len(str(request.body))
+        }
         logger.info("Query execution event", extra={"event_data": event_data})
         await asyncio.sleep(0.1)  # Mock processing delay
         execution_time_ms = int((time.time() - start_time) * 1000)
@@ -41,5 +44,5 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
     except Exception as e:
         logger.error(f"Query execution failed: {str(e)}")
         raise HTTPException(
-            status_code=500, detail="Internal server error during query execution"
+            status_code=500, detail="Internal server error during query"
         )

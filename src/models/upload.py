@@ -8,7 +8,7 @@ class UploadResponse(BaseModel):
 
     message: str = Field(..., description="Success message")
     filename: str = Field(..., description="Name of the uploaded file")
-    file_id: str = Field(..., description="Unique identifier for the uploaded file")
+    file_id: str = Field(..., description="Unique identifier for an uploaded file")
     file_size: int = Field(..., description="Size of the uploaded file in bytes")
     content_type: str = Field(..., description="MIME type of the uploaded file")
 
