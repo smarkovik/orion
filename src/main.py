@@ -40,7 +40,7 @@ async def root() -> dict[str, str]:
     return {
         "message": "Orion API",
         "version": settings.app_version,
-        "status": "running"
+        "status": "running",
     }
 
 
@@ -52,11 +52,12 @@ async def health_check() -> dict[str, str]:
 
 if __name__ == "__main__":
     import uvicorn
+
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     uvicorn.run(
         "src.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.debug,
-        log_level=settings.log_level.lower()
+        log_level=settings.log_level.lower(),
     )

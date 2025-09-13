@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class QueryRequest(BaseModel):
     """Request model for query endpoint."""
+
     body: Dict[str, Any] = Field(
         ..., description="Query body with flexible JSON structure"
     )
@@ -16,7 +17,7 @@ class QueryRequest(BaseModel):
                 "body": {
                     "query": "SELECT * FROM users WHERE active = true",
                     "filters": {"status": "active"},
-                    "limit": 100
+                    "limit": 100,
                 }
             }
         }
@@ -24,12 +25,9 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     """Response model for query endpoint."""
-    result: str = Field(
-        ..., description="Query result as JSON string"
-    )
-    status: str = Field(
-        ..., description="Query execution status"
-    )
+
+    result: str = Field(..., description="Query result as JSON string")
+    status: str = Field(..., description="Query execution status")
     execution_time_ms: int = Field(
         ..., description="Query execution time in milliseconds"
     )
@@ -42,6 +40,6 @@ class QueryResponse(BaseModel):
                     '{"id": 2, "name": "Jane"}]}'
                 ),
                 "status": "success",
-                "execution_time_ms": 150
+                "execution_time_ms": 150,
             }
         }

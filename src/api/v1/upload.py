@@ -13,12 +13,8 @@ logger = get_logger(__name__)
 
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_file(
-    file: UploadFile = File(
-        ..., description="File to upload"
-    ),
-    description: Optional[str] = Form(
-        None, description="Optional file description"
-    )
+    file: UploadFile = File(..., description="File to upload"),
+    description: Optional[str] = Form(None, description="Optional file description"),
 ) -> UploadResponse:
     """
     Upload a file using multipart/form-data (mock implementation).
@@ -34,11 +30,10 @@ async def upload_file(
             "content_type": file.content_type,
             "file_size": file_size,
             "file_id": file_id,
-            "description": description
+            "description": description,
         }
         logger.info(
-            f"File upload event: {file.filename}",
-            extra={"event_data": event_data}
+            f"File upload event: {file.filename}", extra={"event_data": event_data}
         )
         # In a real implementation, you would:
         # 1. Validate file type and size
@@ -50,11 +45,10 @@ async def upload_file(
             filename=file.filename or "unknown",
             file_id=file_id,
             file_size=file_size,
-            content_type=file.content_type or "application/octet-stream"
+            content_type=file.content_type or "application/octet-stream",
         )
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail="Internal server error during upload"
+            status_code=500, detail="Internal server error during upload"
         )
