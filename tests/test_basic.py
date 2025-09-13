@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from src import __version__  # noqa: E402
 
+
 class TestBasicSetup(unittest.TestCase):
     """Test basic project setup"""
 

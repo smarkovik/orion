@@ -11,10 +11,11 @@ def setup_logging() -> None:
     """Set up structured logging for the application."""
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-        ],
+        format=(
+            "%(asctime)s - %(name)s - %(levelname)s - "
+            "%(message)s"
+        ),
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 
@@ -23,6 +24,9 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def log_event(logger: logging.Logger, event: str, data: Dict[str, Any]) -> None:
+def log_event(
+        logger: logging.Logger,
+        event: str,
+        data: Dict[str, Any]) -> None:
     """Log an event with structured data."""
     logger.info(f"Event: {event}", extra={"event_data": data})

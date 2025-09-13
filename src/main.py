@@ -52,7 +52,6 @@ async def health_check() -> dict[str, str]:
 
 if __name__ == "__main__":
     import uvicorn
-    
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     uvicorn.run(
         "src.main:app",

@@ -4,6 +4,8 @@
   "python.formatting.blackArgs": ["--line-length", "88"],
   "python.sortImports.args": ["--profile", "black"],
   "editor.formatOnSave": true,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
@@ -21,5 +23,6 @@
     ".mypy_cache": true,
     "htmlcov": true,
     ".coverage": true
-  }
+  },
+  "makefile.configureOnOpen": false
 }
