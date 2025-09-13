@@ -20,6 +20,7 @@ pytest --cov=src
 black src/ tests/
 isort src/ tests/
 flake8 src/ tests/
+mypy src/
 ```
 
 ## Structure

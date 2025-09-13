@@ -36,6 +36,10 @@ jobs:
       run: |
         isort --check-only src/ tests/
 
+    - name: Type check with mypy
+      run: |
+        mypy src/
+
     - name: Run tests
       run: |
         pytest --cov=src --cov-report=xml --cov-report=html
