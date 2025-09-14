@@ -1,0 +1,44 @@
+services:
+  orion-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: orion-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - $HOME/Desktop/docker-files/upload:/app/uploads
+      - $HOME/Desktop/docker-files/converted:/app/converted
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Development service with hot reload
+  orion-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: orion-dev
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./src:/app/src
+      - $HOME/Desktop/docker-files/upload:/app/uploads
+      - $HOME/Desktop/docker-files/converted:/app/converted
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=DEBUG
+    command: [ "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
+    profiles:
+      - dev
