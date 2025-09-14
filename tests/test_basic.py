@@ -14,12 +14,12 @@ from src import __version__  # noqa: E402
 class TestBasicSetup(unittest.TestCase):
     """Test basic project setup"""
 
-    def test_version_exists(self):
+    def test_version_exists(self) -> None:
         """Test that version is defined"""
         self.assertIsNotNone(__version__)
         self.assertIsInstance(__version__, str)
 
-    def test_version_format(self):
+    def test_version_format(self) -> None:
         """Test that version follows semantic versioning"""
         version_parts = __version__.split(".")
         self.assertEqual(len(version_parts), 3)

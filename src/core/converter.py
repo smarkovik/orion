@@ -1,10 +1,6 @@
 """File conversion service for processing uploaded documents."""
 
-import csv
-import io
-import json
 import shutil
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -12,7 +8,6 @@ import magic
 import pandas as pd
 import pdfplumber
 from docx import Document
-from openpyxl import load_workbook
 
 from .logging import get_logger
 
@@ -133,7 +128,7 @@ class FileConverter:
     def _convert_docx(self, input_path: Path, output_path: Path) -> bool:
         """Convert DOCX to text using python-docx."""
         try:
-            doc = Document(input_path)
+            doc = Document(str(input_path))
             text_content = []
 
             for paragraph in doc.paragraphs:
