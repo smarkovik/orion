@@ -1,11 +1,12 @@
 """Upload endpoint implementation."""
 
 import uuid
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form
 from typing import Optional
 
-from ...models.upload import UploadResponse
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+
 from ...core.logging import get_logger
+from ...models.upload import UploadResponse
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -14,8 +15,7 @@ logger = get_logger(__name__)
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_file(
     file: UploadFile = File(..., description="File to upload"),
-    description: Optional[str] = Form(
-        None, description="Optional file description"),
+    description: Optional[str] = Form(None, description="Optional file description"),
 ) -> UploadResponse:
     """
     Upload a file using multipart/form-data (mock implementation).
@@ -34,8 +34,7 @@ async def upload_file(
             "description": description,
         }
         logger.info(
-            f"File upload event: {file.filename}", 
-            extra={"event_data": event_data}
+            f"File upload event: {file.filename}", extra={"event_data": event_data}
         )
         return UploadResponse(
             message="File uploaded successfully",
