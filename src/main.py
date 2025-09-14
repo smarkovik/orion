@@ -3,10 +3,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .core.config import settings
-from .core.logging import setup_logging, get_logger
-from .api.v1.upload import router as upload_router
 from .api.v1.query import router as query_router
+from .api.v1.upload import router as upload_router
+from .core.config import settings
+from .core.logging import get_logger, setup_logging
 
 # Set up logging
 setup_logging()

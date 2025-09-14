@@ -1,6 +1,7 @@
 """Models for the query endpoint."""
 
 from typing import Any, Dict
+
 from pydantic import BaseModel, Field
 
 
