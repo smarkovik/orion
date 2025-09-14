@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from ...core.converter import FileConverter
 from ...core.logging import get_logger
 from ...models.upload import UploadResponse
 
@@ -26,7 +27,9 @@ async def upload_file(
     try:
         file_id = str(uuid.uuid4())
         upload_dir = Path("/app/uploads")
+        converted_dir = Path("/app/converted")
         upload_dir.mkdir(parents=True, exist_ok=True)
+        converted_dir.mkdir(parents=True, exist_ok=True)
 
         content = await file.read()
         file_size = len(content)
@@ -40,6 +43,12 @@ async def upload_file(
         with open(file_path, "wb") as f:
             f.write(content)
 
+        # Initialize converter and process file
+        converter = FileConverter(upload_dir, converted_dir)
+        conversion_success, converted_path = converter.process_file(
+            file_path, original_filename
+        )
+
         event_data = {
             "filename": original_filename,
             "saved_as": unique_filename,
@@ -48,19 +57,27 @@ async def upload_file(
             "file_id": file_id,
             "file_path": str(file_path),
             "description": description,
+            "converted": conversion_success,
+            "converted_path": converted_path,
         }
 
         logger.info(
-            f"File uploaded successfully: {original_filename} -> {unique_filename}",
+            f"File uploaded successfully: {original_filename} -> {unique_filename}. Converted: {conversion_success}",
             extra={"event_data": event_data},
         )
 
         return UploadResponse(
-            message="File uploaded successfully",
+            message=(
+                "File uploaded and processed successfully"
+                if conversion_success
+                else "File uploaded successfully"
+            ),
             filename=original_filename,
             file_id=file_id,
             file_size=file_size,
             content_type=file.content_type or "application/octet-stream",
+            converted=conversion_success,
+            converted_path=converted_path,
         )
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")

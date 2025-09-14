@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - $HOME/Desktop/docker-files/upload:/app/uploads
+      - $HOME/Desktop/docker-files/converted:/app/converted
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
@@ -33,6 +34,7 @@ services:
     volumes:
       - ./src:/app/src
       - $HOME/Desktop/docker-files/upload:/app/uploads
+      - $HOME/Desktop/docker-files/converted:/app/converted
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app

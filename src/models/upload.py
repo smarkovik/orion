@@ -1,5 +1,7 @@
 """Models for the upload endpoint."""
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -11,6 +13,10 @@ class UploadResponse(BaseModel):
     file_id: str = Field(..., description="Unique identifier for an uploaded file")
     file_size: int = Field(..., description="Size of the uploaded file in bytes")
     content_type: str = Field(..., description="MIME type of the uploaded file")
+    converted: bool = Field(default=False, description="Whether the file was converted")
+    converted_path: Optional[str] = Field(
+        default=None, description="Path to converted file if conversion was successful"
+    )
 
     class Config:
         json_schema_extra = {
