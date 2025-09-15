@@ -8,39 +8,11 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Uploa
 
 from ...core.config import settings
 from ...core.logging import get_logger
+from ...core.tasks import convert_file_to_text
 from ...models.upload import UploadResponse
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-
-async def convert_file_to_text(
-    file_path: Path, email: str, file_id: str, original_filename: str
-) -> None:
-    """Background task to convert uploaded file to text."""
-    try:
-        from ...core.converter import FileConverter
-
-        logger.info(f"Starting text conversion for {email}: {file_id}")
-
-        # Create converter and process file
-        converter = FileConverter.from_settings(email)
-        success, converted_path = converter.process_file(file_path, original_filename)
-
-        if success:
-            logger.info(
-                f"Text conversion completed for {email}: {file_id} -> {converted_path}"
-            )
-        else:
-            logger.warning(f"Text conversion failed for {email}: {file_id}")
-
-    except Exception as e:
-        # here we should mark this file as failed, show to the user as failed with a
-        # message and a button to retry the conversion if reason is recoverable.
-        # if reason is not recoverable, we should mark this file as failed.
-        logger.error(
-            f"Background text conversion error for {email}: {file_id} - {str(e)}"
-        )
 
 
 async def _validate_file_size(file: UploadFile) -> None:
@@ -128,7 +100,8 @@ async def upload_file(
         }
 
         logger.info(
-            f"File uploaded successfully for user {email}: {original_filename} -> {unique_filename}. Text conversion queued.",
+            f"File uploaded successfully for user {email}: {original_filename} -> "
+            f"{unique_filename}. Text conversion queued.",
             extra={"event_data": event_data},
         )
 
