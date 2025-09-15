@@ -4,11 +4,13 @@ import json
 from pathlib import Path
 from typing import List
 
+import cohere
 import tiktoken
 
 from .config import settings
 from .converter import FileConverter
 from .logging import get_logger
+from .storage import StorageFactory
 
 logger = get_logger(__name__)
 
@@ -131,22 +133,58 @@ async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> Non
 
         logger.info(f"Read {len(chunks_data)} chunks for embedding generation.")
 
-        # TODO: CHECKPOINT - implementing Cohere API call
-        
+        if not settings.cohere_api_key:
+            raise ValueError("COHERE_API_KEY not configured")
+
+        cohere_client = cohere.Client(settings.cohere_api_key)
+
+        # Extract texts for embedding
+        texts = [chunk["text"] for chunk in chunks_data]
+
         logger.info(
-            f"CHECKPOINT: Ready to call Cohere API for {email}: {file_id} with {len(chunks_data)} chunks"
+            f"Calling Cohere API to generate embeddings for {len(texts)} chunks"
         )
 
-        # For now, just save chunk metadata without embeddings
-        vectors_dir = settings.get_user_processed_vectors_path(email)
-        vectors_dir.mkdir(parents=True, exist_ok=True)
+        response = cohere_client.embed(
+            texts=texts,
+            model=settings.cohere_model,
+            input_type="search_document",  # For RAG document embedding
+        )
 
-        metadata_file = vectors_dir / f"{file_id}_chunks_metadata.json"
-        with open(metadata_file, "w", encoding="utf-8") as f:
-            json.dump(chunks_data, f, indent=2)
+        embeddings_data = []
+        for i, chunk in enumerate(chunks_data):
+            embeddings_data.append(
+                {
+                    "filename": chunk["filename"],
+                    "text": chunk["text"],
+                    "token_count": chunk["token_count"],
+                    "embedding": response.embeddings[i],
+                    "embedding_model": settings.cohere_model,
+                }
+            )
+
+        vectors_dir = settings.get_user_processed_vectors_path(email)
+        storage = StorageFactory.create_storage(
+            storage_type=settings.vector_storage_type, storage_path=vectors_dir
+        )
+
+        file_metadata = {
+            "email": email,
+            "file_id": file_id,
+            "embedding_model": settings.cohere_model,
+            "chunk_size": settings.chunk_size,
+            "chunk_overlap_percent": settings.chunk_overlap_percent,
+            "storage_type": settings.vector_storage_type,
+        }
+
+        saved_path = storage.save_embeddings(
+            file_id=file_id, embeddings_data=embeddings_data, metadata=file_metadata
+        )
 
         logger.info(
-            f"Embedding generation prepared for {email}: {file_id}. Metadata saved."
+            f"Embedding generation completed for {email}: {file_id}. "
+            f"Generated {len(embeddings_data)} embeddings using {settings.cohere_model}. "
+            f"Saved to: {saved_path}"
         )
 
     except Exception as e:

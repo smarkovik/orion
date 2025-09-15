@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     cohere_api_key: str = ""  # Set via environment variable
     cohere_model: str = "embed-english-v3.0"  # Cohere embedding model
 
+    # Storage settings
+    vector_storage_type: str = "json"  # "json", "hdf5", others can be added later
+
     @property
     def orion_base_path(self) -> Path:
         """Get orion base directory as Path object."""
