@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Uploa
 
 from ...core.config import settings
 from ...core.logging import get_logger
-from ...core.tasks import convert_file_to_text
+from ...core.tasks import process_file_with_pipeline
 from ...models.upload import UploadResponse
 
 router = APIRouter()
@@ -80,7 +80,7 @@ async def upload_file(
         file_size = await _stream_file_to_disk(file, file_path)
 
         background_tasks.add_task(
-            convert_file_to_text,
+            process_file_with_pipeline,
             file_path=file_path,
             email=email,
             file_id=file_id,
@@ -96,17 +96,17 @@ async def upload_file(
             "file_path": str(file_path),
             "user_email": email,
             "description": description,
-            "text_conversion_queued": True,
+            "pipeline_processing_queued": True,
         }
 
         logger.info(
             f"File uploaded successfully for user {email}: {original_filename} -> "
-            f"{unique_filename}. Text conversion queued.",
+            f"{unique_filename}. Pipeline processing queued.",
             extra={"event_data": event_data},
         )
 
         return UploadResponse(
-            message=f"File uploaded successfully to user folder: {email}. Text conversion started.",
+            message=f"File uploaded successfully to user folder: {email}. Pipeline processing started.",
             filename=original_filename,
             file_id=file_id,
             file_size=file_size,

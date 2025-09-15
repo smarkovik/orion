@@ -32,9 +32,7 @@ class HDF5VectorStorage(VectorStorage):
         texts = [item["text"] for item in embeddings_data]
         filenames = [item["filename"] for item in embeddings_data]
         token_counts = [item["token_count"] for item in embeddings_data]
-        embedding_models = [
-            item.get("embedding_model", "unknown") for item in embeddings_data
-        ]
+        embedding_models = [item.get("embedding_model", "unknown") for item in embeddings_data]
 
         embeddings_array = np.array(embeddings, dtype=np.float32)
 
@@ -51,9 +49,7 @@ class HDF5VectorStorage(VectorStorage):
             text_dtype = h5py.string_dtype(encoding="utf-8")
             f.create_dataset("texts", data=texts, dtype=text_dtype)
             f.create_dataset("filenames", data=filenames, dtype=text_dtype)
-            f.create_dataset(
-                "embedding_models", data=embedding_models, dtype=text_dtype
-            )
+            f.create_dataset("embedding_models", data=embedding_models, dtype=text_dtype)
 
             f.create_dataset("token_counts", data=token_counts, dtype=np.int32)
 
@@ -93,19 +89,11 @@ class HDF5VectorStorage(VectorStorage):
                 embeddings_data.append(
                     {
                         "filename": (
-                            filenames[i].decode("utf-8")
-                            if isinstance(filenames[i], bytes)
-                            else str(filenames[i])
+                            filenames[i].decode("utf-8") if isinstance(filenames[i], bytes) else str(filenames[i])
                         ),
-                        "text": (
-                            texts[i].decode("utf-8")
-                            if isinstance(texts[i], bytes)
-                            else str(texts[i])
-                        ),
+                        "text": (texts[i].decode("utf-8") if isinstance(texts[i], bytes) else str(texts[i])),
                         "token_count": int(token_counts[i]),
-                        "embedding": embeddings[
-                            i
-                        ].tolist(),  # Convert numpy array back to list
+                        "embedding": embeddings[i].tolist(),  # Convert numpy array back to list
                         "embedding_model": (
                             embedding_models[i].decode("utf-8")
                             if isinstance(embedding_models[i], bytes)

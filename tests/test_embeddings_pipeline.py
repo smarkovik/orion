@@ -35,10 +35,8 @@ class TestEmbeddingsPipeline:
         """
         return f"pipeline_test_{uuid.uuid4().hex[:8]}@example.com"
 
-    @patch("src.core.tasks.cohere.Client")
-    def test_complete_pipeline_with_mock_cohere(
-        self, mock_cohere_class, client, unique_email
-    ):
+    @patch("src.core.pipeline_steps.cohere.Client")
+    def test_complete_pipeline_with_mock_cohere(self, mock_cohere_class, client, unique_email):
         """Test complete pipeline from upload to embeddings with mocked Cohere API.
 
         Given: A text file upload and mocked Cohere API
@@ -57,9 +55,7 @@ class TestEmbeddingsPipeline:
         ]
         mock_client.embed.return_value = mock_response
 
-        test_content = (
-            "This is a test document. " * 100
-        )  # Long enough to create multiple chunks
+        test_content = "This is a test document. " * 100  # Long enough to create multiple chunks
 
         response = client.post(
             "/v1/upload",
@@ -70,7 +66,7 @@ class TestEmbeddingsPipeline:
         assert response.status_code == 201
         data = response.json()
         assert "message" in data
-        assert "Text conversion started" in data["message"]
+        assert "Pipeline processing started" in data["message"]
 
         # a moment for background task to complete
         time.sleep(0.5)
@@ -105,12 +101,9 @@ class TestEmbeddingsPipeline:
                         assert all("embedding" in item for item in embeddings_data)
                         assert all("filename" in item for item in embeddings_data)
                         assert all("token_count" in item for item in embeddings_data)
-                        assert (
-                            embeddings_data[0]["embedding_model"]
-                            == settings.cohere_model
-                        )
+                        assert embeddings_data[0]["embedding_model"] == settings.cohere_model
 
-    @patch("src.core.tasks.cohere.Client")
+    @patch("src.core.pipeline_steps.cohere.Client")
     def test_pipeline_with_hdf5_storage(self, mock_cohere_class, client, unique_email):
         """Test complete pipeline with HDF5 storage backend.
 
@@ -132,9 +125,7 @@ class TestEmbeddingsPipeline:
             ]
             mock_client.embed.return_value = mock_response
 
-            test_content = (
-                "This is a test document for HDF5 storage. " * 50
-            )  # Long enough to create multiple chunks
+            test_content = "This is a test document for HDF5 storage. " * 50  # Long enough to create multiple chunks
 
             response = client.post(
                 "/v1/upload",
@@ -145,7 +136,7 @@ class TestEmbeddingsPipeline:
             assert response.status_code == 201
             data = response.json()
             assert "message" in data
-            assert "Text conversion started" in data["message"]
+            assert "Pipeline processing started" in data["message"]
 
             time.sleep(0.5)
 
