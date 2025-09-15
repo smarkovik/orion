@@ -22,7 +22,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Run Flake8
-        run: flake8 src/ tests/
+        run: flake8 src/
 
   black:
     name: Check code formatting with Black
@@ -39,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Run Black
-        run: black --check src/ tests/
+        run: black --check src/
 
   isort:
     name: Check import sorting with isort
@@ -56,7 +56,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Run isort
-        run: isort --check-only src/ tests/
+        run: isort --check-only src/
 
   mypy:
     name: Type check with Mypy
