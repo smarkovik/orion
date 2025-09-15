@@ -37,18 +37,13 @@ class StorageFactory:
         """
         if storage_type not in self._storage_types:
             available_types = ", ".join(self._storage_types.keys())
-            raise ValueError(
-                f"Unsupported storage type '{storage_type}'. "
-                f"Available types: {available_types}"
-            )
+            raise ValueError(f"Unsupported storage type '{storage_type}'. " f"Available types: {available_types}")
 
         storage_class = self._storage_types[storage_type]
         return storage_class(storage_path)
 
     @classmethod
-    def register_storage(
-        cls, storage_type: str, storage_class: Type[VectorStorage]
-    ) -> None:
+    def register_storage(cls, storage_type: str, storage_class: Type[VectorStorage]) -> None:
         """Register a new storage implementation.
 
         Given: A storage type name and implementation class

@@ -3,12 +3,7 @@
 from typing import Dict, List, Type
 
 from .pipeline import Pipeline, PipelineStep
-from .pipeline_steps import (
-    EmbeddingGenerationStep,
-    FileConversionStep,
-    TextChunkingStep,
-    VectorStorageStep,
-)
+from .pipeline_steps import EmbeddingGenerationStep, FileConversionStep, TextChunkingStep, VectorStorageStep
 
 
 class PipelineFactory:
@@ -89,9 +84,7 @@ class PipelineFactory:
         for step_name in step_names:
             if step_name not in step_mapping:
                 available_steps = list(step_mapping.keys())
-                raise ValueError(
-                    f"Unknown step '{step_name}'. Available steps: {available_steps}"
-                )
+                raise ValueError(f"Unknown step '{step_name}'. Available steps: {available_steps}")
 
             step_class = step_mapping[step_name]
             # mypy can't infer that these are concrete classes, not abstract

@@ -119,6 +119,4 @@ async def upload_file(
         raise
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail="Internal server error during upload"
-        )
+        raise HTTPException(status_code=500, detail="Internal server error during upload")
