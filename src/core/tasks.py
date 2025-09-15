@@ -22,7 +22,7 @@ async def convert_file_to_text(
         logger.info(f"Starting text conversion for {email}: {file_id}")
         converter = FileConverter.from_settings(email)
         success, converted_path = converter.process_file(file_path, original_filename)
-        if success:
+        if success and converted_path:
             logger.info(
                 f"Text conversion completed for {email}: {file_id} -> {converted_path}"
             )
@@ -133,7 +133,7 @@ async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> Non
         cohere_client = cohere.Client(settings.cohere_api_key)
 
         # Extract texts for embedding
-        texts = [chunk["text"] for chunk in chunks_data]
+        texts = [str(chunk["text"]) for chunk in chunks_data]
 
         logger.info(
             f"Calling Cohere API to generate embeddings for {len(texts)} chunks"
@@ -145,6 +145,12 @@ async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> Non
             input_type="search_document",  # For RAG document embedding
         )
 
+        if hasattr(response, "embeddings") and response.embeddings:
+            # Cast to List to satisfy mypy
+            response_embeddings = list(response.embeddings)
+        else:
+            raise ValueError("Invalid response from Cohere API")
+
         embeddings_data = []
         for i, chunk in enumerate(chunks_data):
             embeddings_data.append(
@@ -152,7 +158,7 @@ async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> Non
                     "filename": chunk["filename"],
                     "text": chunk["text"],
                     "token_count": chunk["token_count"],
-                    "embedding": response.embeddings[i],
+                    "embedding": response_embeddings[i],
                     "embedding_model": settings.cohere_model,
                 }
             )
