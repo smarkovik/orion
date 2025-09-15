@@ -54,9 +54,7 @@ class FileConverter:
             }
             return extension_map.get(extension, "application/octet-stream")
 
-    def process_file(
-        self, file_path: Path, original_filename: str
-    ) -> Tuple[bool, Optional[str]]:
+    def process_file(self, file_path: Path, original_filename: str) -> Tuple[bool, Optional[str]]:
         """
         Process a file: convert if needed, copy if already text-based.
 
@@ -65,9 +63,7 @@ class FileConverter:
         """
         try:
             mime_type = self.detect_file_type(file_path)
-            logger.info(
-                f"Processing file {original_filename} with MIME type: {mime_type}"
-            )
+            logger.info(f"Processing file {original_filename} with MIME type: {mime_type}")
 
             # Generate output filename
             base_name = Path(original_filename).stem
@@ -96,15 +92,11 @@ class FileConverter:
             ]:
                 success = self._copy_text_file(file_path, output_path)
             else:
-                logger.warning(
-                    f"Unsupported file type: {mime_type} for file {original_filename}"
-                )
+                logger.warning(f"Unsupported file type: {mime_type} for file {original_filename}")
                 return False, None
 
             if success:
-                logger.info(
-                    f"Successfully processed {original_filename} -> {output_path.name}"
-                )
+                logger.info(f"Successfully processed {original_filename} -> {output_path.name}")
                 return True, str(output_path)
             else:
                 logger.error(f"Failed to process {original_filename}")

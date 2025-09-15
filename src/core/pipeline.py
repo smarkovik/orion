@@ -94,9 +94,7 @@ class Pipeline:
         self.status = PipelineStatus.RUNNING
         self.start_time = datetime.now()
 
-        logger.info(
-            f"Starting pipeline '{self.name}' for {context.email}: {context.file_id}"
-        )
+        logger.info(f"Starting pipeline '{self.name}' for {context.email}: {context.file_id}")
 
         try:
             for i, step in enumerate(self.steps):
@@ -118,20 +116,15 @@ class Pipeline:
                 if result.status == StepStatus.FAILED:
                     self.status = PipelineStatus.FAILED
                     logger.error(
-                        f"Pipeline '{self.name}' failed at step '{step.name}' "
-                        f"for {context.file_id}: {result.error}"
+                        f"Pipeline '{self.name}' failed at step '{step.name}' " f"for {context.file_id}: {result.error}"
                     )
                     break
 
-                logger.info(
-                    f"Completed step '{step.name}' for {context.file_id}: {result.message}"
-                )
+                logger.info(f"Completed step '{step.name}' for {context.file_id}: {result.message}")
 
             if self.status != PipelineStatus.FAILED:
                 self.status = PipelineStatus.SUCCESS
-                logger.info(
-                    f"Pipeline '{self.name}' completed successfully for {context.file_id}"
-                )
+                logger.info(f"Pipeline '{self.name}' completed successfully for {context.file_id}")
 
         except Exception as e:
             self.status = PipelineStatus.FAILED
@@ -143,9 +136,7 @@ class Pipeline:
 
         return self._get_pipeline_summary(context)
 
-    async def _execute_step_with_retry(
-        self, step: PipelineStep, context: PipelineContext
-    ) -> StepResult:
+    async def _execute_step_with_retry(self, step: PipelineStep, context: PipelineContext) -> StepResult:
         """Execute a step with retry logic."""
         attempt = 0
         last_error = None
@@ -181,10 +172,7 @@ class Pipeline:
                         execution_time=execution_time,
                     )
 
-                logger.warning(
-                    f"Step '{step.name}' failed (attempt {attempt + 1}): {str(e)}. "
-                    f"Retrying..."
-                )
+                logger.warning(f"Step '{step.name}' failed (attempt {attempt + 1}): {str(e)}. " f"Retrying...")
 
             attempt += 1
             if attempt <= step.retry_count:
@@ -212,20 +200,8 @@ class Pipeline:
             "start_time": self.start_time.isoformat() if self.start_time else None,
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "total_execution_time": total_time,
-            "steps_completed": len(
-                [
-                    r
-                    for r in context.step_results.values()
-                    if r.status == StepStatus.SUCCESS
-                ]
-            ),
-            "steps_failed": len(
-                [
-                    r
-                    for r in context.step_results.values()
-                    if r.status == StepStatus.FAILED
-                ]
-            ),
+            "steps_completed": len([r for r in context.step_results.values() if r.status == StepStatus.SUCCESS]),
+            "steps_failed": len([r for r in context.step_results.values() if r.status == StepStatus.FAILED]),
             "step_results": {
                 name: {
                     "status": result.status.value,
