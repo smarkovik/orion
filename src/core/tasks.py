@@ -1,7 +1,13 @@
 """Background task functions for file processing."""
 
+import json
 from pathlib import Path
+from typing import List
 
+import tiktoken
+
+from .config import settings
+from .converter import FileConverter
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -10,27 +16,20 @@ logger = get_logger(__name__)
 async def convert_file_to_text(
     file_path: Path, email: str, file_id: str, original_filename: str
 ) -> None:
-    """Background task to convert uploaded file to text.
-
-    Given: A file has been uploaded and saved to raw_uploads
-    When: This background task is executed
-    Then: The file should be converted to text and saved to processed_text
-    """
     try:
-        from .converter import FileConverter
 
         logger.info(f"Starting text conversion for {email}: {file_id}")
-
         converter = FileConverter.from_settings(email)
         success, converted_path = converter.process_file(file_path, original_filename)
-
         if success:
             logger.info(
                 f"Text conversion completed for {email}: {file_id} -> {converted_path}"
             )
+            # next task in pipeline: chunk the text
+            await chunk_text_file(Path(converted_path), email, file_id)
         else:
             logger.warning(f"Text conversion failed for {email}: {file_id}")
-
+            raise (Exception(f"Text conversion failed for {email}: {file_id}"))
     except Exception as e:
         # TODO: Mark this file as failed, show to user as failed with a
         # message and a button to retry the conversion if reason is recoverable.
@@ -41,15 +40,61 @@ async def convert_file_to_text(
 
 
 async def chunk_text_file(text_file_path: Path, email: str, file_id: str) -> None:
-    """Background task to chunk converted text into smaller pieces.
+    try:
+        logger.info(f"Starting text chunking for {email}: {file_id}")
 
-    Given: A text file has been created from document conversion
-    When: This background task is executed
-    Then: The text should be split into chunks and saved to raw_chunks
-    """
-    # TODO: Implement text chunking logic
-    logger.info(f"Text chunking task queued for {email}: {file_id}")
-    pass
+        with open(text_file_path, "r", encoding="utf-8") as f:
+            text_content = f.read()
+
+        encoding = tiktoken.get_encoding(settings.tiktoken_encoding)
+        chunks = _create_text_chunks(text_content, encoding)
+        chunks_dir = settings.get_user_raw_chunks_path(email)
+        chunks_dir.mkdir(parents=True, exist_ok=True)
+
+        base_filename = text_file_path.stem
+        chunk_files = []
+
+        for i, chunk in enumerate(chunks):
+            chunk_filename = f"{base_filename}_chunk_{i:03d}.txt"
+            chunk_path = chunks_dir / chunk_filename
+
+            with open(chunk_path, "w", encoding="utf-8") as f:
+                f.write(chunk)
+
+            chunk_files.append(str(chunk_path))
+
+        logger.info(
+            f"Text chunking completed for {email}: {file_id}. Created {len(chunks)} chunks."
+        )
+
+        # Trigger next task in pipeline: generate embeddings
+        await generate_embeddings(chunks_dir, email, file_id)
+
+    except Exception as e:
+        # TODO: Implement proper error handling and retry logic
+        logger.error(f"Text chunking error for {email}: {file_id} - {str(e)}")
+        raise
+
+
+def _create_text_chunks(text: str, encoding) -> List[str]:
+    """Create overlapping text chunks using tiktoken encoding."""
+    tokens = encoding.encode(text)
+    chunk_size = settings.chunk_size
+    overlap_size = int(chunk_size * settings.chunk_overlap_percent)
+
+    chunks = []
+    start = 0
+
+    while start < len(tokens):
+        end = min(start + chunk_size, len(tokens))
+        chunk_tokens = tokens[start:end]
+        chunk_text = encoding.decode(chunk_tokens)
+        chunks.append(chunk_text)
+        start = end - overlap_size
+        if end >= len(tokens):
+            break
+
+    return chunks
 
 
 async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> None:
@@ -59,6 +104,52 @@ async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> Non
     When: This background task is executed
     Then: Vector embeddings should be generated and saved to processed_vectors
     """
-    # TODO: Implement vector embedding generation
-    logger.info(f"Vector embedding task queued for {email}: {file_id}")
-    pass
+    try:
+        logger.info(f"Starting embedding generation for {email}: {file_id}")
+
+        chunk_files = list(chunks_dir.glob("*.txt"))
+
+        if not chunk_files:
+            logger.warning(f"No chunk files found for {email}: {file_id}")
+            return
+
+        chunks_data = []
+        for chunk_file in sorted(chunk_files):
+            with open(chunk_file, "r", encoding="utf-8") as f:
+                chunk_text = f.read()
+                chunks_data.append(
+                    {
+                        "filename": chunk_file.name,
+                        "text": chunk_text,
+                        "token_count": len(
+                            tiktoken.get_encoding(settings.tiktoken_encoding).encode(
+                                chunk_text
+                            )
+                        ),
+                    }
+                )
+
+        logger.info(f"Read {len(chunks_data)} chunks for embedding generation.")
+
+        # TODO: CHECKPOINT - implementing Cohere API call
+        
+        logger.info(
+            f"CHECKPOINT: Ready to call Cohere API for {email}: {file_id} with {len(chunks_data)} chunks"
+        )
+
+        # For now, just save chunk metadata without embeddings
+        vectors_dir = settings.get_user_processed_vectors_path(email)
+        vectors_dir.mkdir(parents=True, exist_ok=True)
+
+        metadata_file = vectors_dir / f"{file_id}_chunks_metadata.json"
+        with open(metadata_file, "w", encoding="utf-8") as f:
+            json.dump(chunks_data, f, indent=2)
+
+        logger.info(
+            f"Embedding generation prepared for {email}: {file_id}. Metadata saved."
+        )
+
+    except Exception as e:
+        # TODO: Implement proper error handling and retry logic
+        logger.error(f"Embedding generation error for {email}: {file_id} - {str(e)}")
+        raise

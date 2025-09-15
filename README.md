@@ -27,25 +27,32 @@ make stop
 ### Option 2: Local Development
 
 ```bash
-# 1. Setup
+# 1. Setup environment
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 2. Start local without docker
+# 2. Configure API keys
+cp .env.example .env
+# Edit .env and add the Cohere API key
+
+# 3. Start local without docker
 uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
-# 3. Verify stuff works
+# 4. Verify stuff works
 curl http://localhost:8000/
 ```
 
 ### Docker
 
 ```bash
-# Build image
+# 1. Set up environment variables
+export COHERE_API_KEY="your_cohere_api_key_here"
+
+# 2. Build image
 docker-compose build
 
-# Run production
+# 3. Run production
 docker-compose up -d orion-api
 
 # Run development (with hot reload)

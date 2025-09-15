@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     orion_base_dir: str = "./orion"  # Base directory for all user data
     max_file_size: int = 50 * 1024 * 1024  # 50MB in bytes
 
+    # Text processing settings
+    chunk_size: int = 512  # Number of tokens per chunk
+    chunk_overlap_percent: float = 0.1  # 10% overlap between chunks
+    tiktoken_encoding: str = "cl100k_base"  # GPT-4 encoding
+
+    # Cohere API settings
+    cohere_api_key: str = ""  # Set via environment variable
+    cohere_model: str = "embed-english-v3.0"  # Cohere embedding model
+
     @property
     def orion_base_path(self) -> Path:
         """Get orion base directory as Path object."""
