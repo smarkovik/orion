@@ -25,9 +25,12 @@ class FileConverter:
         self.converted_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def from_settings(cls) -> "FileConverter":
-        """Create FileConverter using paths from settings."""
-        return cls(settings.upload_path, settings.converted_path)
+    def from_settings(cls, email: str) -> "FileConverter":
+        """Create FileConverter using paths from settings for a specific user."""
+        return cls(
+            settings.get_user_raw_uploads_path(email),
+            settings.get_user_processed_text_path(email),
+        )
 
     def detect_file_type(self, file_path: Path) -> str:
         """Detect file type using python-magic."""

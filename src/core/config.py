@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -14,23 +14,47 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # File handling settings
-    upload_dir: str = "./uploads"
-    converted_dir: str = "./converted"
+    orion_base_dir: str = "./orion"  # Base directory for all user data
     max_file_size: int = 50 * 1024 * 1024  # 50MB in bytes
 
     @property
-    def upload_path(self) -> Path:
-        """Get upload directory as Path object."""
-        return Path(self.upload_dir)
+    def orion_base_path(self) -> Path:
+        """Get orion base directory as Path object."""
+        return Path(self.orion_base_dir)
 
-    @property
-    def converted_path(self) -> Path:
-        """Get converted directory as Path object."""
-        return Path(self.converted_dir)
+    def get_user_base_path(self, email: str) -> Path:
+        """Get user's base directory path."""
+        return self.orion_base_path / email
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    def get_user_raw_uploads_path(self, email: str) -> Path:
+        """Get user's raw uploads directory path."""
+        return self.get_user_base_path(email) / "raw_uploads"
+
+    def get_user_processed_text_path(self, email: str) -> Path:
+        """Get user's processed text directory path."""
+        return self.get_user_base_path(email) / "processed_text"
+
+    def get_user_raw_chunks_path(self, email: str) -> Path:
+        """Get user's raw chunks directory path."""
+        return self.get_user_base_path(email) / "raw_chunks"
+
+    def get_user_processed_vectors_path(self, email: str) -> Path:
+        """Get user's processed vectors directory path."""
+        return self.get_user_base_path(email) / "processed_vectors"
+
+    def create_user_directories(self, email: str) -> None:
+        """Create all necessary directories for a user."""
+        directories = [
+            self.get_user_raw_uploads_path(email),
+            self.get_user_processed_text_path(email),
+            self.get_user_raw_chunks_path(email),
+            self.get_user_processed_vectors_path(email),
+        ]
+
+        for directory in directories:
+            directory.mkdir(parents=True, exist_ok=True)
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
 
 settings = Settings()

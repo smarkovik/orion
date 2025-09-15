@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class QueryRequest(BaseModel):
@@ -12,8 +12,8 @@ class QueryRequest(BaseModel):
         ..., description="Query body with flexible JSON structure"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "body": {
                     "query": "SELECT * FROM users WHERE active = true",
@@ -22,6 +22,7 @@ class QueryRequest(BaseModel):
                 }
             }
         }
+    )
 
 
 class QueryResponse(BaseModel):
@@ -33,8 +34,8 @@ class QueryResponse(BaseModel):
         ..., description="Query execution time in milliseconds"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "result": (
                     '{"data": [{"id": 1, "name": "John"}, '
@@ -44,3 +45,4 @@ class QueryResponse(BaseModel):
                 "execution_time_ms": 150,
             }
         }
+    )

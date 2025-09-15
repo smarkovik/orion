@@ -58,5 +58,6 @@ test:
 	@echo "test content" > /tmp/test.txt
 	@curl -s -X POST http://localhost:8000/v1/upload \
 		-F "file=@/tmp/test.txt" \
+		-F "email=test@example.com" \
 		-F "description=Test file" | jq .
 	@rm -f /tmp/test.txt

@@ -15,12 +15,22 @@ class TestBasicSetup(unittest.TestCase):
     """Test basic project setup"""
 
     def test_version_exists(self) -> None:
-        """Test that version is defined"""
+        """Test that version is defined.
+
+        Given: The application is imported
+        When: We check the version attribute
+        Then: Version should exist and be a string
+        """
         self.assertIsNotNone(__version__)
         self.assertIsInstance(__version__, str)
 
     def test_version_format(self) -> None:
-        """Test that version follows semantic versioning"""
+        """Test that version follows semantic versioning.
+
+        Given: The application version is defined
+        When: We parse the version string
+        Then: It should follow semantic versioning (X.Y.Z)
+        """
         version_parts = __version__.split(".")
         self.assertEqual(len(version_parts), 3)
         for part in version_parts:

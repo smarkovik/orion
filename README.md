@@ -75,11 +75,12 @@ curl http://localhost:8000/health
 
 ### File Upload - POST /v1/upload
 
-Upload a file using multipart/form-data (mock implementation)
+Upload a file using multipart/form-data with user-based folder organization
 
 **Request:** `multipart/form-data`
 
 - `file`: File to upload (required)
+- `email`: User email address (required) - creates user-specific folders
 - `description`: Optional file description (optional)
 
 **Examples:**
@@ -88,28 +89,45 @@ Upload a file using multipart/form-data (mock implementation)
 # Upload a text file
 curl -X POST http://localhost:8000/v1/upload \
   -F "file=@example.txt" \
+  -F "email=user@domain.com" \
   -F "description=Sample text file"
 
 # Upload a PDF file
 curl -X POST http://localhost:8000/v1/upload \
   -F "file=@document.pdf" \
+  -F "email=user@domain.com" \
   -F "description=Important document"
 
 # Upload without description
 curl -X POST http://localhost:8000/v1/upload \
-  -F "file=@image.jpg"
+  -F "file=@image.jpg" \
+  -F "email=user@domain.com"
 ```
 
 **Response:**
 
 ```json
 {
-  "message": "File uploaded successfully",
+  "message": "File uploaded successfully to user folder: user@domain.com",
   "filename": "example.txt",
   "file_id": "uuid-1234-5678-9012",
   "file_size": 1024,
-  "content_type": "text/plain"
+  "content_type": "text/plain",
+  "converted": false,
+  "converted_path": null
 }
+```
+
+**User Folder Structure:**
+
+Each user gets their own folder structure based on their email:
+
+```
+/app/orion/user@domain.com/
+├── raw_uploads/          # Original uploaded files
+├── processed_text/       # Text extracted from files
+├── raw_chunks/          # Text split into chunks
+└── processed_vectors/   # Vector embeddings
 ```
 
 ### Query - POST /v1/query
@@ -295,15 +313,14 @@ make dev
 
 ### Environment Variables
 
-| Variable                  | Default                                          | Description                       |
-| ------------------------- | ------------------------------------------------ | --------------------------------- |
-| `PYTHONPATH`              | `/app`                                           | Python path                       |
-| `LOG_LEVEL`               | `INFO`                                           | Logging level                     |
-| `PYTHONDONTWRITEBYTECODE` | `1`                                              | Disable .pyc files                |
-| `PYTHONUNBUFFERED`        | `1`                                              | Unbuffered output                 |
-| `UPLOAD_DIR`              | `./uploads` (local), `/app/uploads` (Docker)     | Directory for uploaded files      |
-| `CONVERTED_DIR`           | `./converted` (local), `/app/converted` (Docker) | Directory for converted files     |
-| `MAX_FILE_SIZE`           | `52428800`                                       | Maximum file size in bytes (50MB) |
+| Variable                  | Default                                  | Description                       |
+| ------------------------- | ---------------------------------------- | --------------------------------- |
+| `PYTHONPATH`              | `/app`                                   | Python path                       |
+| `LOG_LEVEL`               | `INFO`                                   | Logging level                     |
+| `PYTHONDONTWRITEBYTECODE` | `1`                                      | Disable .pyc files                |
+| `PYTHONUNBUFFERED`        | `1`                                      | Unbuffered output                 |
+| `ORION_BASE_DIR`          | `./orion` (local), `/app/orion` (Docker) | Base directory for all user data  |
+| `MAX_FILE_SIZE`           | `52428800`                               | Maximum file size in bytes (50MB) |
 
 ### Troubleshooting
 
