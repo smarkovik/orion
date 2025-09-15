@@ -1,9 +1,11 @@
-# Development dependencies
+# Development dependencies - includes all production dependencies plus dev tools
 -r requirements.txt
 
 # Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+httpx>=0.24.0
 
 # Code formatting and linting
 black>=23.7.0

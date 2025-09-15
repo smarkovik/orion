@@ -8,12 +8,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - $HOME/Desktop/docker-files/upload:/app/uploads
-      - $HOME/Desktop/docker-files/converted:/app/converted
+      - $HOME/Desktop/orion:/app/orion
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
+      - ORION_BASE_DIR=/app/orion
+      - COHERE_API_KEY=${COHERE_API_KEY}
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
@@ -33,12 +34,13 @@ services:
       - "8001:8000"
     volumes:
       - ./src:/app/src
-      - $HOME/Desktop/docker-files/upload:/app/uploads
-      - $HOME/Desktop/docker-files/converted:/app/converted
+      - $HOME/Desktop/orion:/app/orion
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=DEBUG
+      - ORION_BASE_DIR=/app/orion
+      - COHERE_API_KEY=${COHERE_API_KEY}
     command: [ "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     profiles:
       - dev

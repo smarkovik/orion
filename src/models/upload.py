@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UploadResponse(BaseModel):
@@ -18,8 +18,8 @@ class UploadResponse(BaseModel):
         default=None, description="Path to converted file if conversion was successful"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "message": "File uploaded successfully",
                 "filename": "document.pdf",
@@ -28,3 +28,4 @@ class UploadResponse(BaseModel):
                 "content_type": "application/pdf",
             }
         }
+    )

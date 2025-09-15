@@ -1,6 +1,6 @@
 # Makefile for Orion API Docker operations
 
-.PHONY: help build run stop clean dev logs shell test
+.PHONY: help build run stop clean dev logs shell test check-reqs
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  logs      - Show container logs"
 	@echo "  shell     - Open shell in running container"
 	@echo "  test      - Test the API endpoints"
+	@echo "  check-reqs - Check requirements alignment"
 
 # Build 
 build:
@@ -58,5 +59,6 @@ test:
 	@echo "test content" > /tmp/test.txt
 	@curl -s -X POST http://localhost:8000/v1/upload \
 		-F "file=@/tmp/test.txt" \
+		-F "email=test@example.com" \
 		-F "description=Test file" | jq .
 	@rm -f /tmp/test.txt

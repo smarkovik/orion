@@ -41,6 +41,4 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
         )
     except Exception as e:
         logger.error(f"Query execution failed: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail="Internal server error during query"
-        )
+        raise HTTPException(status_code=500, detail="Internal server error during query")

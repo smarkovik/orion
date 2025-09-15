@@ -9,6 +9,7 @@ import pandas as pd
 import pdfplumber
 from docx import Document
 
+from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,6 +23,14 @@ class FileConverter:
         self.uploads_dir = Path(uploads_dir)
         self.converted_dir = Path(converted_dir)
         self.converted_dir.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def from_settings(cls, email: str) -> "FileConverter":
+        """Create FileConverter using paths from settings for a specific user."""
+        return cls(
+            settings.get_user_raw_uploads_path(email),
+            settings.get_user_processed_text_path(email),
+        )
 
     def detect_file_type(self, file_path: Path) -> str:
         """Detect file type using python-magic."""
@@ -45,9 +54,7 @@ class FileConverter:
             }
             return extension_map.get(extension, "application/octet-stream")
 
-    def process_file(
-        self, file_path: Path, original_filename: str
-    ) -> Tuple[bool, Optional[str]]:
+    def process_file(self, file_path: Path, original_filename: str) -> Tuple[bool, Optional[str]]:
         """
         Process a file: convert if needed, copy if already text-based.
 
@@ -56,9 +63,7 @@ class FileConverter:
         """
         try:
             mime_type = self.detect_file_type(file_path)
-            logger.info(
-                f"Processing file {original_filename} with MIME type: {mime_type}"
-            )
+            logger.info(f"Processing file {original_filename} with MIME type: {mime_type}")
 
             # Generate output filename
             base_name = Path(original_filename).stem
@@ -87,15 +92,11 @@ class FileConverter:
             ]:
                 success = self._copy_text_file(file_path, output_path)
             else:
-                logger.warning(
-                    f"Unsupported file type: {mime_type} for file {original_filename}"
-                )
+                logger.warning(f"Unsupported file type: {mime_type} for file {original_filename}")
                 return False, None
 
             if success:
-                logger.info(
-                    f"Successfully processed {original_filename} -> {output_path.name}"
-                )
+                logger.info(f"Successfully processed {original_filename} -> {output_path.name}")
                 return True, str(output_path)
             else:
                 logger.error(f"Failed to process {original_filename}")
