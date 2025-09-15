@@ -9,6 +9,7 @@ import pandas as pd
 import pdfplumber
 from docx import Document
 
+from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,6 +23,11 @@ class FileConverter:
         self.uploads_dir = Path(uploads_dir)
         self.converted_dir = Path(converted_dir)
         self.converted_dir.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def from_settings(cls) -> "FileConverter":
+        """Create FileConverter using paths from settings."""
+        return cls(settings.upload_path, settings.converted_path)
 
     def detect_file_type(self, file_path: Path) -> str:
         """Detect file type using python-magic."""

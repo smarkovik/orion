@@ -27,7 +27,7 @@ make stop
 ### Option 2: Local Development
 
 ```bash
-# 1. Setup 
+# 1. Setup
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -39,7 +39,7 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 curl http://localhost:8000/
 ```
 
-### Docker 
+### Docker
 
 ```bash
 # Build image
@@ -64,6 +64,7 @@ make clean
 ## API Endpoints
 
 ### Root Endpoint
+
 ```bash
 # Get API information
 curl http://localhost:8000/
@@ -73,13 +74,16 @@ curl http://localhost:8000/health
 ```
 
 ### File Upload - POST /v1/upload
+
 Upload a file using multipart/form-data (mock implementation)
 
 **Request:** `multipart/form-data`
+
 - `file`: File to upload (required)
 - `description`: Optional file description (optional)
 
 **Examples:**
+
 ```bash
 # Upload a text file
 curl -X POST http://localhost:8000/v1/upload \
@@ -97,6 +101,7 @@ curl -X POST http://localhost:8000/v1/upload \
 ```
 
 **Response:**
+
 ```json
 {
   "message": "File uploaded successfully",
@@ -108,9 +113,11 @@ curl -X POST http://localhost:8000/v1/upload \
 ```
 
 ### Query - POST /v1/query
+
 Execute a query (mock implementation)
 
 **Request:** `application/json`
+
 ```bash
 # Basic query
 curl -X POST http://localhost:8000/v1/query \
@@ -139,6 +146,7 @@ curl -X POST http://localhost:8000/v1/query \
 ```
 
 **Response:**
+
 ```json
 {
   "result": "{\"data\": [{\"id\": 1, \"name\": \"John Doe\", \"status\": \"active\"}], \"total\": 1}",
@@ -150,6 +158,7 @@ curl -X POST http://localhost:8000/v1/query \
 ## Development
 
 ### Code Quality
+
 ```bash
 # Format code
 black src/ tests/
@@ -168,12 +177,14 @@ pytest --cov=src
 ```
 
 ### API Documentation
+
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
 ## 🐳 Docker Setup
 
 ### Prerequisites
+
 - **Docker Desktop** installed and running
 - **Docker Compose** available
 - **Make** (optional, for convenience commands)
@@ -226,35 +237,39 @@ make dev
 
 ### Available Commands
 
-| Command | Description |
-|---------|-------------|
-| `make build` | Build the Docker image |
-| `make run` | Run production container (port 8000) |
-| `make dev` | Run development container with hot reload (port 8001) |
-| `make logs` | View container logs |
-| `make test` | Test all API endpoints |
-| `make shell` | Open shell in running container |
-| `make stop` | Stop all containers |
-| `make clean` | Remove containers, images, and volumes |
+| Command      | Description                                           |
+| ------------ | ----------------------------------------------------- |
+| `make build` | Build the Docker image                                |
+| `make run`   | Run production container (port 8000)                  |
+| `make dev`   | Run development container with hot reload (port 8001) |
+| `make logs`  | View container logs                                   |
+| `make test`  | Test all API endpoints                                |
+| `make shell` | Open shell in running container                       |
+| `make stop`  | Stop all containers                                   |
+| `make clean` | Remove containers, images, and volumes                |
 
 ### Docker Features
 
 #### 🔒 Security
+
 - **Non-root user** - Runs as `orion` user for security
 - **Minimal base image** - Python 3.11-slim for smaller attack surface
 - **No unnecessary packages** - Only required dependencies
 
 #### ⚡ Performance
+
 - **Multi-stage build** - Optimized production image size
 - **Layer caching** - Faster rebuilds
 - **Production-ready** - Optimized for production workloads
 
 #### 🛠 Development
+
 - **Hot reload** - Automatic code reloading in dev mode
 - **Volume mounts** - Live code changes without rebuilds
 - **Debugging** - Easy access to logs and shell
 
 #### 📊 Monitoring
+
 - **Health checks** - Automatic container health monitoring
 - **Structured logging** - JSON-formatted logs
 - **Metrics** - Built-in FastAPI metrics
@@ -262,6 +277,7 @@ make dev
 ### Container Configuration
 
 #### Production Container (`orion-api`)
+
 - **Port**: 8000
 - **User**: `orion` (non-root)
 - **Volumes**:
@@ -271,6 +287,7 @@ make dev
 - **Restart Policy**: `unless-stopped`
 
 #### Development Container (`orion-dev`)
+
 - **Port**: 8001
 - **Features**: Hot reload, file watching
 - **Volumes**: Source code mounted for live updates
@@ -278,16 +295,20 @@ make dev
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PYTHONPATH` | `/app` | Python path |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `PYTHONDONTWRITEBYTECODE` | `1` | Disable .pyc files |
-| `PYTHONUNBUFFERED` | `1` | Unbuffered output |
+| Variable                  | Default                                          | Description                       |
+| ------------------------- | ------------------------------------------------ | --------------------------------- |
+| `PYTHONPATH`              | `/app`                                           | Python path                       |
+| `LOG_LEVEL`               | `INFO`                                           | Logging level                     |
+| `PYTHONDONTWRITEBYTECODE` | `1`                                              | Disable .pyc files                |
+| `PYTHONUNBUFFERED`        | `1`                                              | Unbuffered output                 |
+| `UPLOAD_DIR`              | `./uploads` (local), `/app/uploads` (Docker)     | Directory for uploaded files      |
+| `CONVERTED_DIR`           | `./converted` (local), `/app/converted` (Docker) | Directory for converted files     |
+| `MAX_FILE_SIZE`           | `52428800`                                       | Maximum file size in bytes (50MB) |
 
 ### Troubleshooting
 
 #### Container won't start
+
 ```bash
 # Check Docker is running
 docker info
@@ -300,6 +321,7 @@ make clean && make build
 ```
 
 #### Port already in use
+
 ```bash
 # Check what's using port 8000
 lsof -i :8000
@@ -309,6 +331,7 @@ docker-compose up -d -p 8002:8000
 ```
 
 #### Permission issues
+
 ```bash
 # Fix volume permissions
 sudo chown -R $USER:$USER uploads/ logs/
@@ -317,11 +340,13 @@ sudo chown -R $USER:$USER uploads/ logs/
 ### Deployment Options
 
 #### Local Development
+
 ```bash
 make dev  # Hot reload on port 8001
 ```
 
 #### Production Server
+
 ```bash
 make build && make run  # Production on port 8000
 ```

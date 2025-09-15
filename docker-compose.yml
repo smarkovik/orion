@@ -14,6 +14,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
+      - UPLOAD_DIR=/app/uploads
+      - CONVERTED_DIR=/app/converted
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
@@ -39,6 +41,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=DEBUG
+      - UPLOAD_DIR=/app/uploads
+      - CONVERTED_DIR=/app/converted
     command: [ "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     profiles:
       - dev
