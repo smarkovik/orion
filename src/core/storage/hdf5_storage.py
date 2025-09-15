@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import h5py
 import numpy as np
@@ -149,7 +149,12 @@ class HDF5VectorStorage(VectorStorage):
 
         with h5py.File(file_path, "r") as f:
             metadata_str = f.attrs.get("metadata", "{}")
-            return json.loads(metadata_str)
+            if isinstance(metadata_str, bytes):
+                metadata_str = metadata_str.decode("utf-8")
+            metadata = json.loads(metadata_str)
+            if not isinstance(metadata, dict):
+                raise ValueError(f"Invalid metadata format in {file_path}")
+            return cast(Dict[str, Any], metadata)
 
     def get_embeddings_array(self, file_id: str) -> np.ndarray:
         """Get embeddings as a numpy array for efficient computation."""
@@ -159,7 +164,8 @@ class HDF5VectorStorage(VectorStorage):
             raise FileNotFoundError(f"Embeddings file not found: {file_path}")
 
         with h5py.File(file_path, "r") as f:
-            return f["embeddings"][:]
+            embeddings_dataset = f["embeddings"]
+            return np.array(embeddings_dataset[:])
 
     def get_file_info(self, file_id: str) -> Dict[str, Any]:
         """Get comprehensive file information including dimensions and compression stats."""

@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from .base import VectorStorage
 
@@ -42,7 +42,10 @@ class JSONVectorStorage(VectorStorage):
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        return data.get("embeddings", [])
+        embeddings = data.get("embeddings", [])
+        if not isinstance(embeddings, list):
+            raise ValueError(f"Invalid embeddings format in {file_path}")
+        return cast(List[Dict[str, Any]], embeddings)
 
     def exists(self, file_id: str) -> bool:
         """Check if embeddings exist for a given file ID."""
@@ -77,4 +80,7 @@ class JSONVectorStorage(VectorStorage):
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        return data.get("metadata", {})
+        metadata = data.get("metadata", {})
+        if not isinstance(metadata, dict):
+            raise ValueError(f"Invalid metadata format in {file_path}")
+        return cast(Dict[str, Any], metadata)
