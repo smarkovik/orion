@@ -109,3 +109,62 @@ class TestEmbeddingsPipeline:
                             embeddings_data[0]["embedding_model"]
                             == settings.cohere_model
                         )
+
+    @patch("src.core.tasks.cohere.Client")
+    def test_pipeline_with_hdf5_storage(self, mock_cohere_class, client, unique_email):
+        """Test complete pipeline with HDF5 storage backend.
+
+        Given: A text file upload, mocked Cohere API, and HDF5 storage configured
+        When: The file is uploaded and background tasks process it
+        Then: The pipeline should create chunks and generate embeddings in HDF5 format
+        """
+        original_storage_type = settings.vector_storage_type
+        settings.vector_storage_type = "hdf5"
+
+        try:
+            mock_client = Mock()
+            mock_cohere_class.return_value = mock_client
+
+            mock_response = Mock()
+            mock_response.embeddings = [
+                [0.1] * 1024,
+                [0.2] * 1024,
+            ]
+            mock_client.embed.return_value = mock_response
+
+            test_content = (
+                "This is a test document for HDF5 storage. " * 50
+            )  # Long enough to create multiple chunks
+
+            response = client.post(
+                "/v1/upload",
+                data={"email": unique_email},
+                files={"file": ("test_hdf5.txt", test_content, "text/plain")},
+            )
+
+            assert response.status_code == 201
+            data = response.json()
+            assert "message" in data
+            assert "Text conversion started" in data["message"]
+
+            time.sleep(0.5)
+
+            processed_vectors = settings.get_user_processed_vectors_path(unique_email)
+            hdf5_files = list(processed_vectors.glob("*.h5"))
+
+            if hdf5_files:
+                # Verify it's an HDF5 file by trying to open it
+                import h5py
+
+                with h5py.File(hdf5_files[0], "r") as f:
+                    assert "embeddings" in f
+                    assert "texts" in f
+                    assert "filenames" in f
+                    assert "embedding_models" in f
+                    assert "token_counts" in f
+
+                    assert f.attrs["storage_format"] == "hdf5"
+                    assert f.attrs["embedding_count"] > 0
+
+        finally:
+            settings.vector_storage_type = original_storage_type

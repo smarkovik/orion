@@ -39,7 +39,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=DEBUG
-      - ORION_BASE_DIR=/app/orion      - COHERE_API_KEY=${COHERE_API_KEY}
+      - ORION_BASE_DIR=/app/orion
+      - COHERE_API_KEY=${COHERE_API_KEY}
     command: [ "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     profiles:
       - dev

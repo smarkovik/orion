@@ -1,4 +1,4 @@
-# Development dependencies
+# Development dependencies - includes all production dependencies plus dev tools
 -r requirements.txt
 
 # Testing

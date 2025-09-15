@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     cohere_model: str = "embed-english-v3.0"  # Cohere embedding model
 
     # Storage settings
-    vector_storage_type: str = "json"  # "json", "hdf5", others can be added later
+    vector_storage_type: str = (
+        "json"  # "json", "hdf5" - HDF5 is more efficient for large datasets
+    )
 
     @property
     def orion_base_path(self) -> Path:

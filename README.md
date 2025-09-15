@@ -377,7 +377,16 @@ make build && make run  # Production on port 8000
 
 ## Dependencies
 
-- **FastAPI** 0.116.1 - Modern web framework
-- **Uvicorn** 0.35.0 - ASGI server
-- **Pydantic** 2.11.9 - Data validation
-- **python-multipart** 0.0.20 - File upload support
+**Requirements Structure:**
+
+- **`requirements.txt`**: All production dependencies (including optional gunicorn)
+- **`requirements-dev.txt`**: Development tools + production dependencies
+
+**Key Dependencies:**
+
+- **FastAPI** - Modern web framework for building APIs
+- **Uvicorn** - ASGI server for running the application
+- **Pydantic** - Data validation and settings management
+- **Cohere** - AI embeddings generation
+- **HDF5/h5py** - Efficient vector storage (alternative to JSON)
+- **tiktoken** - Token-based text chunking for AI models

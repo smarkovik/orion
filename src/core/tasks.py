@@ -100,12 +100,7 @@ def _create_text_chunks(text: str, encoding) -> List[str]:
 
 
 async def generate_embeddings(chunks_dir: Path, email: str, file_id: str) -> None:
-    """Background task to generate vector embeddings from text chunks.
-
-    Given: Text chunks have been created
-    When: This background task is executed
-    Then: Vector embeddings should be generated and saved to processed_vectors
-    """
+    """Background task to generate vector embeddings from text chunks."""
     try:
         logger.info(f"Starting embedding generation for {email}: {file_id}")
 

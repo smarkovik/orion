@@ -16,12 +16,7 @@ class JSONVectorStorage(VectorStorage):
         embeddings_data: List[Dict[str, Any]],
         metadata: Dict[str, Any] = None,
     ) -> Path:
-        """Save embeddings data to a JSON file.
-
-        Given: Embeddings data and file identifier
-        When: Save operation is called
-        Then: Data is stored as JSON with metadata
-        """
+        """Save embeddings data to a JSON file."""
         output_data = {
             "file_id": file_id,
             "embeddings": embeddings_data,
@@ -38,12 +33,7 @@ class JSONVectorStorage(VectorStorage):
         return file_path
 
     def load_embeddings(self, file_id: str) -> List[Dict[str, Any]]:
-        """Load embeddings data from a JSON file.
-
-        Given: A file identifier
-        When: Load operation is called
-        Then: Embeddings data is returned from JSON storage
-        """
+        """Load embeddings data from a JSON file."""
         file_path = self.storage_path / f"{file_id}_embeddings.json"
 
         if not file_path.exists():
@@ -55,22 +45,12 @@ class JSONVectorStorage(VectorStorage):
         return data.get("embeddings", [])
 
     def exists(self, file_id: str) -> bool:
-        """Check if embeddings exist for a given file ID.
-
-        Given: A file identifier
-        When: Existence check is performed
-        Then: Return whether the embeddings file exists
-        """
+        """Check if embeddings exist for a given file ID."""
         file_path = self.storage_path / f"{file_id}_embeddings.json"
         return file_path.exists()
 
     def delete(self, file_id: str) -> bool:
-        """Delete embeddings for a given file ID.
-
-        Given: A file identifier
-        When: Delete operation is called
-        Then: The embeddings file is removed if it exists
-        """
+        """Delete embeddings for a given file ID."""
         file_path = self.storage_path / f"{file_id}_embeddings.json"
 
         if file_path.exists():
@@ -79,12 +59,7 @@ class JSONVectorStorage(VectorStorage):
         return False
 
     def list_files(self) -> List[str]:
-        """List all stored file IDs.
-
-        Given: A storage directory
-        When: List operation is called
-        Then: All file IDs with stored embeddings are returned
-        """
+        """List all stored file IDs."""
         file_ids = []
         for file_path in self.storage_path.glob("*_embeddings.json"):
             file_id = file_path.stem.replace("_embeddings", "")
@@ -93,12 +68,7 @@ class JSONVectorStorage(VectorStorage):
         return sorted(file_ids)
 
     def get_metadata(self, file_id: str) -> Dict[str, Any]:
-        """Get metadata for a specific file.
-
-        Given: A file identifier
-        When: Metadata is requested
-        Then: Return the metadata associated with the embeddings
-        """
+        """Get metadata for a specific file."""
         file_path = self.storage_path / f"{file_id}_embeddings.json"
 
         if not file_path.exists():

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, Type
 
 from .base import VectorStorage
+from .hdf5_storage import HDF5VectorStorage
 from .json_storage import JSONVectorStorage
 
 
@@ -13,6 +14,7 @@ class StorageFactory:
     # Registry of available storage implementations
     _storage_types: Dict[str, Type[VectorStorage]] = {
         "json": JSONVectorStorage,
+        "hdf5": HDF5VectorStorage,
     }
 
     @classmethod
