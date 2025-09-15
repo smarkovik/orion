@@ -14,13 +14,13 @@ class JSONVectorStorage(VectorStorage):
         self,
         file_id: str,
         embeddings_data: List[Dict[str, Any]],
-        metadata: Dict[str, Any] = None,
+        metadata: Dict[str, Any],
     ) -> Path:
         """Save embeddings data to a JSON file."""
         output_data = {
             "file_id": file_id,
             "embeddings": embeddings_data,
-            "metadata": metadata or {},
+            "metadata": metadata,
             "storage_format": "json",
             "embedding_count": len(embeddings_data),
         }

@@ -1,8 +1,7 @@
 """Background task functions for file processing."""
 
-import json
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 import cohere
 import tiktoken
@@ -78,7 +77,7 @@ async def chunk_text_file(text_file_path: Path, email: str, file_id: str) -> Non
         raise
 
 
-def _create_text_chunks(text: str, encoding) -> List[str]:
+def _create_text_chunks(text: str, encoding: Any) -> List[str]:
     """Create overlapping text chunks using tiktoken encoding."""
     tokens = encoding.encode(text)
     chunk_size = settings.chunk_size

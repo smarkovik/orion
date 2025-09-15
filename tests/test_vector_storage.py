@@ -116,7 +116,7 @@ class TestJSONVectorStorage:
 
         assert not storage.exists(file_id)
 
-        storage.save_embeddings(file_id, sample_embeddings_data)
+        storage.save_embeddings(file_id, sample_embeddings_data, {})
 
         assert storage.exists(file_id)
 
@@ -136,7 +136,7 @@ class TestJSONVectorStorage:
         file_ids = ["doc_001", "doc_002", "doc_003"]
 
         for file_id in file_ids:
-            storage.save_embeddings(file_id, sample_embeddings_data)
+            storage.save_embeddings(file_id, sample_embeddings_data, {})
 
         listed_files = storage.list_files()
 
@@ -295,7 +295,7 @@ class TestHDF5VectorStorage:
 
         assert not storage.exists(file_id)
 
-        storage.save_embeddings(file_id, sample_embeddings_data)
+        storage.save_embeddings(file_id, sample_embeddings_data, {})
 
         assert storage.exists(file_id)
 
@@ -315,7 +315,7 @@ class TestHDF5VectorStorage:
         file_ids = ["doc_001", "doc_002", "doc_003"]
 
         for file_id in file_ids:
-            storage.save_embeddings(file_id, sample_embeddings_data)
+            storage.save_embeddings(file_id, sample_embeddings_data, {})
 
         listed_files = storage.list_files()
 
@@ -352,7 +352,7 @@ class TestHDF5VectorStorage:
         storage = HDF5VectorStorage(temp_storage_path)
         file_id = "test_array"
 
-        storage.save_embeddings(file_id, sample_embeddings_data)
+        storage.save_embeddings(file_id, sample_embeddings_data, {})
 
         embeddings_array = storage.get_embeddings_array(file_id)
 

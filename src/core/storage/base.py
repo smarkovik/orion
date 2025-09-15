@@ -22,7 +22,7 @@ class VectorStorage(ABC):
         self,
         file_id: str,
         embeddings_data: List[Dict[str, Any]],
-        metadata: Dict[str, Any] = None,
+        metadata: Dict[str, Any],
     ) -> Path:
         """Save embeddings data to storage.
 

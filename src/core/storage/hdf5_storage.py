@@ -24,7 +24,7 @@ class HDF5VectorStorage(VectorStorage):
         self,
         file_id: str,
         embeddings_data: List[Dict[str, Any]],
-        metadata: Dict[str, Any] = None,
+        metadata: Dict[str, Any],
     ) -> Path:
         file_path = self.storage_path / f"{file_id}_embeddings.h5"
 
@@ -62,7 +62,7 @@ class HDF5VectorStorage(VectorStorage):
                 "embedding_count": len(embeddings_data),
                 "embedding_dimension": len(embeddings[0]) if embeddings else 0,
                 "storage_format": "hdf5",
-                "metadata": metadata or {},
+                "metadata": metadata,
             }
 
             for key, value in file_metadata.items():
