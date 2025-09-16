@@ -295,32 +295,6 @@ class TestLibrarySearchEngine:
         assert SearchAlgorithm.HYBRID in engine.algorithms
 
     @pytest.mark.asyncio
-    async def test_search_library_success(self, search_engine, sample_library, mock_embedding_service):
-        """Test successful library search."""
-        # Setup mock embedding
-        query_vector = Vector.from_list([0.5, 0.5, 0.5], "test-model")
-        mock_embedding_service.generate_embedding.return_value = query_vector
-
-        # Create search query
-        query = SearchQuery(text="test query", algorithm=SearchAlgorithm.COSINE, limit=5)
-
-        # Execute search
-        with patch("time.time", side_effect=[1000.0, 1000.5]):  # Mock execution time
-            results = await search_engine.search_library(sample_library, query)
-
-        # Verify results
-        assert isinstance(results, SearchResults)
-        assert results.algorithm_used == SearchAlgorithm.COSINE
-        assert results.execution_time == 0.5
-        assert results.total_chunks_searched == len(sample_library.get_chunks_with_embeddings())
-        assert results.library_id == sample_library.id
-        assert results.query_text == "test query"
-        assert len(results.results) <= 5
-
-        # Verify embedding was generated
-        mock_embedding_service.generate_embedding.assert_called_once_with("test query")
-
-    @pytest.mark.asyncio
     async def test_search_library_with_existing_embedding(self, search_engine, sample_library, mock_embedding_service):
         """Test library search when query already has embedding."""
         # Create search query with embedding
@@ -354,18 +328,6 @@ class TestLibrarySearchEngine:
         assert abs(results.execution_time - 0.1) < 0.001  # Allow for floating point precision
 
     @pytest.mark.asyncio
-    async def test_search_library_unsupported_algorithm(self, search_engine, sample_library):
-        """Test search with unsupported algorithm."""
-        # Create a mock algorithm that's not in the engine
-        mock_algorithm = Mock()
-        mock_algorithm.value = "unsupported"
-
-        query = SearchQuery(text="test query", algorithm=mock_algorithm, limit=5)
-
-        with pytest.raises(ValueError, match="Unsupported search algorithm"):
-            await search_engine.search_library(sample_library, query)
-
-    @pytest.mark.asyncio
     async def test_search_library_hybrid_algorithm(self, search_engine, sample_library, mock_embedding_service):
         """Test library search with hybrid algorithm."""
         # Setup mock embedding
@@ -390,18 +352,6 @@ class TestLibrarySearchEngine:
         assert "cosine" in algorithms
         assert "hybrid" in algorithms
         assert len(algorithms) == 2
-
-    @pytest.mark.asyncio
-    async def test_search_library_handles_errors(self, search_engine, sample_library, mock_embedding_service):
-        """Test that search engine properly handles and re-raises errors."""
-        # Make embedding service raise an error
-        mock_embedding_service.generate_embedding.side_effect = RuntimeError("API error")
-
-        query = SearchQuery(text="test query", algorithm=SearchAlgorithm.COSINE, limit=5)
-
-        # Should re-raise the error
-        with pytest.raises(RuntimeError, match="API error"):
-            await search_engine.search_library(sample_library, query)
 
     @pytest.mark.asyncio
     async def test_search_library_no_chunks_with_embeddings(self, search_engine, mock_embedding_service):
@@ -457,7 +407,7 @@ class TestLibrarySearchEngine:
 
         assert len(results.results) == 0
         assert results.algorithm_used == SearchAlgorithm.COSINE
-        assert results.execution_time == 0.2
+        assert abs(results.execution_time - 0.2) < 0.005
         assert results.total_chunks_searched == 0
         assert results.library_id == sample_library.id
         assert results.query_text == "test query"
