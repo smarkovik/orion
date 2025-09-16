@@ -40,7 +40,7 @@ class SearchQuery:
     limit: int
     embedding: Optional[Vector] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.text.strip():
             raise ValueError("Query text cannot be empty")
 

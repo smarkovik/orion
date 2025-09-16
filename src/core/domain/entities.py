@@ -30,7 +30,7 @@ class Chunk:
     embedding: Optional[Vector] = None
     embedding_model: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.token_count < 0:
             raise ValueError("Token count must be non-negative")
 
@@ -51,6 +51,7 @@ class Chunk:
         if not self.has_embedding():
             raise ValueError("Cannot calculate similarity: chunk has no embedding")
 
+        assert self.embedding is not None  # Already checked in has_embedding()
         return self.embedding.cosine_similarity(other_vector)
 
     def get_embedding_dimension(self) -> Optional[int]:
@@ -77,7 +78,7 @@ class Document:
     chunks: List[Chunk] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.file_size < 0:
             raise ValueError("File size must be non-negative")
 
@@ -151,7 +152,7 @@ class Library:
     created_at: datetime = field(default_factory=datetime.now)
     last_accessed: datetime = field(default_factory=datetime.now)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.id.email != self.user_email:
             raise ValueError(f"LibraryId email ({self.id.email}) must match " f"user_email ({self.user_email})")
 

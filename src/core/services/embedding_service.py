@@ -2,7 +2,7 @@
 Service for generating text embeddings using Cohere API.
 """
 
-from typing import List
+from typing import List, Optional
 
 import cohere
 
@@ -18,7 +18,7 @@ class CohereEmbeddingService(IEmbeddingService):
     Generates vector embeddings for text using Cohere's embedding models.
     """
 
-    def __init__(self, api_key: str = None, model: str = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize Cohere embedding service.
 
@@ -51,7 +51,12 @@ class CohereEmbeddingService(IEmbeddingService):
             response = self.client.embed(
                 texts=[text], model=self.model, input_type="search_query"  # Optimize for search queries
             )
-            embedding_values = response.embeddings[0]
+            # Handle Cohere API response format
+            embeddings = response.embeddings
+            if isinstance(embeddings, list) and len(embeddings) > 0:
+                embedding_values = embeddings[0]
+            else:
+                raise ValueError("No embeddings returned from Cohere API")
             vector = Vector.from_list(embedding_values, self.model)
 
             return vector
@@ -98,9 +103,14 @@ class CohereEmbeddingService(IEmbeddingService):
                 texts=valid_texts, model=self.model, input_type="search_document"  # Optimize for document content
             )
             vectors = []
-            for embedding_values in response.embeddings:
-                vector = Vector.from_list(embedding_values, self.model)
-                vectors.append(vector)
+            embeddings = response.embeddings
+            if isinstance(embeddings, list):
+                for embedding_values in embeddings:
+                    if isinstance(embedding_values, list):
+                        vector = Vector.from_list(embedding_values, self.model)
+                        vectors.append(vector)
+            else:
+                raise ValueError("Unexpected embedding response format")
 
             return vectors
 

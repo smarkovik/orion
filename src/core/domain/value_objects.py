@@ -20,7 +20,7 @@ class ChunkId:
     document_id: str
     sequence: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.sequence < 0:
             raise ValueError("Chunk sequence must be non-negative")
 
@@ -49,7 +49,7 @@ class DocumentId:
 
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         try:
             uuid.UUID(self.value)
         except ValueError:
@@ -81,7 +81,7 @@ class LibraryId:
 
     email: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self._is_valid_email(self.email):
             raise ValueError(f"Invalid email format: {self.email}")
 
@@ -102,7 +102,7 @@ class Vector:
     dimension: int
     model: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if len(self.values) != self.dimension:
             raise ValueError(f"Vector dimension mismatch: expected {self.dimension}, " f"got {len(self.values)}")
 

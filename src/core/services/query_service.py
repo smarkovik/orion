@@ -2,7 +2,7 @@
 Main query service that orchestrates the complete query workflow.
 """
 
-from typing import List
+from typing import Any, Dict, List
 
 from ..search.interfaces import IEmbeddingService, ILibraryRepository, ILibrarySearchEngine
 from ..search.query import SearchAlgorithm, SearchQuery, SearchResults
@@ -62,7 +62,7 @@ class QueryService:
     def get_supported_algorithms(self) -> List[str]:
         return self.search_engine.get_supported_algorithms()
 
-    async def get_library_stats(self, user_email: str) -> dict:
+    async def get_library_stats(self, user_email: str) -> Dict[str, Any]:
         if not await self.library_repository.library_exists(user_email):
             return {"exists": False, "document_count": 0, "chunk_count": 0, "chunks_with_embeddings": 0}
 

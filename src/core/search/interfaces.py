@@ -5,7 +5,7 @@ Defines the contracts that search algorithms and engines must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from ..domain import Chunk, Library, Vector
 from .query import ChunkSearchResult, SearchQuery, SearchResults
@@ -20,7 +20,9 @@ class ISearchAlgorithm(ABC):
     """
 
     @abstractmethod
-    def search(self, query_vector: Vector, chunks: List[Chunk], limit: int) -> List[ChunkSearchResult]:
+    def search(
+        self, query_vector: Vector, chunks: List[Chunk], limit: int, query_text: Optional[str] = None
+    ) -> List[ChunkSearchResult]:
         """
         Search for relevant chunks using this algorithm.
 
@@ -28,6 +30,7 @@ class ISearchAlgorithm(ABC):
             query_vector: The vector representation of the search query
             chunks: List of chunks to search through (must have embeddings)
             limit: Maximum number of results to return
+            query_text: Optional original query text (needed by hybrid algorithms)
 
         Returns:
             List of ChunkSearchResult objects, ranked by relevance

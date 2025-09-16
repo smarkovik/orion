@@ -4,7 +4,7 @@ Repository for loading user libraries from storage.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..config import settings
 from ..domain import Chunk, ChunkId, Document, DocumentId, Library, LibraryId, Vector
@@ -20,7 +20,7 @@ class LibraryRepository(ILibraryRepository):
     to domain objects.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = settings
 
     async def load_library(self, library_id: str) -> Library:
@@ -62,7 +62,7 @@ class LibraryRepository(ILibraryRepository):
         return user_base_path.exists()
 
     async def _load_user_documents(self, user_email: str) -> List[Document]:
-        documents = []
+        documents: List[Document] = []
 
         uploads_path = self.settings.get_user_raw_uploads_path(user_email)
         vectors_path = self.settings.get_user_processed_vectors_path(user_email)
@@ -93,7 +93,8 @@ class LibraryRepository(ILibraryRepository):
             storage = StorageFactory.create_storage(
                 storage_type="json" if vector_file.suffix == ".json" else "hdf5", storage_path=vector_file.parent
             )
-            metadata = storage.get_metadata(str(document_id))
+            # Load embeddings to get metadata (get_metadata not in base interface)
+            embeddings_data = storage.load_embeddings(str(document_id))
 
             uploads_path = self.settings.get_user_raw_uploads_path(user_email)
             uploaded_file = self._find_uploaded_file(uploads_path, str(document_id))
@@ -102,11 +103,19 @@ class LibraryRepository(ILibraryRepository):
                 print(f"Could not find uploaded file for document {document_id}")
                 return None
 
+            metadata: Dict[str, Any] = {}
+            if embeddings_data and len(embeddings_data) > 0:
+                first_chunk = embeddings_data[0]
+                metadata = {
+                    "original_filename": first_chunk.get("original_filename", uploaded_file.name),
+                    "content_type": first_chunk.get("content_type", "application/pdf"),
+                }
+
             library_id = LibraryId(user_email)
             document = Document(
                 id=document_id,
                 library_id=library_id,
-                original_filename=metadata.get("original_filename", "unknown"),
+                original_filename=metadata.get("original_filename", uploaded_file.name),
                 uploaded_filename=uploaded_file.name,
                 content_type=metadata.get("content_type", "application/octet-stream"),
                 file_size=uploaded_file.stat().st_size,
@@ -154,7 +163,7 @@ class LibraryRepository(ILibraryRepository):
 
         return chunks
 
-    def _create_chunk_from_embedding_data(self, document_id: DocumentId, embedding_data: Dict) -> Chunk:
+    def _create_chunk_from_embedding_data(self, document_id: DocumentId, embedding_data: Dict[str, Any]) -> Chunk:
         """Create a Chunk object from embedding data."""
         filename = embedding_data["filename"]
         text = embedding_data["text"]

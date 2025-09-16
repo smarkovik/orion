@@ -5,7 +5,7 @@ Hybrid search algorithm combining cosine similarity with keyword matching.
 import re
 from collections import Counter
 from math import log
-from typing import List
+from typing import Dict, List, Optional
 
 from ...domain import Chunk, Vector
 from ..query import ChunkSearchResult
@@ -44,7 +44,7 @@ class HybridSearchAlgorithm(BaseSearchAlgorithm):
         self.keyword_weight = keyword_weight
 
     def search(
-        self, query_vector: Vector, chunks: List[Chunk], limit: int, query_text: str = ""
+        self, query_vector: Vector, chunks: List[Chunk], limit: int, query_text: Optional[str] = None
     ) -> List[ChunkSearchResult]:
         """
         Search using hybrid algorithm.
@@ -59,10 +59,14 @@ class HybridSearchAlgorithm(BaseSearchAlgorithm):
         """
         self._validate_inputs(query_vector, chunks, limit)
 
+        if query_text is None:
+            query_text = ""
+
         valid_chunks = self._filter_valid_chunks(chunks)
 
         cosine_scores = []
         for chunk in valid_chunks:
+            assert chunk.embedding is not None  # Already validated in _filter_valid_chunks
             similarity = chunk.embedding.cosine_similarity(query_vector)
             cosine_scores.append(similarity)
 
@@ -189,7 +193,7 @@ class HybridSearchAlgorithm(BaseSearchAlgorithm):
 
         return keywords
 
-    def _calculate_document_frequencies(self, keywords: List[str], chunks: List[Chunk]) -> dict:
+    def _calculate_document_frequencies(self, keywords: List[str], chunks: List[Chunk]) -> Dict[str, int]:
         """
         Calculate how many documents contain each keyword.
 

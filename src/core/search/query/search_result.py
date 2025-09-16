@@ -21,7 +21,7 @@ class ChunkSearchResult:
     similarity_score: float
     rank: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.similarity_score < 0.0 or self.similarity_score > 1.0:
             raise ValueError(f"Similarity score must be between 0.0 and 1.0, got {self.similarity_score}")
 
@@ -57,7 +57,7 @@ class SearchResults:
     library_id: LibraryId
     query_text: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.execution_time < 0:
             raise ValueError("Execution time cannot be negative")
 

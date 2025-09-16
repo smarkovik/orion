@@ -54,19 +54,16 @@ class LibrarySearchEngine(ILibrarySearchEngine):
             algorithm = self.algorithms.get(query.algorithm)
             if not algorithm:
                 raise ValueError(f"Unsupported search algorithm: {query.algorithm}")
-            if query.algorithm == SearchAlgorithm.HYBRID:
-                # Hybrid algorithm needs the query text for keyword matching
-                search_results = algorithm.search(
-                    query_vector=query.embedding,
-                    chunks=chunks_with_embeddings,
-                    limit=query.limit,
-                    query_text=query.text,
-                )
-            else:
-                # Cosine algorithm doesn't need query text
-                search_results = algorithm.search(
-                    query_vector=query.embedding, chunks=chunks_with_embeddings, limit=query.limit
-                )
+
+            if query.embedding is None:
+                raise ValueError("Query embedding is required for search")
+
+            search_results = algorithm.search(
+                query_vector=query.embedding,
+                chunks=chunks_with_embeddings,
+                limit=query.limit,
+                query_text=query.text,
+            )
             execution_time = time.time() - start_time
             return SearchResults(
                 results=search_results,

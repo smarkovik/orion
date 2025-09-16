@@ -2,7 +2,7 @@
 Cosine similarity search algorithm.
 """
 
-from typing import List
+from typing import List, Optional
 
 from ...domain import Chunk, Vector
 from ..query import ChunkSearchResult
@@ -17,7 +17,9 @@ class CosineSearchAlgorithm(BaseSearchAlgorithm):
     embedding vector, ranking results by similarity score.
     """
 
-    def search(self, query_vector: Vector, chunks: List[Chunk], limit: int) -> List[ChunkSearchResult]:
+    def search(
+        self, query_vector: Vector, chunks: List[Chunk], limit: int, query_text: Optional[str] = None
+    ) -> List[ChunkSearchResult]:
         """
         Search using cosine similarity.
 
@@ -38,6 +40,7 @@ class CosineSearchAlgorithm(BaseSearchAlgorithm):
         # Calculate cosine similarity for each chunk
         similarities = []
         for chunk in valid_chunks:
+            assert chunk.embedding is not None  # Already validated in _filter_valid_chunks
             similarity = chunk.embedding.cosine_similarity(query_vector)
             similarities.append(similarity)
 

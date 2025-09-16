@@ -1,6 +1,6 @@
 """Search query endpoint implementation."""
 
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
 
@@ -95,7 +95,6 @@ async def search_documents(request: QueryRequest) -> QueryResponse:
 
 @router.get("/query/algorithms")
 async def get_supported_algorithms() -> List[str]:
-    """Get list of supported search algorithms."""
     try:
         algorithms = query_service.get_supported_algorithms()
         return algorithms
@@ -105,8 +104,7 @@ async def get_supported_algorithms() -> List[str]:
 
 
 @router.get("/query/library/{email}/stats")
-async def get_library_stats(email: str) -> dict:
-    """Get statistics about a user's document library."""
+async def get_library_stats(email: str) -> Dict[str, Any]:
     try:
         stats = await query_service.get_library_stats(email)
         return stats
