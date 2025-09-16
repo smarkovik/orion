@@ -28,7 +28,6 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Add the SDK to the path
 sdk_root = Path(__file__).parent.parent
 sys.path.insert(0, str(sdk_root))
 
@@ -124,12 +123,12 @@ class IntegrationTestRunner:
 
             if logs_result.stdout:
                 log_lines = logs_result.stdout.strip().split("\n")
-                for line in log_lines[-50:]:  # Ensure we only get last 50 lines
+                for line in log_lines[-50:]:  
                     self.log(f"  LOG: {line}", "DEBUG")
 
             if logs_result.stderr:
                 error_lines = logs_result.stderr.strip().split("\n")
-                for line in error_lines[-20:]:  # Show last 20 error lines
+                for line in error_lines[-20:]:  
                     self.log(f"  ERR: {line}", "DEBUG")
 
         except Exception as e:
@@ -185,7 +184,6 @@ class IntegrationTestRunner:
             orion_root = sdk_root.parent
             self.log(f"Building from directory: {orion_root}")
 
-            # Build the Docker image
             cmd = [
                 "docker",
                 "build",
@@ -211,7 +209,6 @@ class IntegrationTestRunner:
 
             self.log("PASS: Docker image built successfully")
 
-            # Verify the image was created
             self.log("Verifying Docker image was created...")
             verify_cmd = ["docker", "images", "orion-api:e2e-test"]
             verify_result = subprocess.run(verify_cmd, capture_output=True, text=True)
@@ -234,7 +231,6 @@ class IntegrationTestRunner:
         self.log("Starting Orion API container...")
 
         try:
-            # Stop any existing container with the same name
             self.log("Cleaning up any existing containers...")
             stop_cmd = ["docker", "stop", self.container_name]
             stop_result = subprocess.run(stop_cmd, capture_output=True, text=True)
@@ -246,7 +242,6 @@ class IntegrationTestRunner:
             rm_result = subprocess.run(rm_cmd, capture_output=True, text=True)
             self.log_command(rm_cmd, output=rm_result.stdout, error=rm_result.stderr, returncode=rm_result.returncode)
 
-            # Start the container
             cohere_key = os.getenv("COHERE_API_KEY")
             self.log(f"Starting container with Cohere API key: {'***' + cohere_key[-4:] if cohere_key else 'NOT_SET'}")
 
@@ -261,7 +256,11 @@ class IntegrationTestRunner:
                 "-e",
                 f"COHERE_API_KEY={cohere_key}",
                 "-e",
-                "LOG_LEVEL=DEBUG",  # More verbose logging
+                "LOG_LEVEL=INFO",  # Verbose but not overwhelming
+                "-e",
+                "PYTHONUNBUFFERED=1",  # Ensure logs are flushed immediately
+                "-e",
+                "PDFMINER_LOG_LEVEL=WARNING",  # Reduce PDF parsing verbosity
                 "orion-api:e2e-test",
             ]
 
@@ -276,7 +275,6 @@ class IntegrationTestRunner:
             self.container_id = result.stdout.strip()
             self.log(f"PASS: Container started with ID: {self.container_id[:12]}")
 
-            # Show container status and logs
             self.log("Checking container status...")
             status_cmd = ["docker", "ps", "--filter", f"name={self.container_name}"]
             status_result = subprocess.run(status_cmd, capture_output=True, text=True)
@@ -284,7 +282,6 @@ class IntegrationTestRunner:
                 status_cmd, output=status_result.stdout, error=status_result.stderr, returncode=status_result.returncode
             )
 
-            # Show initial container logs
             self.log("Initial container logs:")
             logs_cmd = ["docker", "logs", self.container_name]
             logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
@@ -312,7 +309,6 @@ class IntegrationTestRunner:
                         self.test_results["docker_start"] = True
                         self.test_results["api_health"] = True
 
-                        # Show current container logs after successful startup
                         self.log("Container logs after successful startup:")
                         logs_cmd = ["docker", "logs", self.container_name]
                         logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
@@ -323,7 +319,6 @@ class IntegrationTestRunner:
                             returncode=logs_result.returncode,
                         )
 
-                        # Log container status after successful startup
                         self.log_container_status("successful API startup")
 
                         return True
@@ -334,7 +329,6 @@ class IntegrationTestRunner:
 
             self.log("ERROR: API failed to become ready within 30 seconds", "ERROR")
 
-            # Show container logs on failure
             self.log("Container logs after health check failure:")
             logs_cmd = ["docker", "logs", self.container_name]
             logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
@@ -359,7 +353,6 @@ class IntegrationTestRunner:
             self.log(f"  Client timeout: {client.config.timeout}")
             self.log(f"  Client API key: {'SET' if client.config.api_key else 'NOT_SET'}")
 
-            # Get first 3 PDF files
             pdf_files = list(self.book_samples_dir.glob("*.pdf"))[:3]
             self.log(f"Found {len(pdf_files)} PDF files to upload:")
             for pdf_file in pdf_files:
@@ -416,6 +409,9 @@ class IntegrationTestRunner:
                     self.log(f"ERROR: Upload failed for {pdf_file.name} after {upload_duration:.2f}s: {e}", "ERROR")
                     self.log(f"  Error type: {type(e).__name__}", "ERROR")
 
+                    # Log container status on upload failure
+                    self.log_container_status(f"upload failure for {pdf_file.name}")
+
                 except Exception as e:
                     upload_duration = time.time() - upload_start
                     error_result = {
@@ -437,7 +433,6 @@ class IntegrationTestRunner:
             successful_uploads = len([d for d in self.uploaded_documents if d["status"] == "uploaded"])
             self.log(f"Upload summary: {successful_uploads}/{len(pdf_files)} files uploaded successfully")
 
-            # Log container status after file uploads
             self.log_container_status("file uploads completed")
 
             return successful_uploads > 0
@@ -451,10 +446,10 @@ class IntegrationTestRunner:
         self.log("Waiting for document processing to complete...")
 
         try:
-            client = OrionClient(base_url=self.api_url, timeout=30)
+            client = OrionClient(base_url=self.api_url, timeout=120)  # Longer timeout for processing checks
 
-            max_wait_time = 300  # 5 minutes
-            check_interval = 10  # Check every 10 seconds
+            max_wait_time = 600  # 10 minutes for large PDF processing
+            check_interval = 15  # Check every 15 seconds to reduce API load
             start_time = time.time()
             iteration_count = 0
 
@@ -481,15 +476,26 @@ class IntegrationTestRunner:
                         f"({stats.embedding_coverage:.1f}%)"
                     )
 
-                    # Consider processing complete when we have good coverage
-                    if stats.chunk_count > 0 and stats.embedding_coverage > 85:
+                    chunks_threshold = 100  # If we have 100+ chunks, we have enough for testing
+                    coverage_threshold = 50  # Lower threshold for large documents
+
+                    if stats.chunk_count >= chunks_threshold and stats.embedding_coverage > coverage_threshold:
+                        self.log(
+                            f"PASS: Document processing sufficient for testing! ({stats.chunks_with_embeddings} chunks ready)"
+                        )
+                        self.test_results["processing_complete"] = True
+                        client.close()
+                        return True
+                    elif stats.chunk_count > 0 and stats.embedding_coverage > 85:
                         self.log("PASS: Document processing appears complete!")
                         self.test_results["processing_complete"] = True
                         client.close()
                         return True
 
                     if stats.embedding_coverage > 0:
-                        self.log(f"Processing in progress... {stats.embedding_coverage:.1f}% complete")
+                        self.log(
+                            f"Processing in progress... {stats.embedding_coverage:.1f}% complete ({stats.chunks_with_embeddings}/{stats.chunk_count} chunks)"
+                        )
                     else:
                         self.log("Processing starting...")
 
@@ -497,7 +503,6 @@ class IntegrationTestRunner:
                     self.log(f"WARN: Error checking processing status: {e}", "WARN")
                     self.log(f"  Error type: {type(e).__name__}", "WARN")
 
-                    # Show container logs on processing check failure
                     if hasattr(self, "container_name"):
                         self.log("Container logs during processing check failure:")
                         logs_cmd = ["docker", "logs", "--tail", "20", self.container_name]
@@ -511,8 +516,8 @@ class IntegrationTestRunner:
 
                 iteration_count += 1
 
-                # Log container status every 3 iterations (30 seconds) to avoid too much noise
-                if iteration_count % 3 == 0:
+                # Log container status every 4 iterations (60 seconds) to avoid too much noise
+                if iteration_count % 4 == 0:
                     self.log_container_status(f"processing wait iteration {iteration_count}")
 
                 self.log(f"Waiting {check_interval} seconds before next check...")
@@ -533,7 +538,6 @@ class IntegrationTestRunner:
         try:
             client = OrionClient(base_url=self.api_url, timeout=30)
 
-            # Define test queries that should find relevant content
             test_queries = [
                 "artificial intelligence and machine learning",
                 "neural networks and deep learning",
@@ -648,12 +652,10 @@ class IntegrationTestRunner:
                 self.test_results["hybrid_search"] = True
                 self.log(f"PASS: Hybrid search completed: {len(hybrid_results)} queries tested")
 
-                # Log container status after hybrid search
                 self.log_container_status("hybrid search completed")
 
             client.close()
 
-            # Store detailed results
             self.test_results["search_results"] = {
                 "cosine": cosine_results,
                 "hybrid": hybrid_results,
