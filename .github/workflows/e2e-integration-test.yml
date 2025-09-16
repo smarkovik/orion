@@ -43,7 +43,7 @@ jobs:
           path: orion-project
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-test-results
           path: |
@@ -165,11 +165,19 @@ jobs:
           if [ -f "integration-tests/last_test_report.json" ]; then
             echo "Test report found, extracting key metrics..."
             
+            # Show raw test report for debugging
+            echo ""
+            echo "Raw test report content:"
+            echo "========================"
+            cat integration-tests/last_test_report.json | head -50
+            echo ""
+            echo "========================"
+            
             # Activate virtual environment
             source venv/bin/activate
             
             # Parse and display the test results using Python script
-            python sdk/integration-tests/parse_results.py
+            python integration-tests/parse_results.py
             
           else
             echo "ERROR: Test report not found - test may have failed early"
