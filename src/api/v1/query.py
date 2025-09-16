@@ -130,7 +130,6 @@ async def get_library_stats(email: str) -> Dict[str, Any]:
         query_service = get_query_service()
         stats = await query_service.get_library_stats(email)
         return stats
-    g
     except Exception as e:
         logger.error(f"Failed to get library stats for {email}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
