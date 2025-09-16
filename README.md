@@ -114,4 +114,38 @@ mypy src/
 pytest --cov=src
 ```
 
-For detailed documentation on file processing, chunking, and storage architecture, see the `/docs` directory.
+## Testing
+
+### End-to-End Integration Testing
+
+For comprehensive system testing including Docker deployment, file upload, processing, and search functionality:
+
+📖 **[E2E Integration Test Guide](e2e-readme.md)** - Complete guide to running and monitoring the full integration test
+
+### Development Testing
+
+```bash
+# Run unit tests
+pytest tests/ -v
+
+# Run with coverage
+pytest --cov=src tests/
+
+# Run specific test files
+pytest tests/test_pipeline.py -v
+
+# Quick workflow test
+./scripts/quick_test.sh
+```
+
+## Documentation
+
+For detailed documentation on file processing, chunking, and storage architecture:
+
+- **[End-to-End Testing](e2e-readme.md)**: Complete integration test guide
+- **[Scripts Documentation](scripts/README.md)**: Testing and utility scripts
+- **[Architecture Documentation](docs/README.md)**: System design and processing pipeline
+- **[File Upload Processing](docs/file-upload-processing.md)**: Document upload workflow
+- **[Processing Pipeline](docs/processing-pipeline.md)**: Multi-stage document processing
+- **[Chunking & Storage](docs/chunking-storage.md)**: Text chunking and vector storage
+- **[Disk Storage Organization](docs/disk-storage-organization.md)**: File system layout
