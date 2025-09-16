@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
 
+from ...core.config import settings
 from ...core.logging import get_logger
 from ...core.repositories import LibraryRepository
 from ...core.services import CohereEmbeddingService, LibrarySearchEngine, QueryService
@@ -12,10 +13,28 @@ from ...models.query import ChunkResult, QueryRequest, QueryResponse
 router = APIRouter()
 logger = get_logger(__name__)
 
-embedding_service = CohereEmbeddingService()
-library_repository = LibraryRepository()
-search_engine = LibrarySearchEngine(embedding_service)
-query_service = QueryService(library_repository, search_engine, embedding_service)
+# Lazy initialization to avoid Cohere API key issues during testing
+_embedding_service = None
+_library_repository = None
+_search_engine = None
+_query_service = None
+
+
+def get_query_service():
+    """Get or create the query service with lazy initialization."""
+    global _embedding_service, _library_repository, _search_engine, _query_service
+
+    if _query_service is None:
+        # Only create if we have a Cohere API key
+        if not settings.cohere_api_key:
+            raise ValueError("Cohere API key is required but not configured")
+
+        _embedding_service = CohereEmbeddingService()
+        _library_repository = LibraryRepository()
+        _search_engine = LibrarySearchEngine(_embedding_service)
+        _query_service = QueryService(_library_repository, _search_engine, _embedding_service)
+
+    return _query_service
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -35,11 +54,12 @@ async def search_documents(request: QueryRequest) -> QueryResponse:
         }
         logger.info("Search query received", extra={"event_data": event_data})
 
+        query_service = get_query_service()
         search_results = await query_service.execute_query(
             user_email=request.email, query_text=request.query, algorithm=request.algorithm, limit=request.limit
         )
 
-        library = await library_repository.load_library(request.email)
+        library = await query_service.library_repository.load_library(request.email)
 
         chunk_results = []
         for result in search_results.results:
@@ -96,6 +116,7 @@ async def search_documents(request: QueryRequest) -> QueryResponse:
 @router.get("/query/algorithms")
 async def get_supported_algorithms() -> List[str]:
     try:
+        query_service = get_query_service()
         algorithms = query_service.get_supported_algorithms()
         return algorithms
     except Exception as e:
@@ -106,8 +127,10 @@ async def get_supported_algorithms() -> List[str]:
 @router.get("/query/library/{email}/stats")
 async def get_library_stats(email: str) -> Dict[str, Any]:
     try:
+        query_service = get_query_service()
         stats = await query_service.get_library_stats(email)
         return stats
+    g
     except Exception as e:
         logger.error(f"Failed to get library stats for {email}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
