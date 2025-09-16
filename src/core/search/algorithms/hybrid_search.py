@@ -117,8 +117,14 @@ class HybridSearchAlgorithm(BaseSearchAlgorithm):
                     # Document frequency (number of documents containing the term)
                     df = doc_frequencies.get(keyword, 0)
 
-                    # Inverse document frequency
-                    idf = log((total_docs - df + 0.5) / (df + 0.5)) if df > 0 else 0
+                    # Inverse document frequency with smoothing for small collections
+                    if df > 0:
+                        idf = log((total_docs - df + 0.5) / (df + 0.5))
+                        # Add minimum IDF for small collections to avoid 0 scores
+                        if idf <= 0 and total_docs <= 10:
+                            idf = 0.1  # Small positive value for relevance
+                    else:
+                        idf = 0
 
                     # BM25-like scoring (simplified)
                     k1 = 1.2  # Term frequency saturation parameter
@@ -126,8 +132,17 @@ class HybridSearchAlgorithm(BaseSearchAlgorithm):
 
             scores.append(score)
 
+        # Normalize scores to 0-1 range
         if scores:
+            min_score = min(scores)
             max_score = max(scores)
+
+            # Handle negative scores by shifting to positive range
+            if min_score < 0:
+                scores = [score - min_score for score in scores]
+                max_score = max_score - min_score
+
+            # Normalize to 0-1 range
             if max_score > 0:
                 scores = [score / max_score for score in scores]
 
