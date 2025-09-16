@@ -61,7 +61,70 @@ class IntegrationTestRunner:
         """Log a message with timestamp."""
         timestamp = time.strftime("%H:%M:%S")
         print(f"[{timestamp}] {level}: {message}")
-
+    
+    def log_api_call(self, method: str, url: str, payload: dict = None, response: dict = None, status_code: int = None) -> None:
+        """Log detailed API call information."""
+        self.log(f"API CALL: {method} {url}", "DEBUG")
+        if payload:
+            self.log(f"  Request payload: {payload}", "DEBUG")
+        if status_code:
+            self.log(f"  Response status: {status_code}", "DEBUG")
+        if response:
+            # Limit response size for readability
+            response_str = str(response)[:500]
+            if len(str(response)) > 500:
+                response_str += "... (truncated)"
+            self.log(f"  Response data: {response_str}", "DEBUG")
+    
+    def log_command(self, cmd: list, output: str = None, error: str = None, returncode: int = None) -> None:
+        """Log detailed command execution information."""
+        self.log(f"COMMAND: {' '.join(cmd)}", "DEBUG")
+        if returncode is not None:
+            self.log(f"  Exit code: {returncode}", "DEBUG")
+        if output:
+            # Show first few lines of output
+            output_lines = output.strip().split('\n')[:10]
+            for line in output_lines:
+                self.log(f"  STDOUT: {line}", "DEBUG")
+            if len(output.strip().split('\n')) > 10:
+                self.log(f"  ... (truncated, total {len(output.strip().split('\n'))} lines)", "DEBUG")
+        if error:
+            error_lines = error.strip().split('\n')[:5]
+            for line in error_lines:
+                self.log(f"  STDERR: {line}", "DEBUG")
+    
+    def log_container_status(self, operation: str = "operation") -> None:
+        """Log current container status and recent logs."""
+        if not hasattr(self, 'container_name') or not self.container_name:
+            return
+            
+        self.log(f"Container status after {operation}:")
+        try:
+            # Show container status
+            status_cmd = ["docker", "ps", "--filter", f"name={self.container_name}", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"]
+            status_result = subprocess.run(status_cmd, capture_output=True, text=True)
+            if status_result.stdout:
+                for line in status_result.stdout.strip().split('\n'):
+                    self.log(f"  STATUS: {line}", "DEBUG")
+            
+            # Show last 50 lines of container logs
+            self.log(f"Last 50 lines of container logs:")
+            logs_cmd = ["docker", "logs", "--tail", "50", self.container_name]
+            logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
+            
+            if logs_result.stdout:
+                log_lines = logs_result.stdout.strip().split('\n')
+                for line in log_lines[-50:]:  # Ensure we only get last 50 lines
+                    self.log(f"  LOG: {line}", "DEBUG")
+            
+            if logs_result.stderr:
+                error_lines = logs_result.stderr.strip().split('\n')
+                for line in error_lines[-20:]:  # Show last 20 error lines
+                    self.log(f"  ERR: {line}", "DEBUG")
+                    
+        except Exception as e:
+            self.log(f"  Failed to get container status: {e}", "DEBUG")
+gi
     def check_prerequisites(self) -> bool:
         """Check if all prerequisites are met."""
         self.log("Checking prerequisites...")
@@ -123,17 +186,27 @@ class IntegrationTestRunner:
                 ".",
             ]
 
+            self.log_command(cmd)
+            self.log("Docker build started - this may take several minutes...")
+
             result = subprocess.run(
                 cmd, cwd=orion_root, capture_output=True, text=True, timeout=300  # 5 minute timeout
             )
 
+            self.log_command(cmd, output=result.stdout, error=result.stderr, returncode=result.returncode)
+
             if result.returncode != 0:
                 self.log("ERROR: Docker build failed", "ERROR")
-                self.log(f"STDOUT: {result.stdout}", "ERROR")
-                self.log(f"STDERR: {result.stderr}", "ERROR")
                 return False
 
             self.log("PASS: Docker image built successfully")
+            
+            # Verify the image was created
+            self.log("Verifying Docker image was created...")
+            verify_cmd = ["docker", "images", "orion-api:e2e-test"]
+            verify_result = subprocess.run(verify_cmd, capture_output=True, text=True)
+            self.log_command(verify_cmd, output=verify_result.stdout, error=verify_result.stderr, returncode=verify_result.returncode)
+            
             self.test_results["docker_build"] = True
             return True
 
@@ -150,10 +223,19 @@ class IntegrationTestRunner:
 
         try:
             # Stop any existing container with the same name
-            subprocess.run(["docker", "stop", self.container_name], capture_output=True)
-            subprocess.run(["docker", "rm", self.container_name], capture_output=True)
+            self.log("Cleaning up any existing containers...")
+            stop_cmd = ["docker", "stop", self.container_name]
+            stop_result = subprocess.run(stop_cmd, capture_output=True, text=True)
+            self.log_command(stop_cmd, output=stop_result.stdout, error=stop_result.stderr, returncode=stop_result.returncode)
+            
+            rm_cmd = ["docker", "rm", self.container_name]
+            rm_result = subprocess.run(rm_cmd, capture_output=True, text=True)
+            self.log_command(rm_cmd, output=rm_result.stdout, error=rm_result.stderr, returncode=rm_result.returncode)
 
             # Start the container
+            cohere_key = os.getenv('COHERE_API_KEY')
+            self.log(f"Starting container with Cohere API key: {'***' + cohere_key[-4:] if cohere_key else 'NOT_SET'}")
+            
             cmd = [
                 "docker",
                 "run",
@@ -163,21 +245,34 @@ class IntegrationTestRunner:
                 "-p",
                 f"{self.api_port}:8000",
                 "-e",
-                f"COHERE_API_KEY={os.getenv('COHERE_API_KEY')}",
+                f"COHERE_API_KEY={cohere_key}",
                 "-e",
-                "LOG_LEVEL=INFO",
+                "LOG_LEVEL=DEBUG",  # More verbose logging
                 "orion-api:e2e-test",
             ]
 
+            self.log_command(cmd)
             result = subprocess.run(cmd, capture_output=True, text=True)
+            self.log_command(cmd, output=result.stdout, error=result.stderr, returncode=result.returncode)
 
             if result.returncode != 0:
                 self.log("ERROR: Failed to start Docker container", "ERROR")
-                self.log(f"STDERR: {result.stderr}", "ERROR")
                 return False
 
             self.container_id = result.stdout.strip()
             self.log(f"PASS: Container started with ID: {self.container_id[:12]}")
+            
+            # Show container status and logs
+            self.log("Checking container status...")
+            status_cmd = ["docker", "ps", "--filter", f"name={self.container_name}"]
+            status_result = subprocess.run(status_cmd, capture_output=True, text=True)
+            self.log_command(status_cmd, output=status_result.stdout, error=status_result.stderr, returncode=status_result.returncode)
+            
+            # Show initial container logs
+            self.log("Initial container logs:")
+            logs_cmd = ["docker", "logs", self.container_name]
+            logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
+            self.log_command(logs_cmd, output=logs_result.stdout, error=logs_result.stderr, returncode=logs_result.returncode)
 
             # Wait for container to be ready
             self.log("Waiting for API to be ready...")
@@ -185,18 +280,38 @@ class IntegrationTestRunner:
                 try:
                     import requests
 
+                    self.log(f"Health check attempt {attempt + 1}/30...")
                     response = requests.get(f"{self.api_url}/health", timeout=2)
+                    self.log_api_call("GET", f"{self.api_url}/health", status_code=response.status_code, response=response.json() if response.content else {})
+                    
                     if response.status_code == 200:
                         self.log("PASS: API is ready and healthy")
                         self.test_results["docker_start"] = True
                         self.test_results["api_health"] = True
+                        
+                        # Show current container logs after successful startup
+                        self.log("Container logs after successful startup:")
+                        logs_cmd = ["docker", "logs", self.container_name]
+                        logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
+                        self.log_command(logs_cmd, output=logs_result.stdout, error=logs_result.stderr, returncode=logs_result.returncode)
+                        
+                        # Log container status after successful startup
+                        self.log_container_status("successful API startup")
+                        
                         return True
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.log(f"Health check failed: {e}", "DEBUG")
 
                 time.sleep(1)
 
             self.log("ERROR: API failed to become ready within 30 seconds", "ERROR")
+            
+            # Show container logs on failure
+            self.log("Container logs after health check failure:")
+            logs_cmd = ["docker", "logs", self.container_name]
+            logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
+            self.log_command(logs_cmd, output=logs_result.stdout, error=logs_result.stderr, returncode=logs_result.returncode)
+            
             return False
 
         except Exception as e:
@@ -208,15 +323,29 @@ class IntegrationTestRunner:
         self.log("Uploading test PDF files...")
 
         try:
+            self.log("Initializing OrionClient with verbose logging...")
             client = OrionClient(base_url=self.api_url, timeout=60)
+            self.log(f"  Client base URL: {client.config.base_url}")
+            self.log(f"  Client timeout: {client.config.timeout}")
+            self.log(f"  Client API key: {'SET' if client.config.api_key else 'NOT_SET'}")
 
             # Get first 3 PDF files
             pdf_files = list(self.book_samples_dir.glob("*.pdf"))[:3]
+            self.log(f"Found {len(pdf_files)} PDF files to upload:")
+            for pdf_file in pdf_files:
+                file_size = pdf_file.stat().st_size
+                self.log(f"  - {pdf_file.name}: {file_size:,} bytes ({file_size / (1024*1024):.1f}MB)")
 
             for i, pdf_file in enumerate(pdf_files, 1):
                 self.log(f"Uploading file {i}/3: {pdf_file.name}")
+                upload_start = time.time()
 
                 try:
+                    self.log(f"Calling client.upload_document for {pdf_file.name}...")
+                    self.log(f"  File path: {pdf_file}")
+                    self.log(f"  User email: {self.test_user_email}")
+                    self.log(f"  File size: {pdf_file.stat().st_size:,} bytes")
+                    
                     document = client.upload_document(
                         file_path=pdf_file,
                         user_email=self.test_user_email,
@@ -224,34 +353,58 @@ class IntegrationTestRunner:
                         wait_for_processing=False,
                     )
 
+                    upload_duration = time.time() - upload_start
+
                     upload_result = {
                         "filename": pdf_file.name,
                         "document_id": document.id,
                         "file_size": document.file_size,
                         "status": "uploaded",
                         "error": None,
+                        "duration": upload_duration,
                     }
 
                     self.uploaded_documents.append(upload_result)
                     self.test_results["file_uploads"].append(upload_result)
 
-                    self.log(f"PASS: Uploaded: {document.filename} (ID: {document.id})")
+                    self.log(f"PASS: Uploaded: {document.filename} (ID: {document.id}) in {upload_duration:.2f}s")
+                    self.log(f"  Document details: filename={document.filename}, size={document.file_size}, content_type={getattr(document, 'content_type', 'N/A')}")
 
                 except (ValidationError, DocumentUploadError) as e:
+                    upload_duration = time.time() - upload_start
                     error_result = {
                         "filename": pdf_file.name,
                         "document_id": None,
                         "file_size": pdf_file.stat().st_size,
                         "status": "failed",
                         "error": str(e),
+                        "duration": upload_duration,
                     }
                     self.test_results["file_uploads"].append(error_result)
-                    self.log(f"ERROR: Upload failed for {pdf_file.name}: {e}", "ERROR")
+                    self.log(f"ERROR: Upload failed for {pdf_file.name} after {upload_duration:.2f}s: {e}", "ERROR")
+                    self.log(f"  Error type: {type(e).__name__}", "ERROR")
+                    
+                except Exception as e:
+                    upload_duration = time.time() - upload_start
+                    error_result = {
+                        "filename": pdf_file.name,
+                        "document_id": None,
+                        "file_size": pdf_file.stat().st_size,
+                        "status": "failed",
+                        "error": str(e),
+                        "duration": upload_duration,
+                    }
+                    self.test_results["file_uploads"].append(error_result)
+                    self.log(f"ERROR: Unexpected upload error for {pdf_file.name} after {upload_duration:.2f}s: {e}", "ERROR")
+                    self.log(f"  Error type: {type(e).__name__}", "ERROR")
 
             client.close()
 
             successful_uploads = len([d for d in self.uploaded_documents if d["status"] == "uploaded"])
             self.log(f"Upload summary: {successful_uploads}/{len(pdf_files)} files uploaded successfully")
+
+            # Log container status after file uploads
+            self.log_container_status("file uploads completed")
 
             return successful_uploads > 0
 
@@ -269,10 +422,24 @@ class IntegrationTestRunner:
             max_wait_time = 300  # 5 minutes
             check_interval = 10  # Check every 10 seconds
             start_time = time.time()
+            iteration_count = 0
 
             while time.time() - start_time < max_wait_time:
+                elapsed = time.time() - start_time
+                remaining = max_wait_time - elapsed
+                self.log(f"Processing check - elapsed: {elapsed:.1f}s, remaining: {remaining:.1f}s")
+                
                 try:
+                    self.log(f"Calling get_library_stats for {self.test_user_email}...")
                     stats = client.get_library_stats(self.test_user_email)
+                    
+                    # Log detailed stats
+                    self.log(f"Library stats received:")
+                    self.log(f"  Documents: {stats.document_count}")
+                    self.log(f"  Total chunks: {stats.chunk_count}")
+                    self.log(f"  Chunks with embeddings: {stats.chunks_with_embeddings}")
+                    self.log(f"  Embedding coverage: {stats.embedding_coverage:.1f}%")
+                    self.log(f"  Last updated: {getattr(stats, 'last_updated', 'N/A')}")
 
                     self.log(
                         f"Processing status: {stats.document_count} docs, "
@@ -293,8 +460,23 @@ class IntegrationTestRunner:
                         self.log("Processing starting...")
 
                 except Exception as e:
-                    self.log(f"WARN: Error checking processing status: {e}")
+                    self.log(f"WARN: Error checking processing status: {e}", "WARN")
+                    self.log(f"  Error type: {type(e).__name__}", "WARN")
+                    
+                    # Show container logs on processing check failure
+                    if hasattr(self, 'container_name'):
+                        self.log("Container logs during processing check failure:")
+                        logs_cmd = ["docker", "logs", "--tail", "20", self.container_name]
+                        logs_result = subprocess.run(logs_cmd, capture_output=True, text=True)
+                        self.log_command(logs_cmd, output=logs_result.stdout, error=logs_result.stderr, returncode=logs_result.returncode)
 
+                iteration_count += 1
+                
+                # Log container status every 3 iterations (30 seconds) to avoid too much noise
+                if iteration_count % 3 == 0:
+                    self.log_container_status(f"processing wait iteration {iteration_count}")
+                
+                self.log(f"Waiting {check_interval} seconds before next check...")
                 time.sleep(check_interval)
 
             client.close()
@@ -324,9 +506,15 @@ class IntegrationTestRunner:
             self.log("Testing cosine similarity search...")
             cosine_results = []
 
-            for query in test_queries:
+            for i, query in enumerate(test_queries, 1):
                 try:
+                    self.log(f"Cosine search {i}/{len(test_queries)}: '{query}'")
+                    search_start = time.time()
+                    
+                    self.log(f"  Calling client.search with algorithm='cosine', limit=5")
                     response = client.search(query=query, user_email=self.test_user_email, algorithm="cosine", limit=5)
+                    
+                    search_duration = time.time() - search_start
 
                     result = {
                         "query": query,
@@ -334,8 +522,21 @@ class IntegrationTestRunner:
                         "results_count": len(response.results),
                         "execution_time": response.execution_time,
                         "top_score": response.results[0].similarity_score if response.results else 0,
+                        "total_duration": search_duration,
                     }
                     cosine_results.append(result)
+
+                    self.log(f"  Response received in {search_duration:.3f}s:")
+                    self.log(f"    Results count: {len(response.results)}")
+                    self.log(f"    Execution time: {response.execution_time:.3f}s")
+                    self.log(f"    Total chunks searched: {response.total_chunks_searched}")
+                    self.log(f"    Algorithm used: {response.algorithm_used}")
+                    
+                    if response.results:
+                        self.log(f"    Top result score: {response.results[0].similarity_score:.3f}")
+                        self.log(f"    Top result preview: {response.results[0].text[:100]}...")
+                    else:
+                        self.log(f"    No results found")
 
                     self.log(
                         f"  Query: '{query}' → {len(response.results)} results "
@@ -344,18 +545,31 @@ class IntegrationTestRunner:
 
                 except QueryError as e:
                     self.log(f"ERROR: Cosine search failed for '{query}': {e}", "ERROR")
+                    self.log(f"  Error type: {type(e).__name__}", "ERROR")
+                except Exception as e:
+                    self.log(f"ERROR: Unexpected error in cosine search for '{query}': {e}", "ERROR")
+                    self.log(f"  Error type: {type(e).__name__}", "ERROR")
 
             if cosine_results:
                 self.test_results["cosine_search"] = True
                 self.log(f"PASS: Cosine search completed: {len(cosine_results)} queries tested")
+                
+                # Log container status after cosine search
+                self.log_container_status("cosine search completed")
 
             # Test hybrid search
             self.log("Testing hybrid search...")
             hybrid_results = []
 
-            for query in test_queries:
+            for i, query in enumerate(test_queries, 1):
                 try:
+                    self.log(f"Hybrid search {i}/{len(test_queries)}: '{query}'")
+                    search_start = time.time()
+                    
+                    self.log(f"  Calling client.search with algorithm='hybrid', limit=5")
                     response = client.search(query=query, user_email=self.test_user_email, algorithm="hybrid", limit=5)
+                    
+                    search_duration = time.time() - search_start
 
                     result = {
                         "query": query,
@@ -363,8 +577,21 @@ class IntegrationTestRunner:
                         "results_count": len(response.results),
                         "execution_time": response.execution_time,
                         "top_score": response.results[0].similarity_score if response.results else 0,
+                        "total_duration": search_duration,
                     }
                     hybrid_results.append(result)
+
+                    self.log(f"  Response received in {search_duration:.3f}s:")
+                    self.log(f"    Results count: {len(response.results)}")
+                    self.log(f"    Execution time: {response.execution_time:.3f}s")
+                    self.log(f"    Total chunks searched: {response.total_chunks_searched}")
+                    self.log(f"    Algorithm used: {response.algorithm_used}")
+                    
+                    if response.results:
+                        self.log(f"    Top result score: {response.results[0].similarity_score:.3f}")
+                        self.log(f"    Top result preview: {response.results[0].text[:100]}...")
+                    else:
+                        self.log(f"    No results found")
 
                     self.log(
                         f"  Query: '{query}' → {len(response.results)} results "
@@ -373,10 +600,17 @@ class IntegrationTestRunner:
 
                 except QueryError as e:
                     self.log(f"ERROR: Hybrid search failed for '{query}': {e}", "ERROR")
+                    self.log(f"  Error type: {type(e).__name__}", "ERROR")
+                except Exception as e:
+                    self.log(f"ERROR: Unexpected error in hybrid search for '{query}': {e}", "ERROR")
+                    self.log(f"  Error type: {type(e).__name__}", "ERROR")
 
             if hybrid_results:
                 self.test_results["hybrid_search"] = True
                 self.log(f"PASS: Hybrid search completed: {len(hybrid_results)} queries tested")
+                
+                # Log container status after hybrid search
+                self.log_container_status("hybrid search completed")
 
             client.close()
 
