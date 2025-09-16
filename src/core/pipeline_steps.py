@@ -171,12 +171,21 @@ class EmbeddingGenerationStep(PipelineStep):
                     error=f"Directory does not exist: {chunks_dir}",
                 )
 
-            chunk_files = list(chunks_dir.glob("*.txt"))
+            # Get base filename from the converted text file path to filter chunks for this document
+            converted_text_path = Path(context.metadata["converted_text_path"])
+            base_filename = converted_text_path.stem
+            chunk_pattern = f"{base_filename}_chunk_*.txt"
+            chunk_files = list(chunks_dir.glob(chunk_pattern))
+
+            # Debug logging
+            logger.info(f"Looking for chunks with pattern: {chunk_pattern}")
+            logger.info(f"Found {len(chunk_files)} chunk files for document {base_filename}")
+
             if not chunk_files:
                 return StepResult(
                     status=StepStatus.FAILED,
-                    message="No chunk files found",
-                    error=f"No .txt files in {chunks_dir}",
+                    message=f"No chunk files found for document {base_filename}",
+                    error=f"No files matching pattern {chunk_pattern} in {chunks_dir}",
                 )
 
             chunks_data = []
