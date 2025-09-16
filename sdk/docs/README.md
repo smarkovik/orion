@@ -70,7 +70,7 @@ from orion_sdk import OrionClient
 
 client = OrionClient(
     base_url="http://localhost:8000",
-    api_key="your-api-key" 
+    api_key="your-api-key"
 )
 ```
 
