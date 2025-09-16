@@ -20,7 +20,7 @@ _search_engine = None
 _query_service = None
 
 
-def get_query_service():
+def get_query_service() -> QueryService:
     """Get or create the query service with lazy initialization."""
     global _embedding_service, _library_repository, _search_engine, _query_service
 
@@ -117,7 +117,7 @@ async def search_documents(request: QueryRequest) -> QueryResponse:
 async def get_supported_algorithms() -> List[str]:
     try:
         query_service = get_query_service()
-        algorithms = query_service.get_supported_algorithms()
+        algorithms: List[str] = query_service.get_supported_algorithms()
         return algorithms
     except Exception as e:
         logger.error(f"Failed to get supported algorithms: {str(e)}")
@@ -128,7 +128,7 @@ async def get_supported_algorithms() -> List[str]:
 async def get_library_stats(email: str) -> Dict[str, Any]:
     try:
         query_service = get_query_service()
-        stats = await query_service.get_library_stats(email)
+        stats: Dict[str, Any] = await query_service.get_library_stats(email)
         return stats
     except Exception as e:
         logger.error(f"Failed to get library stats for {email}: {str(e)}")
