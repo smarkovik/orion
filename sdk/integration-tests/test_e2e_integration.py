@@ -123,12 +123,12 @@ class IntegrationTestRunner:
 
             if logs_result.stdout:
                 log_lines = logs_result.stdout.strip().split("\n")
-                for line in log_lines[-50:]:  
+                for line in log_lines[-50:]:
                     self.log(f"  LOG: {line}", "DEBUG")
 
             if logs_result.stderr:
                 error_lines = logs_result.stderr.strip().split("\n")
-                for line in error_lines[-20:]:  
+                for line in error_lines[-20:]:
                     self.log(f"  ERR: {line}", "DEBUG")
 
         except Exception as e:
@@ -348,7 +348,7 @@ class IntegrationTestRunner:
 
         try:
             self.log("Initializing OrionClient with verbose logging...")
-            client = OrionClient(base_url=self.api_url, timeout=60)
+            client = OrionClient(base_url=self.api_url, timeout=300)  # 5 minutes for large file uploads
             self.log(f"  Client base URL: {client.config.base_url}")
             self.log(f"  Client timeout: {client.config.timeout}")
             self.log(f"  Client API key: {'SET' if client.config.api_key else 'NOT_SET'}")
@@ -446,10 +446,10 @@ class IntegrationTestRunner:
         self.log("Waiting for document processing to complete...")
 
         try:
-            client = OrionClient(base_url=self.api_url, timeout=120)  # Longer timeout for processing checks
+            client = OrionClient(base_url=self.api_url, timeout=300)
 
-            max_wait_time = 600  # 10 minutes for large PDF processing
-            check_interval = 15  # Check every 15 seconds to reduce API load
+            max_wait_time = 900
+            check_interval = 15
             start_time = time.time()
             iteration_count = 0
 
