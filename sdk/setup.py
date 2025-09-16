@@ -1,0 +1,63 @@
+"""Setup script for the Orion SDK."""
+
+from pathlib import Path
+
+from setuptools import find_packages, setup
+
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text() if (this_directory / "README.md").exists() else ""
+
+setup(
+    name="orion-sdk",
+    version="0.1.0",
+    description="Python SDK for Orion document processing and search API",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    author="Orion Team",
+    author_email="support@orion.ai",
+    url="https://github.com/smarkovik/orion/orion-sdk",
+    packages=find_packages(),
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Text Processing :: Indexing",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    ],
+    python_requires=">=3.8",
+    install_requires=[
+        "requests>=2.28.0",
+        "urllib3>=1.26.0",
+    ],
+    extras_require={
+        "async": [
+            "aiohttp>=3.8.0",
+            "aiofiles>=0.8.0",
+        ],
+        "dev": [
+            "pytest>=7.0.0",
+            "pytest-asyncio>=0.21.0",
+            "black>=22.0.0",
+            "mypy>=1.0.0",
+            "flake8>=5.0.0",
+            "isort>=5.0.0",
+        ],
+        "docs": [
+            "sphinx>=5.0.0",
+            "sphinx-rtd-theme>=1.0.0",
+        ],
+    },
+    keywords="orion document processing search embedding vector similarity",
+    project_urls={
+        "Bug Reports": "https://github.com/orion/orion-sdk/issues",
+        "Source": "https://github.com/orion/orion-sdk",
+        "Documentation": "https://orion-sdk.readthedocs.io/",
+    },
+)
