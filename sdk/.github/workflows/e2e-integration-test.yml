@@ -1,0 +1,220 @@
+name: End-to-End Integration Test
+
+on:
+  # Manual trigger only
+  workflow_dispatch:
+    inputs:
+      cohere_api_key:
+        description: 'Cohere API Key'
+        required: true
+        type: string
+      test_timeout:
+        description: 'Test timeout in minutes'
+        required: false
+        default: '30'
+        type: string
+      log_level:
+        description: 'Log level for the test'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+          - DEBUG
+          - INFO
+          - WARN
+          - ERROR
+
+env:
+  COHERE_API_KEY: ${{ github.event.inputs.cohere_api_key }}
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  e2e-integration-test:
+    name: End-to-End Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(github.event.inputs.test_timeout) }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # Checkout the full repository including parent directories
+          path: orion-project
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Verify Prerequisites
+        run: |
+          echo "Checking prerequisites..."
+          
+          # Check Docker
+          docker --version
+          docker compose version
+          
+          # Check Python
+          python --version
+          pip --version
+          
+          # Check repository structure
+          echo "Repository structure:"
+          ls -la orion-project/
+          ls -la orion-project/sdk/ || echo "SDK directory not found"
+          
+          # Check for book samples
+          echo "Checking for book samples:"
+          if [ -d "orion-project/sdk/examples/book-samples" ]; then
+            echo "Found book-samples directory:"
+            ls -la orion-project/sdk/examples/book-samples/
+            
+            # Count PDF files
+            pdf_count=$(find orion-project/sdk/examples/book-samples -name "*.pdf" | wc -l)
+            echo "PDF files found: $pdf_count"
+            
+            if [ $pdf_count -lt 3 ]; then
+              echo "ERROR: Need at least 3 PDF files for testing"
+              echo "Please add PDF files to sdk/examples/book-samples/ directory"
+              exit 1
+            fi
+            
+            echo "PASS: Found $pdf_count PDF files for testing"
+          else
+            echo "ERROR: book-samples directory not found"
+            echo "Please create sdk/examples/book-samples/ and add PDF files"
+            exit 1
+          fi
+          
+      - name: Install SDK Dependencies
+        working-directory: orion-project/sdk
+        run: |
+          echo "Installing SDK dependencies..."
+          
+          # Create virtual environment
+          python -m venv venv
+          source venv/bin/activate
+          
+          # Upgrade pip
+          pip install --upgrade pip
+          
+          # Install SDK in development mode
+          pip install -e .[dev]
+          
+          # Install additional test dependencies
+          pip install requests
+          
+          echo "PASS: Dependencies installed"
+          
+      - name: Run Integration Test
+        working-directory: orion-project/sdk
+        run: |
+          echo "Starting End-to-End Integration Test..."
+          
+          # Activate virtual environment
+          source venv/bin/activate
+          
+          # Set environment variables
+          export COHERE_API_KEY="${{ env.COHERE_API_KEY }}"
+          export LOG_LEVEL="${{ github.event.inputs.log_level }}"
+          
+          # Run the integration test
+          python integration-tests/test_e2e_integration.py
+          
+        timeout-minutes: ${{ fromJson(github.event.inputs.test_timeout) }}
+        
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-test-results
+          path: |
+            orion-project/sdk/integration-tests/last_test_report.json
+            orion-project/sdk/integration-tests/*.log
+          retention-days: 30
+          
+      - name: Cleanup Resources
+        if: always()
+        run: |
+          echo "Cleaning up Docker resources..."
+          
+          # Stop and remove any test containers
+          docker stop orion-e2e-test 2>/dev/null || true
+          docker rm orion-e2e-test 2>/dev/null || true
+          
+          # Remove test images
+          docker rmi orion-api:e2e-test 2>/dev/null || true
+          
+          # Clean up Docker system
+          docker system prune -f
+          
+          echo "PASS: Cleanup completed"
+          
+      - name: Test Summary
+        if: always()
+        working-directory: orion-project/sdk
+        run: |
+          echo "Integration Test Summary"
+          echo "========================"
+          
+          if [ -f "integration-tests/last_test_report.json" ]; then
+            echo "Test report found, extracting key metrics..."
+            
+            # Activate virtual environment
+            source venv/bin/activate
+            
+            # Parse and display the test results using Python
+            python -c '''
+import json
+import sys
+
+try:
+    with open("integration-tests/last_test_report.json", "r") as f:
+        results = json.load(f)
+    
+    print("Infrastructure Tests:")
+    print(f"  Docker Build: {\"PASS\" if results.get(\"docker_build\") else \"FAIL\"}")
+    print(f"  Docker Start: {\"PASS\" if results.get(\"docker_start\") else \"FAIL\"}")
+    print(f"  API Health:   {\"PASS\" if results.get(\"api_health\") else \"FAIL\"}")
+    
+    print("Upload Tests:")
+    uploads = results.get("file_uploads", [])
+    success_count = len([u for u in uploads if u.get("status") == "uploaded"])
+    print(f"  File Uploads: {success_count}/{len(uploads)} successful")
+    
+    print("Processing Tests:")
+    print(f"  Processing:   {\"PASS\" if results.get(\"processing_complete\") else \"FAIL\"}")
+    
+    print("Search Tests:")
+    print(f"  Cosine Search: {\"PASS\" if results.get(\"cosine_search\") else \"FAIL\"}")
+    print(f"  Hybrid Search: {\"PASS\" if results.get(\"hybrid_search\") else \"FAIL\"}")
+    
+    # Overall result
+    critical_passed = all(results.get(k, False) for k in ["docker_build", "docker_start", "api_health"])
+    uploads_passed = success_count > 0
+    search_passed = results.get("cosine_search", False) or results.get("hybrid_search", False)
+    
+    overall_success = critical_passed and uploads_passed and search_passed
+    
+    print("Overall Result:")
+    if overall_success:
+        print("PASS: INTEGRATION TEST PASSED")
+        sys.exit(0)
+    else:
+        print("FAIL: INTEGRATION TEST FAILED")
+        sys.exit(1)
+        
+except Exception as e:
+    print("Error reading test results.")
+    sys.exit(1)
+            '''
+            
+          else
+            echo "ERROR: Test report not found - test may have failed early"
+            exit 1
+          fi
