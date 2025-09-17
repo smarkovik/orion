@@ -4,7 +4,7 @@ End-to-End Integration Test for Orion SDK and API
 
 This test performs a complete integration test by:
 1. Building and starting the Orion API Docker container
-2. Uploading 3 PDF files from book-samples directory
+2. Uploading 3 text files from book-samples directory
 3. Waiting for processing to complete
 4. Testing both cosine and hybrid search algorithms
 5. Verifying results and cleaning up
@@ -12,7 +12,7 @@ This test performs a complete integration test by:
 Prerequisites:
 - Docker installed and running
 - Cohere API key available
-- 3 PDF files in examples/book-samples/
+- 3 text files in examples/book-samples/
 - All dependencies installed
 
 Usage:
@@ -379,7 +379,7 @@ class IntegrationTestRunner:
                     upload_duration = time.time() - upload_start
 
                     upload_result = {
-                        "filename": pdf_file.name,
+                        "filename": text_file.name,
                         "document_id": document.id,
                         "file_size": document.file_size,
                         "status": "uploaded",
@@ -398,40 +398,41 @@ class IntegrationTestRunner:
                 except (ValidationError, DocumentUploadError) as e:
                     upload_duration = time.time() - upload_start
                     error_result = {
-                        "filename": pdf_file.name,
+                        "filename": text_file.name,
                         "document_id": None,
-                        "file_size": pdf_file.stat().st_size,
+                        "file_size": text_file.stat().st_size,
                         "status": "failed",
                         "error": str(e),
                         "duration": upload_duration,
                     }
                     self.test_results["file_uploads"].append(error_result)
-                    self.log(f"ERROR: Upload failed for {pdf_file.name} after {upload_duration:.2f}s: {e}", "ERROR")
+                    self.log(f"ERROR: Upload failed for {text_file.name} after {upload_duration:.2f}s: {e}", "ERROR")
                     self.log(f"  Error type: {type(e).__name__}", "ERROR")
 
                     # Log container status on upload failure
-                    self.log_container_status(f"upload failure for {pdf_file.name}")
+                    self.log_container_status(f"upload failure for {text_file.name}")
 
                 except Exception as e:
                     upload_duration = time.time() - upload_start
                     error_result = {
-                        "filename": pdf_file.name,
+                        "filename": text_file.name,
                         "document_id": None,
-                        "file_size": pdf_file.stat().st_size,
+                        "file_size": text_file.stat().st_size,
                         "status": "failed",
                         "error": str(e),
                         "duration": upload_duration,
                     }
                     self.test_results["file_uploads"].append(error_result)
                     self.log(
-                        f"ERROR: Unexpected upload error for {pdf_file.name} after {upload_duration:.2f}s: {e}", "ERROR"
+                        f"ERROR: Unexpected upload error for {text_file.name} after {upload_duration:.2f}s: {e}",
+                        "ERROR",
                     )
                     self.log(f"  Error type: {type(e).__name__}", "ERROR")
 
             client.close()
 
             successful_uploads = len([d for d in self.uploaded_documents if d["status"] == "uploaded"])
-            self.log(f"Upload summary: {successful_uploads}/{len(pdf_files)} files uploaded successfully")
+            self.log(f"Upload summary: {successful_uploads}/{len(text_files)} files uploaded successfully")
 
             self.log_container_status("file uploads completed")
 
@@ -539,10 +540,10 @@ class IntegrationTestRunner:
             client = OrionClient(base_url=self.api_url, timeout=30)
 
             test_queries = [
-                "abundance of large whales",
-                "Smuggled on board",
-                "Pull, pull, my good boys",
-                "Mr. Starbuck",
+                "love",
+                "death",
+                "light",
+                "heart",
             ]
 
             # Test cosine similarity search
