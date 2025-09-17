@@ -2,6 +2,22 @@
 
 A FastAPI-based file processing system that converts documents to text, generates vector embeddings, and provides intelligent document retrieval capabilities.
 
+## Quick Start
+
+```bash
+# 1. Set up environment
+export COHERE_API_KEY="your_cohere_api_key_here"
+
+# 2. Start development environment
+make dev
+
+# 3. Test the system (uploads Romeo & Juliet and runs search)
+make test
+
+# 4. Run full test suite with coverage
+make unit-test
+```
+
 ## Development Setup
 
 ### Prerequisites
@@ -84,9 +100,9 @@ curl http://localhost:8000/health
 curl http://localhost:8000/docs
 
 # Container logs
-docker-compose logs -f orion-api
+make logs
 
-# Test endpoints
+# Quick system test
 make test
 ```
 
@@ -96,6 +112,52 @@ make test
 - **ReDoc**: http://localhost:8000/redoc
 
 ## Development Tools
+
+### Makefile Commands
+
+```bash
+# View all available commands
+make help
+
+# Build Docker image
+make build
+
+# Run development environment with hot reload
+make dev
+
+# Run production environment
+make run
+
+# Stop all containers
+make stop
+
+# View container logs
+make logs
+
+# Open shell in running container
+make shell
+
+# Clean up containers and images
+make clean
+
+# Check requirements alignment
+make check-reqs
+```
+
+### Testing Commands
+
+```bash
+# Quick comprehensive test (document processing + search)
+make test
+
+# Unit tests with coverage analysis
+make coverage
+
+# Complete test suite (unit + integration + comprehensive)
+make unit-test
+```
+
+### Code Quality Tools
 
 ```bash
 # Format code
@@ -110,33 +172,65 @@ flake8 src/ tests/
 # Type checking
 mypy src/
 
-# Run tests
+# Manual pytest (if needed)
 pytest --cov=src
 ```
 
 ## Testing
+
+### Testing Workflow
+
+The project includes three levels of testing for different development needs:
+
+#### 🚀 Quick Test (Recommended for Development)
+```bash
+# Fast comprehensive test: uploads Romeo & Juliet, processes it, and runs search
+make test
+```
+- ✅ Document upload and processing
+- ✅ Vector embedding generation  
+- ✅ Semantic search functionality
+- ⏱️ ~60 seconds runtime
+
+#### 🧪 Unit Tests with Coverage
+```bash
+# Run all unit tests with detailed coverage analysis
+make coverage
+```
+- ✅ 154 unit tests across all modules
+- ✅ 83%+ code coverage requirement
+- ✅ HTML coverage report (opens with `open htmlcov/index.html`)
+- ⏱️ ~8 seconds runtime
+
+#### 🎯 Complete Test Suite  
+```bash
+# Full test suite: unit + integration + comprehensive tests
+make unit-test
+```
+- ✅ Unit tests with coverage
+- ✅ SDK integration tests
+- ✅ Comprehensive document processing test
+- ✅ Full workflow validation
+- ⏱️ ~2-3 minutes runtime
+
+### Manual Testing Options
+
+```bash
+# Individual test components (if needed)
+pytest tests/ -v                    # Unit tests only
+pytest --cov=src tests/             # Unit tests with coverage
+./scripts/quick_test.sh              # Quick processing test
+./scripts/test_full_workflow.sh      # Full workflow test
+
+# SDK tests
+cd sdk && python -m pytest tests/ -v
+```
 
 ### End-to-End Integration Testing
 
 For comprehensive system testing including Docker deployment, file upload, processing, and search functionality:
 
 📖 **[E2E Integration Test Guide](e2e-readme.md)** - Complete guide to running and monitoring the full integration test
-
-### Development Testing
-
-```bash
-# Run unit tests
-pytest tests/ -v
-
-# Run with coverage
-pytest --cov=src tests/
-
-# Run specific test files
-pytest tests/test_pipeline.py -v
-
-# Quick workflow test
-./scripts/quick_test.sh
-```
 
 ## Documentation
 
