@@ -12,7 +12,7 @@ help:
 	@echo "  clean     - Remove containers and images"
 	@echo "  logs      - Show container logs"
 	@echo "  shell     - Open shell in running container"
-	@echo "  test      - Test the API endpoints"
+	@echo "  test      - Run comprehensive document processing and search test"
 	@echo "  check-reqs - Check requirements alignment"
 
 # Build 
@@ -44,21 +44,7 @@ logs:
 shell:
 	docker-compose exec orion-api /bin/bash
 
-# Test API endpoints
+# Run comprehensive quick test
 test:
-	@echo "Testing API endpoints..."
-	@echo "1. Testing root endpoint:"
-	@curl -s http://localhost:8000/ | jq .
-	@echo "\n2. Testing health endpoint:"
-	@curl -s http://localhost:8000/health | jq .
-	@echo "\n3. Testing query endpoint:"
-	@curl -s -X POST http://localhost:8000/v1/query \
-		-H "Content-Type: application/json" \
-		-d '{"body": {"query": "SELECT * FROM users"}}' | jq .
-	@echo "\n4. Testing upload endpoint:"
-	@echo "test content" > /tmp/test.txt
-	@curl -s -X POST http://localhost:8000/v1/upload \
-		-F "file=@/tmp/test.txt" \
-		-F "email=test@example.com" \
-		-F "description=Test file" | jq .
-	@rm -f /tmp/test.txt
+	@echo "Running Orion comprehensive quick test..."
+	./scripts/quick_test.sh

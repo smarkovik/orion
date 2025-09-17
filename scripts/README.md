@@ -11,7 +11,7 @@ This directory contains shell scripts for testing the complete Orion document pr
 This is the main test script that:
 
 1. Builds and starts the Docker container
-2. Uploads 3 PDF files from `$HOME/Desktop/books`
+2. Uploads 3 text files from `sdk/examples/book-samples`
 3. Waits for document processing to complete
 4. Verifies the documents were processed correctly
 5. Performs multiple search queries using both algorithms
@@ -71,7 +71,7 @@ Comprehensive status check without making changes:
 
 ### Required Files
 
-- PDF files in `$HOME/Desktop/books/` directory
+- Text files in `sdk/examples/book-samples/` directory
 - Docker and Docker Compose installed
 - `jq` command-line JSON processor (optional, for pretty output)
 
@@ -164,7 +164,7 @@ After successful execution, you'll have:
 
 ```
 $HOME/Desktop/orion/test@example.com/
-├── raw_uploads/          # Original PDF files
+├── raw_uploads/          # Original text files
 ├── processed_text/       # Extracted text files
 ├── raw_chunks/          # Text chunks (many files)
 └── processed_vectors/   # Vector embeddings (JSON/HDF5)
@@ -175,7 +175,7 @@ $HOME/Desktop/orion/test@example.com/
 ### Common Issues
 
 1. **API not starting**: Check Docker logs with `docker-compose logs`
-2. **No PDF files**: Ensure PDFs exist in `$HOME/Desktop/books/`
+2. **No text files**: Ensure text files exist in `sdk/examples/book-samples/`
 3. **Upload failures**: Check file permissions and API logs
 4. **Processing timeout**: Large files may take longer; increase wait time
 5. **Query failures**: Ensure documents are fully processed first

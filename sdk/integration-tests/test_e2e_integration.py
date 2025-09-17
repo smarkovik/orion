@@ -162,16 +162,16 @@ class IntegrationTestRunner:
             self.log(f"ERROR: Book samples directory not found: {self.book_samples_dir}", "ERROR")
             return False
 
-        # Check for PDF files
-        pdf_files = list(self.book_samples_dir.glob("*.pdf"))
-        if len(pdf_files) < 3:
-            self.log(f"ERROR: Need at least 3 PDF files in {self.book_samples_dir}, found {len(pdf_files)}", "ERROR")
-            self.log(f"   PDF files found: {[f.name for f in pdf_files]}")
+        # Check for text files
+        text_files = list(self.book_samples_dir.glob("*.txt"))
+        if len(text_files) < 3:
+            self.log(f"ERROR: Need at least 3 text files in {self.book_samples_dir}, found {len(text_files)}", "ERROR")
+            self.log(f"   Text files found: {[f.name for f in text_files]}")
             return False
 
-        self.log(f"PASS: Found {len(pdf_files)} PDF files:")
-        for pdf_file in pdf_files[:3]:  # We'll use first 3
-            self.log(f"   - {pdf_file.name} ({pdf_file.stat().st_size / 1024:.1f} KB)")
+        self.log(f"PASS: Found {len(text_files)} text files:")
+        for text_file in text_files[:3]:  # We'll use first 3
+            self.log(f"   - {text_file.name} ({text_file.stat().st_size / 1024:.1f} KB)")
 
         return True
 
@@ -343,8 +343,8 @@ class IntegrationTestRunner:
             return False
 
     def upload_test_files(self) -> bool:
-        """Upload the 3 PDF files using the SDK."""
-        self.log("Uploading test PDF files...")
+        """Upload the 3 text files using the SDK."""
+        self.log("Uploading test text files...")
 
         try:
             self.log("Initializing OrionClient with verbose logging...")
@@ -353,26 +353,26 @@ class IntegrationTestRunner:
             self.log(f"  Client timeout: {client.config.timeout}")
             self.log(f"  Client API key: {'SET' if client.config.api_key else 'NOT_SET'}")
 
-            pdf_files = list(self.book_samples_dir.glob("*.pdf"))[:3]
-            self.log(f"Found {len(pdf_files)} PDF files to upload:")
-            for pdf_file in pdf_files:
-                file_size = pdf_file.stat().st_size
-                self.log(f"  - {pdf_file.name}: {file_size:,} bytes ({file_size / (1024*1024):.1f}MB)")
+            text_files = list(self.book_samples_dir.glob("*.txt"))[:3]
+            self.log(f"Found {len(text_files)} text files to upload:")
+            for text_file in text_files:
+                file_size = text_file.stat().st_size
+                self.log(f"  - {text_file.name}: {file_size:,} bytes ({file_size / (1024*1024):.1f}MB)")
 
-            for i, pdf_file in enumerate(pdf_files, 1):
-                self.log(f"Uploading file {i}/3: {pdf_file.name}")
+            for i, text_file in enumerate(text_files, 1):
+                self.log(f"Uploading file {i}/3: {text_file.name}")
                 upload_start = time.time()
 
                 try:
-                    self.log(f"Calling client.upload_document for {pdf_file.name}...")
-                    self.log(f"  File path: {pdf_file}")
+                    self.log(f"Calling client.upload_document for {text_file.name}...")
+                    self.log(f"  File path: {text_file}")
                     self.log(f"  User email: {self.test_user_email}")
-                    self.log(f"  File size: {pdf_file.stat().st_size:,} bytes")
+                    self.log(f"  File size: {text_file.stat().st_size:,} bytes")
 
                     document = client.upload_document(
-                        file_path=pdf_file,
+                        file_path=text_file,
                         user_email=self.test_user_email,
-                        description=f"E2E Test Book {i}: {pdf_file.stem}",
+                        description=f"E2E Test Book {i}: {text_file.stem}",
                         wait_for_processing=False,
                     )
 
@@ -539,10 +539,10 @@ class IntegrationTestRunner:
             client = OrionClient(base_url=self.api_url, timeout=30)
 
             test_queries = [
-                "artificial intelligence and machine learning",
-                "neural networks and deep learning",
-                "natural language processing techniques",
-                "computer vision applications",
+                "abundance of large whales",
+                "Smuggled on board",
+                "Pull, pull, my good boys",
+                "Mr. Starbuck",
             ]
 
             # Test cosine similarity search

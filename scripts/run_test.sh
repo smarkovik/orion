@@ -24,10 +24,10 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Check for PDF files
-if [ ! -d "$HOME/Desktop/books" ] || [ -z "$(find "$HOME/Desktop/books" -name "*.pdf" | head -1)" ]; then
-    echo -e "${RED}❌ No PDF files found in $HOME/Desktop/books${NC}"
-    echo "Please add some PDF files to test with."
+# Check for text files
+if [ ! -d "sdk/examples/book-samples" ] || [ -z "$(find "sdk/examples/book-samples" -name "*.txt" | head -1)" ]; then
+    echo -e "${RED}❌ No text files found in sdk/examples/book-samples${NC}"
+    echo "Please add some text files to test with."
     exit 1
 fi
 

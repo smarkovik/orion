@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-BOOKS_DIR="$HOME/Desktop/books"
+BOOKS_DIR="sdk/examples/book-samples"
 TEST_EMAIL="test@example.com"
 API_BASE_URL="http://localhost:8000"
 CONTAINER_NAME="orion-test"
@@ -57,8 +57,8 @@ wait_for_api() {
     return 1
 }
 
-# Function to upload a PDF file
-upload_pdf() {
+# Function to upload a text file
+upload_text_file() {
     local file_path="$1"
     local filename=$(basename "$file_path")
     
@@ -197,14 +197,14 @@ main() {
         exit 1
     fi
     
-    # Check if we have PDF files
-    pdf_files=($(find "$BOOKS_DIR" -name "*.pdf" | head -3))
-    if [ ${#pdf_files[@]} -eq 0 ]; then
-        print_error "No PDF files found in $BOOKS_DIR"
+    # Check if we have text files
+    text_files=($(find "$BOOKS_DIR" -name "*.txt" | head -3))
+    if [ ${#text_files[@]} -eq 0 ]; then
+        print_error "No text files found in $BOOKS_DIR"
         exit 1
     fi
     
-    print_success "Found ${#pdf_files[@]} PDF files to test with"
+    print_success "Found ${#text_files[@]} text files to test with"
     
     # Step 2: Build and start Docker container
     print_status "Building and starting Docker container..."
@@ -227,15 +227,15 @@ main() {
         exit 1
     fi
     
-    # Step 4: Upload PDF files
-    print_status "Uploading PDF files..."
+    # Step 4: Upload text files
+    print_status "Uploading text files..."
     upload_count=0
     
-    for pdf_file in "${pdf_files[@]}"; do
-        if upload_pdf "$pdf_file"; then
+    for text_file in "${text_files[@]}"; do
+        if upload_text_file "$text_file"; then
             ((upload_count++))
         else
-            print_warning "Skipping failed upload: $(basename "$pdf_file")"
+            print_warning "Skipping failed upload: $(basename "$text_file")"
         fi
     done
     
@@ -262,11 +262,9 @@ main() {
     
     # Test queries based on the religious texts we have
     test_queries=(
-        "God creation heaven earth"
-        "prayer worship faith"
-        "commandments law righteousness"
-        "wisdom knowledge understanding"
-        "love compassion mercy"
+        "So strange an accident has happened"
+        "Autumn passed thus."
+        "The old man"
     )
     
     algorithms=("cosine" "hybrid")
@@ -299,7 +297,7 @@ main() {
     echo ""
     echo "Summary:"
     echo "- Docker container: ✅ Built and running"
-    echo "- PDF uploads: ✅ $upload_count files uploaded"
+    echo "- Text file uploads: ✅ $upload_count files uploaded"
     echo "- Document processing: ✅ Completed"
     echo "- Search queries: ✅ Both cosine and hybrid algorithms tested"
     echo ""

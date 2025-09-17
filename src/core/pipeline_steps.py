@@ -88,7 +88,7 @@ class TextChunkingStep(PipelineStep):
             chunks_dir = settings.get_user_raw_chunks_path(context.email)
             chunks_dir.mkdir(parents=True, exist_ok=True)
 
-            base_filename = text_file_path.stem
+            base_filename = context.file_id
             chunk_files = []
 
             for i, chunk in enumerate(chunks):
@@ -171,9 +171,8 @@ class EmbeddingGenerationStep(PipelineStep):
                     error=f"Directory does not exist: {chunks_dir}",
                 )
 
-            # Get base filename from the converted text file path to filter chunks for this document
-            converted_text_path = Path(context.metadata["converted_text_path"])
-            base_filename = converted_text_path.stem
+            # Use document UUID to filter chunks for this document
+            base_filename = context.file_id
             chunk_pattern = f"{base_filename}_chunk_*.txt"
             chunk_files = list(chunks_dir.glob(chunk_pattern))
 
