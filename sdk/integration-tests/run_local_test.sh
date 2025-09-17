@@ -63,18 +63,18 @@ log $GREEN "PASS: Python found: $($PYTHON_CMD --version)"
 # Check book samples
 if [ ! -d "examples/book-samples" ]; then
     log $RED "ERROR: examples/book-samples directory not found"
-    log $RED "   Please create this directory and add PDF files"
+    log $RED "   Please create this directory and add text files"
     exit 1
 fi
 
-PDF_COUNT=$(find examples/book-samples -name "*.pdf" | wc -l)
-if [ $PDF_COUNT -lt 3 ]; then
-    log $RED "ERROR: Need at least 3 PDF files in examples/book-samples/"
-    log $RED "   Found $PDF_COUNT PDF files"
-    log $RED "   Please add more PDF files for testing"
+TEXT_COUNT=$(find examples/book-samples -name "*.txt" | wc -l)
+if [ $TEXT_COUNT -lt 3 ]; then
+    log $RED "ERROR: Need at least 3 text files in examples/book-samples/"
+    log $RED "   Found $TEXT_COUNT text files"
+    log $RED "   Please add more text files for testing"
     exit 1
 fi
-log $GREEN "PASS: Found $PDF_COUNT PDF files for testing"
+log $GREEN "PASS: Found $TEXT_COUNT text files for testing"
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

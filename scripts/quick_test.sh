@@ -13,7 +13,7 @@ NC='\033[0m'
 
 API_BASE_URL="http://localhost:8000"
 TEST_EMAIL="test@example.com"
-BOOKS_DIR="$HOME/Desktop/books"
+BOOKS_DIR="sdk/examples/book-samples"
 
 echo -e "${BLUE}🚀 Orion Quick Test${NC}"
 echo "==================="
@@ -27,12 +27,17 @@ else
     exit 1
 fi
 
-# Upload one PDF
-echo -e "${BLUE}Uploading test PDF...${NC}"
-pdf_file=$(find "$BOOKS_DIR" -name "*.pdf" | head -1)
-if [ -n "$pdf_file" ]; then
+# Clear any existing uploads for clean test
+echo -e "${BLUE}Cleaning up previous uploads...${NC}"
+rm -rf $HOME/Desktop/orion/$TEST_EMAIL 2>/dev/null || true
+echo -e "${GREEN}✅ Clean slate ready${NC}"
+
+# Upload Romeo and Juliet specifically
+echo -e "${BLUE}Uploading Romeo and Juliet...${NC}"
+text_file="$BOOKS_DIR/romeo-and-juliet.txt"
+if [ -f "$text_file" ]; then
     response=$(curl -s -X POST \
-        -F "file=@$pdf_file" \
+        -F "file=@$text_file" \
         -F "email=$TEST_EMAIL" \
         "$API_BASE_URL/v1/upload")
     
@@ -43,13 +48,13 @@ if [ -n "$pdf_file" ]; then
         echo "$response"
     fi
 else
-    echo -e "${RED}❌ No PDF files found in $BOOKS_DIR${NC}"
+    echo -e "${RED}❌ Romeo and Juliet not found: $text_file${NC}"
     exit 1
 fi
 
 # Wait a bit for processing
 echo -e "${BLUE}Waiting for processing...${NC}"
-sleep 10
+sleep 60
 
 # Check library stats
 echo -e "${BLUE}Checking library stats...${NC}"
@@ -60,12 +65,23 @@ echo "$stats" | jq '.' 2>/dev/null || echo "$stats"
 echo -e "${BLUE}Performing test query...${NC}"
 query_response=$(curl -s -X POST \
     -H "Content-Type: application/json" \
-    -d '{"email":"'$TEST_EMAIL'","query":"God","algorithm":"cosine","limit":3}' \
+    -d '{"email":"'$TEST_EMAIL'","query":"love","algorithm":"cosine","limit":3}' \
     "$API_BASE_URL/v1/query")
 
 if echo "$query_response" | grep -q "results"; then
     echo -e "${GREEN}✅ Query successful${NC}"
-    echo "$query_response" | jq '.results | length' 2>/dev/null | xargs echo "Results found:"
+    result_count=$(echo "$query_response" | jq '.results | length' 2>/dev/null)
+    echo "Results found: $result_count"
+    
+    if [ "$result_count" -gt 0 ]; then
+        echo -e "${BLUE}📄 Search Results:${NC}"
+        echo "$query_response" | jq -r '.results[] | "
+🔍 Rank \(.rank) | Score: \(.similarity_score | .*100 | floor)%
+📁 File: \(.original_filename) | Chunk: \(.chunk_index)
+📝 Text: \(.text | .[0:200])...\n"' 2>/dev/null || echo "Could not parse results"
+    else
+        echo -e "${YELLOW}No search results found${NC}"
+    fi
 else
     echo -e "${RED}❌ Query failed${NC}"
     echo "$query_response"

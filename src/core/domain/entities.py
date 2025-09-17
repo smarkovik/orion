@@ -93,8 +93,9 @@ class Document:
         if chunk.document_id != self.id:
             raise ValueError(f"Chunk document_id ({chunk.document_id}) does not match " f"document id ({self.id})")
 
-        document_base_name = self.get_base_filename()
-        if not chunk.filename.startswith(document_base_name):
+        # Check if chunk belongs to this document by checking if filename starts with document ID
+        document_id_str = str(self.id)
+        if not chunk.filename.startswith(document_id_str):
             # Skip chunks that don't belong to this document (handles corrupted embeddings files)
             return
 
