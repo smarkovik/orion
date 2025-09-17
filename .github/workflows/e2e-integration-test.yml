@@ -74,20 +74,20 @@ jobs:
             echo "Found book-samples directory:"
             ls -la orion-project/sdk/examples/book-samples/
             
-            # Count PDF files
-            pdf_count=$(find orion-project/sdk/examples/book-samples -name "*.pdf" | wc -l)
-            echo "PDF files found: $pdf_count"
+            # Count text files
+            txt_count=$(find orion-project/sdk/examples/book-samples -name "*.txt" | wc -l)
+            echo "Text files found: $txt_count"
             
-            if [ $pdf_count -lt 3 ]; then
-              echo "ERROR: Need at least 3 PDF files for testing"
-              echo "Please add PDF files to sdk/examples/book-samples/ directory"
+            if [ $txt_count -lt 3 ]; then
+              echo "ERROR: Need at least 3 text files for testing"
+              echo "Please add text files to sdk/examples/book-samples/ directory"
               exit 1
             fi
             
-            echo "PASS: Found $pdf_count PDF files for testing"
+            echo "PASS: Found $txt_count text files for testing"
           else
             echo "ERROR: book-samples directory not found"
-            echo "Please create sdk/examples/book-samples/ and add PDF files"
+            echo "Please create sdk/examples/book-samples/ and add text files"
             exit 1
           fi
 

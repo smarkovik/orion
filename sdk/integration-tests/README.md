@@ -8,7 +8,7 @@ The integration test performs the following workflow:
 
 1. **Build** - Builds the Orion API Docker image
 2. **Deploy** - Starts the API container with proper configuration
-3. **Upload** - Uploads 3 PDF files using the SDK
+3. **Upload** - Uploads 3 text files using the SDK
 4. **Process** - Waits for document processing (text extraction, chunking, embedding generation)
 5. **Search** - Tests both cosine similarity and hybrid search algorithms
 6. **Report** - Generates detailed test results and metrics
@@ -25,28 +25,39 @@ The integration test performs the following workflow:
 ### Required Environment
 
 - **Cohere API Key** - Set `COHERE_API_KEY` environment variable
-- **PDF Files** - Place 3 PDF files in `examples/book-samples/`
+- **Text Files** - Sample files provided in `sdk/examples/book-samples/` (or add your own)
 
-### Setup PDF Files
+### Setup Text Files
 
-The test expects 3 PDF files in the `examples/book-samples/` directory:
+The test expects 3 text files in the `sdk/examples/book-samples/` directory.
+
+**Sample Files Provided:**
+
+The repository includes sample text files ready for testing:
+
+- `beowolf.txt` - Classic epic poem
+- `frankenstain.txt` - Mary Shelley's novel
+- `moby-dick.txt` - Herman Melville's novel
+- `romeo-and-juliet.txt` - Shakespeare's play
+
+**Custom Files (Optional):**
+
+To use your own text files instead:
 
 ```bash
-# From the SDK root directory
-mkdir -p examples/book-samples
-
-# Copy your PDF files
-cp /path/to/book1.pdf examples/book-samples/
-cp /path/to/book2.pdf examples/book-samples/
-cp /path/to/book3.pdf examples/book-samples/
+# From the repository root directory
+# Copy your text files (will supplement or replace sample files)
+cp /path/to/your-book1.txt sdk/examples/book-samples/
+cp /path/to/your-book2.txt sdk/examples/book-samples/
+cp /path/to/your-book3.txt sdk/examples/book-samples/
 ```
 
 **File Requirements:**
 
-- At least 3 PDF files
+- At least 3 text files (.txt extension)
 - Maximum 50MB per file (configurable)
-- Should contain text content (not just images)
-- Preferably books or documents with substantial content
+- Should contain substantial text content
+- Preferably books or documents with meaningful content for search testing
 
 ## Running Tests
 
@@ -108,7 +119,7 @@ API_URL = "http://localhost:8002"
 
 # Test data
 TEST_USER_EMAIL = "e2e-test@orion.ai"
-PDF_FILES_COUNT = 3
+TEXT_FILES_COUNT = 3
 
 # Timeouts
 DOCKER_BUILD_TIMEOUT = 300  # 5 minutes
@@ -124,7 +135,7 @@ The test passes when all of these conditions are met:
 
 - **Docker Build**: Image builds successfully
 - **Docker Start**: Container starts and API becomes healthy
-- **File Upload**: At least 1 PDF uploads successfully
+- **File Upload**: At least 1 text file uploads successfully
 - **Processing**: Documents are processed with >85% embedding coverage
 - **Search**: Either cosine or hybrid search returns results
 
@@ -144,7 +155,7 @@ After running, the test generates:
   "api_health": true,
   "file_uploads": [
     {
-      "filename": "book1.pdf",
+      "filename": "book1.txt",
       "document_id": "uuid-123",
       "file_size": 1024576,
       "status": "uploaded",
@@ -182,21 +193,21 @@ After running, the test generates:
 - Verify Dockerfile exists in parent directory
 - Check network connectivity for package downloads
 
-#### 2. No PDF Files Found
+#### 2. No Text Files Found
 
-**Problem**: `Need at least 3 PDF files in examples/book-samples/`
+**Problem**: `Need at least 3 text files in sdk/examples/book-samples/`
 
 **Solutions**:
 
 ```bash
-# Check directory exists
-ls -la examples/book-samples/
+# Check directory exists (from repository root)
+ls -la sdk/examples/book-samples/
 
-# Add PDF files
-cp /path/to/*.pdf examples/book-samples/
+# Add text files
+cp /path/to/*.txt sdk/examples/book-samples/
 
 # Verify files
-find examples/book-samples -name "*.pdf" | wc -l
+find sdk/examples/book-samples -name "*.txt" | wc -l
 ```
 
 #### 3. Cohere API Key Issues
@@ -222,7 +233,7 @@ echo $COHERE_API_KEY
 **Solutions**:
 
 - Check Cohere API key is valid and has quota
-- Reduce PDF file sizes (large files take longer)
+- Reduce text file sizes (large files take longer)
 - Increase processing timeout in the test
 - Check container logs: `docker logs orion-e2e-test`
 
@@ -234,7 +245,7 @@ echo $COHERE_API_KEY
 
 - Verify processing completed (check embedding coverage)
 - Try broader search terms
-- Check PDF files contain searchable text (not just images)
+- Check text files contain meaningful content for search
 - Verify API endpoints are responding
 
 ### Debugging Commands
@@ -255,8 +266,9 @@ curl http://localhost:8002/health
 # View test logs
 tail -f integration-tests/test.log
 
-# Check PDF file content
-file examples/book-samples/*.pdf
+# Check text file content (from repository root)
+file sdk/examples/book-samples/*.txt
+head -n 20 sdk/examples/book-samples/*.txt
 ```
 
 ## Development
