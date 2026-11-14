@@ -153,8 +153,10 @@ def run_threshold(conn: psycopg.Connection, threshold: float, rows: list) -> Non
         f"largest={max((c['size'] for c in clusters), default=0)}"
     )
     for c in multi[:5]:
-        print(f"  [{c['size']} articles / {c['source_count']} sources, score {c['score']:.2f}] "
-              f"{titles[c['label_article_id']]}")
+        print(
+            f"  [{c['size']} articles / {c['source_count']} sources, score {c['score']:.2f}] "
+            f"{titles[c['label_article_id']]}"
+        )
 
 
 def main() -> None:

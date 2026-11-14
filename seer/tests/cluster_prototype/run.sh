@@ -4,7 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 FILES=(-f docker-compose.yml)
+PROXY=0
 if [ -n "${HTTPS_PROXY:-}" ]; then
+  PROXY=1
   FILES+=(-f docker-compose.proxy.yml)
   for ca in "${SSL_CERT_FILE:-}" /root/.ccr/ca-bundle.crt; do
     if [ -n "$ca" ] && [ -f "$ca" ]; then cp "$ca" certs/extra-ca.crt; break; fi
@@ -24,15 +26,29 @@ ensure_docker() {
 
 dc() { docker compose "${FILES[@]}" "$@"; }
 
+build() {
+  if [ "$PROXY" = 1 ]; then
+    # Compose's bake builder needs an explicit grant for host-network builds.
+    local bake
+    bake="$(mktemp)"
+    dc build --print "$@" >"$bake"
+    docker buildx bake -f "$bake" --allow=network.host "$@"
+    rm -f "$bake"
+  else
+    dc build "$@"
+  fi
+}
+
 ensure_docker
 case "${1:-all}" in
-  up) dc up -d --build db viewer ;;
-  scrape) dc run --rm --build scraper ;;
-  cluster) dc run --rm --build clusterer ;;
+  up) build viewer && dc up -d db viewer ;;
+  scrape) build scraper && dc run --rm scraper ;;
+  cluster) build clusterer && dc run --rm clusterer ;;
   all)
-    dc up -d --build db viewer
-    dc run --rm --build scraper
-    dc run --rm --build clusterer
+    build viewer scraper clusterer
+    dc up -d db viewer
+    dc run --rm scraper
+    dc run --rm clusterer
     echo "Viewer: http://localhost:8080"
     ;;
   down) dc down ;;
