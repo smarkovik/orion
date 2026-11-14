@@ -1,0 +1,114 @@
+group,name,timemk_slug,website,match,title,rss_url,rss_items,rss_age_days
+Вести,24 Вести,24vesti,https://24.mk,title,Телевизија 24,,,
+Вести,ТВ21,tv21,https://tv21.tv,title,TV21,https://tv21.tv/feed/,10,0
+Вести,Макфакс,makfax,https://makfax.com.mk/,title,Макфакс - Независна новинска агенција,https://makfax.com.mk/feed/,10,0
+Вести,+инфо,plusinfo,https://plusinfo.mk,title,Дома - plusinfo.mk,https://plusinfo.mk/feed/,10,0
+Вести,Сакам да кажам,sdk,https://sdk.mk/index.php/mk/,title,Почетна - Сакам да кажам - Сакам Да Кажам,https://sdk.mk/index.php/mk/feed/,10,0
+Вести,360 степени,360stepeni,https://360stepeni.mk,title,НАСЛОВНА - 360 степени,https://360stepeni.mk/feed/,10,0
+Вести,Нова Македонија,nova_mk,https://novamakedonija.com.mk,title,Нова Македонија - Првиот македонски дневен весник - Нова Македонија,https://novamakedonija.com.mk/feed/,10,0
+Вести,Независен,nezavisen,https://nezavisen.mk,title,Почетна - Независен Весник,https://nezavisen.mk/feed/,20,0
+Вести,Deutsche Welle,dw,https://www.dw.com/mk,manual,Теми,,,
+Вести,Пари,pari,https://www.pari.mk/,title,Пари.мк – Времето е пари,https://www.pari.mk/feed/,10,548
+Вести,Bloomberg Adria,bloomberg,https://mk.bloombergadria.com,title,Блумберг Адрија,,,
+Вести,Слободен Печат,slobodenpecat,https://slobodenpecat.mk,blocked,,,,
+Вести,Фокус,fokus,https://fokus.mk,title,Pocetna - Fokus.mk,https://fokus.mk/feed/,10,0
+Вести,Либертас,libertas,https://libertas.mk,title,Насловна - Либертас,https://libertas.mk/feed/,10,0
+Вести,Нова ТВ,novatv,https://novatv.mk,title,НОВА ТВ – Почетна,https://novatv.mk/feed/,10,2
+Вести,Бриф,brif,https://brif.mk,blocked,,,,
+Вести,IRL,irl,https://irl.mk/mk/,title,ИРЛ - ИСТРАЖУВАЧКА РЕПОРТЕРСКА ЛАБОРАТОРИЈА МАКЕДОНИЈА,https://irl.mk/mk/feed/,10,7
+Вести,Призма,prizma,https://prizma.mk,title,"Призма - Истражуваме, не препишуваме",https://prizma.mk/feed/,20,1
+Вести,Мета,meta,https://meta.mk,title,Meta.mk – Новинска Агенција,https://meta.mk/feed/,20,0
+Вести,Press24,press24,https://press24.mk,title,Press24 - од секој агол,https://press24.mk/feed/,10,0
+Вести,Прва Скопска,prvaskopska,https://prvaskopska.mk,title,Прва Скопска ТВ – Скопје,https://prvaskopska.mk/feed/,10,0
+Вести,Радио МОФ,radiomof,https://www.radiomof.mk/,title,Дома - Радио МОФ,https://www.radiomof.mk/feed/,10,0
+Вести,Пулс24,puls24,https://puls24.mk,title,Пулс24 — Ова е пулсот на информациите,https://puls24.mk/feed/,10,0
+Вести,CivilMedia,civil,https://civilmedia.mk,title,CivilMedia – СЛОБОДНО. НЕЗАВИСНО. ОТВОРЕНО,https://civilmedia.mk/feed/,10,0
+Вести,Вечер Прес,vecer,https://vecer.press,blocked,,,,
+Вести,еМагазин,emagazin,https://emagazin.mk,blocked,,,,
+Вести,Frontline,frontline,https://frontline.mk,title,ПРВА ЛИНИЈА,https://frontline.mk/feed/,10,3
+Вести,24Инфо,24info,https://24info.mk,title,Почетна - 24info.mk,https://24info.mk/feed/,10,0
+Вести,Во Центар,vocentar,https://vocentar.com,title,Дома - Во Центар,https://vocentar.com/feed/,10,0
+Вести,4NEWS,4news,https://4news.mk,title,4NEWS.mk,https://4news.mk/feed/,10,0
+Вести,Скопско Ехо,skopskoeho,https://skopskoeho.mk,title,Скопско ЕХО,https://skopskoeho.mk/feed/,10,0
+Вести,Скопје1,skopje1,https://skopje1.mk,title,"Скопје1.мк - види, слушни, прочитај",https://skopje1.mk/feed/rss,50,0
+Вести,Скопје инфо,skopjeinfo,https://skopjeinfo.mk,title,skopjeinfo.mk | Азбуката на градот,https://skopjeinfo.mk/feed/,30,0
+Вести,Рацин,racin,https://racin.mk,title,Рацин.мк | За будна јавност,https://racin.mk/feed/,10,0
+Вести,Фактор,faktor,,,,,,
+Вести,Бизнис Вести,biznisvesti,https://biznisvesti.mk,title,Home - biznisvesti.mk,https://biznisvesti.mk/feed/,10,0
+Вести,Порта,porta,https://porta.mk,title,Порта | Вашиот современ влез на информации..,https://porta.mk/feed/,10,0
+Вести,Тера,tera,https://tera.mk,title,TERA.TV - ТЕРА,https://tera.mk/feed/,10,0
+Вести,iNFOMAX,infomax,https://infomax.mk,title,INFOMAX.MK,https://infomax.mk/feed/,10,0
+Вести,Вечер,vecermk,https://vecer.mk,title,"Вечер, прв дознава",https://vecer.mk/feed,20,0
+Вести,Економија и Бизнис,ekonomijaibiznis,https://ekonomijaibiznis.mk,title,"Економија и Бизнис – Најнови вести, анализи и интервјуа",https://ekonomijaibiznis.mk/feed/,10,0
+Вести,Антропол,antropol,https://antropol.mk,title,Дома | Антропол,https://antropol.mk/feed/,10,0
+Вести,Политика,politika,https://politika.com.mk,title,Дома,https://politika.com.mk/feed,10,0
+Вести,Журнал,zurnal,https://zurnal.mk,title,Журнал.мк,https://zurnal.mk/feed/,20,0
+Вести,Проверено,provereno,https://provereno.mk,title,provereno.mk,https://provereno.mk/feed/,10,0
+Вести,Национално,nacionalno,https://nacionalno.mk,title,Портал Национал – nacionalno.mk,https://nacionalno.mk/feed/,10,0
+Вести,Колегиум,kolegium,https://kolegium.mk,title,За читатели кои сакаат да знаат повеќе.,https://kolegium.mk/feed/,10,0
+Вести,48часа,48chasa,https://48chasa.mk,title,Најнови вести денес од Македонија и светот | 48chasa.mk,https://48chasa.mk/feed/,10,0
+Портали,Кајгана,kajgana,https://kajgana.com,title,Кајгана,https://kajgana.com/rss.xml,10,0
+Портали,Црнобело,crnobelo,https://www.crnobelo.com/,title,CRNOBELO.com,,,
+Портали,Факултети,fakulteti,https://fakulteti.mk,title,Почетна,,,
+Портали,IT.mk,itcom,https://it.mk,blocked,,,,
+Портали,Fashionel,fashionel,https://fashionel.mk,title,Fashionel — Мода и стил,https://fashionel.mk/rss,30,0
+Портали,Таратур,taratur,https://www.taratur.com/,title,Taratur.com - Таратур,https://www.taratur.com/feed/,10,0
+Портали,365,365,https://365.com.mk,title,"365 – Вести, анализи и забава",https://365.com.mk/feed/,10,0
+Портали,Кафе пауза,kafepauza,https://kafepauza.mk,title,Homepage - КАФЕ ПАУЗА,https://kafepauza.mk/feed/,10,0
+Портали,Попара,popara,https://popara.mk,title,popara.mk – Забавно информативен портал,https://popara.mk/feed/,13,0
+Портали,BIZlife,bizlife,https://bizlife.mk,title,Home - BIZlife,https://bizlife.mk/feed/,10,0
+Портали,Убавина и Здравје,ubavinaizdravje,https://www.ubavinaizdravje.mk/,title,Убавина и здравје,https://www.ubavinaizdravje.mk/feed/,10,0
+Портали,Lady,lady,https://lady.mk,title,Homepage - Fast News - lady.mk,https://lady.mk/feed/,10,0
+Портали,Порта 3,porta3,https://www.porta3.mk/,title,"Порта3 - градежништво, архитектура и екологија",https://www.porta3.mk/feed/,10,1
+Портали,Банкарство.мк,bankarstvo,https://bankarstvo.mk,title,Дома - Bankarstvo MK,https://bankarstvo.mk/feed/,10,0
+Портали,Деца,deca,https://deca.mk,title,Deca.mk - Портал за најмилите,https://deca.mk/feed/,30,0
+Портали,ПРВ.мк,prv,https://prv.mk,title,ПРВ.мк - Најнови вести од Македонија и светот,https://prv.mk/rss,20,0
+Портали,Д-р Митов,drmitov,https://drmitov.mk,title,Д-р Митов - ЛЕКУВАМЕ ПРИЧИНИ НЕ ПОСЛЕДИЦИ,https://drmitov.mk/feed/,9,1
+Портали,Екран,ekran,https://ekran.mk,title,Home - ekran.mk,https://ekran.mk/feed/,10,0
+Портали,Емитер,emiter,https://emiter.mk,title,Emiter,,,
+Портали,Pedijatar.mk,pedijatar,https://pedijatar.mk,title,Почетна - Pedijatar.mk,https://pedijatar.mk/feed/,10,0
+Портали,Градина,gradina,https://gradina.mk,title,gradina.mk - Gradina,https://gradina.mk/feed/,10,1
+Портали,Иновативност,inovativnost,https://inovativnost.mk,title,Почетна - Иновативност,https://inovativnost.mk/feed/,10,0
+Портали,Авто Магазин,avtomagazin,https://www.avtomagazin.com.mk/,title,Новитети - Автомагазин,https://www.avtomagazin.com.mk/feed/,10,0
+Портали,Авто Плус,avtoplus,https://avtoplus.mk,title,АВТО ПЛУС | Најстарата ревија за автомобили во Македонија,https://avtoplus.mk/feed/,10,2
+Портали,Automedia,automedia,https://automedia.mk,title,Automedia MK · Почетна страница - Automedia,https://automedia.mk/feed/,10,0
+Портали,CARClub,carclub,https://www.carclub.mk/,title,"CARclub.mk | #1 за Автомобилите | CARclub.mk – Најдобриот сајт и портал за автомобили, коли, автомобилизам и тјунинг во Македонија!",https://www.carclub.mk/feed/,50,0
+Портали,Еспресо,espreso,https://espreso.mk,title,Почетна - Еспресо,https://espreso.mk/feed/,10,0
+Портали,Репортер,reporter,https://reporter.mk,title,Репортер - Reporter.mk,https://reporter.mk/feed/,20,0
+Портали,USB,usb,https://usb.mk,title,Дома - USB.mk,https://usb.mk/feed/,10,1
+Портали,Агротим,agrotim,https://agrotim.mk,blocked,,,,
+Портали,Трн,trn,https://trn.mk,title,Почетна - Trn.mk,https://trn.mk/feed/,10,0
+Портали,Градска,gradska,https://gradska.mk,title,Градска редакција - Пулсот на Скопје - Градска редакција,https://gradska.mk/feed/,10,0
+Портали,Умно,umno,https://umno.mk,title,"УМНО.МК - Уметност, наука, образование",https://umno.mk/feed/,10,0
+Портали,Битола Њуз,bitolanews,https://bitolanews.mk,title,Bitola News - Сите вести од Битола на едно место,https://bitolanews.mk/feed/,10,0
+Портали,Кумановски м.,kumanovskimuabeti,https://kumanovskimuabeti.mk,title,Кумановски Муабети,https://kumanovskimuabeti.mk/feed/,10,0
+Портали,Бабам Битола,babambitola,https://babambitola.mk,title,Home - Бабам Битола,https://babambitola.mk/feed/,10,0
+Портали,Smartportal,smartportal,https://smartportal.mk,title,Smartportal.mk - Портал за паметна технологија,https://smartportal.mk/feed/,10,0
+Портали,Е-автомобили,ev,,,,,,
+Портали,Зелена берза,zelenaberza,https://zelenaberza.com.mk,title,Почетнаa - Зелена Берза,https://zelenaberza.com.mk/feed/,4,0
+Портали,Култура24,kultura24,https://kultura24.mk,title,Почетна - KULTURA24,https://kultura24.mk/feed/,10,0
+Портали,Религија,religija,https://religija.mk,title,Home - Religija,https://religija.mk/feed/,10,0
+Портали,Конект,konekt,https://konekt.mk,title,Дома - Конект.мк,https://konekt.mk/feed/,10,0
+Портали,Булевар,bulevar,https://bulevar.mk,title,bulevar.mk,https://bulevar.mk/feed/,10,0
+Портали,Весник Илинден,ilinden,https://vesnik-ilinden.com,title,Македонски весник Илинден - Makedonski vesnik Ilinden,https://vesnik-ilinden.com/feed/,10,0
+Портали,Охрид1,ohrid1,https://ohrid1.com/,title,Ohrid1 – Се од Охрид!,https://ohrid1.com/feed,10,0
+Портали,Шеталиште,setaliste,https://setaliste.mk,title,Шеталиште - Најновите вести на едно место,https://setaliste.mk/feed/,10,0
+Портали,Во Бело,vobelo,https://vobelo.mk,title,Во Бело - Магазин,https://vobelo.mk/feed/,18,0
+Портали,Glamur,glamur,https://glamur.mk,title,Гламур - најчитаниот портал за познатите во Македонија,https://glamur.mk/feed/,15,0
+Портали,CafeBarRestoran,cafebarrestoran,https://cafebarrestoran.mk,title,CafeBar&Restoran,https://cafebarrestoran.mk/feed/,18,0
+Портали,Темпо,tempo,https://tempo.mk,title,Tempo - Темпо - Авто Магазин,https://tempo.mk/feed/,10,0
+Портали,Паноптикум,panoptikum,https://panoptikum.mk,title,Panoptikum.mk | Енциклопедиски едиторијал,https://panoptikum.mk/feed/,20,0
+Портали,Лице в лице,licevlice,https://licevlice.mk,title,Почетна - Лице в Лице,https://licevlice.mk/feed/,10,0
+Портали,Автомото,avtomoto,https://avtomoto.mk,title,"Avtomobilski vesti, testovi i soveti na edno mesto",https://avtomoto.mk/feed/,10,0
+Портали,Sync,sync,https://sync.mk,title,sync.mk,https://sync.mk/rss.xml,40,0
+Портали,OhridPress,ohridpress,https://ohridpress.com.mk,title,"OhridPress - Брзо, точно, проверено... Се за Охрид!",https://ohridpress.com.mk/feed/,10,0
+Спортски,МакФудбал,makfudbal,https://makfudbal.mk,title,Почетна - МакФудбал,https://makfudbal.mk/feed/,10,0
+Спортски,Спортманија,sportmania,https://sportmanija.mk,title,Спорт Манија - Најдобриот дел од денот,https://sportmanija.mk/feed/,9,0
+Спортски,IPON,ipon,https://ipon.mk,title,IPON – MK,https://ipon.mk/feed/,10,0
+Спортски,Дерби,derbi,https://derbi.mk,title,Почетна - Дерби,https://derbi.mk/feed/,10,0
+Спортски,SportSport,sportmedia,https://sportsport.mk,title,News - sportsport.mk,,,
+Спортски,Sport M,sportm,https://sportm.mk,title,sportm.mk — Спортски вести од Македонија и светот,https://sportm.mk/feed/,30,0
+Спортски,TopSport,topsport,https://topsport.mk,title,"TopSport.mk - Makedonski sportski vesti, doznajte poveke",https://topsport.mk/feed/,10,0
+Спортски,Спорт+,sportplus,https://sportplus.mk,title,Sport Plus Macedonia -,https://sportplus.mk/feed/,10,0
+Спортски,SportStation,sportstation,https://sportstation.mk,title,SportStation.mk - Платформа за вистинските љубители на спортот!,https://sportstation.mk/feed/,10,0
+Спортски,Мотори,motori,https://motori.mk,title,Motori.com.mk - Македонски веб сајт за мотори,https://motori.mk/?format=feed&type=rss,0,
