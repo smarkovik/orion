@@ -27,6 +27,9 @@ services:
       HOURS: "48"
       REQUEST_DELAY_S: "2"
       MAX_ARTICLES_PER_SOURCE: "150"
+      REFRESH_HOURS: "6"
+      MAX_REFRESH_PER_SOURCE: "20"
+      CHANGE_MIN_RATIO: "0.05"
       IGNORE_ROBOTS: "true" # experiments only
     volumes: ["./sources.yaml:/app/sources.yaml:ro"]
 
@@ -39,6 +42,11 @@ services:
       MODEL: intfloat/multilingual-e5-base
       THRESHOLDS: "0.90,0.92,0.94"
       WINDOW_HOURS: "48"
+      MODE: runs
+      STORY_THRESHOLD: "0.92"
+      STORY_OPEN_HOURS: "48"
+      STORY_MAX_GAP_HOURS: "18"
+      STORY_MAX_SPAN_HOURS: "24"
     volumes: ["hfcache:/root/.cache/huggingface", "./categories.yaml:/app/categories.yaml:ro"]
 
   viewer:

@@ -40,13 +40,21 @@ select, button { font:inherit; padding:.2rem .4rem; }
 .badge { display:inline-block; padding:.05rem .5rem; margin-right:.3rem; border-radius:99px; background:var(--accent); font-size:.8rem; }
 .badge.region { background:transparent; border:1px solid var(--border); }
 .badge.none { background:transparent; border:1px dashed var(--border); color:var(--muted); }
+.badge.new { background:#d9f2df; color:#14532d; font-weight:600; }
+.badge.upd { background:#fdebc8; color:#7a4a00; font-weight:600; }
+.badge.small { font-size:.7rem; padding:0 .4rem; margin:0 0 0 .2rem; }
+@media (prefers-color-scheme: dark) { .badge.new { background:#1f4a2c; color:#c9f2d4; } .badge.upd { background:#5a4210; color:#fde3a8; } }
+.card.story { display:flex; gap:.8rem; align-items:flex-start; }
+.card.story .body { flex:1; min-width:0; }
+.thumb { width:9.5rem; aspect-ratio:4/3; object-fit:cover; border-radius:6px; flex:none; background:var(--accent); }
+@media (max-width:560px) { .card.story { flex-direction:column; align-items:stretch; } .thumb { width:100%; aspect-ratio:16/9; } }
 .cats { color:var(--muted); font-size:.8rem; }
 </style>
 {% block head %}{% endblock %}
 </head>
 <body>
 <main>
-<p class="muted"><a href="/">All runs</a> · <a href="/editions">Editions</a></p>
+<p class="muted"><a href="/">All runs</a> · <a href="/stories">Stories</a> · <a href="/editions">Editions</a></p>
 {% block content %}{% endblock %}
 </main>
 </body>

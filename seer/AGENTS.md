@@ -34,24 +34,37 @@ The plan doc is at https://claude.ai/artifact/R8G6t1iVaTFxkMmi7ZsgwQ.
 | Service | Does |
 | --- | --- |
 | `db` | Postgres 16 + pgvector 0.8.7; schema in `db/schema.sql` (idempotent, applied by `make migrate`) |
-| `scraper` | Reads `sources.yaml` and upserts articles by canonical URL. `wp_api` sites give full text. `news_sitemap` sites need each article page fetched, with text extracted by trafilatura. |
-| `clusterer` | Embeds new articles, clusters each edition with average-link hierarchical clustering at each threshold, then votes a region and subject per story from `categories.yaml` |
-| `viewer` | FastAPI pages: runs, a run's stories with filters, and `/editions`, which shows every edition in CSS tabs and works as a saved file |
+| `scraper` | Reads `sources.yaml` and upserts articles by canonical URL, with an image and a flag for meaningful text changes. `wp_api` sites give full text. `news_sitemap` sites need each article page fetched, with text extracted by trafilatura, and recent pages are re-fetched to catch updates. |
+| `clusterer` | Embeds new articles, then runs in one of two modes. `MODE=stories` (live) adds only unassigned articles to stable stories. `MODE=runs` (experiments) re-clusters the whole window at each threshold into `cluster_runs`. Both vote a region and subject per story from `categories.yaml`. |
+| `viewer` | FastAPI pages. `/stories` shows Top or Latest per edition, with images and new/updated badges. `/editions` shows stories in CSS tabs and works as a saved file. `/runs/{id}` shows batch experiments. |
+
+**How stories are built** (`MODE=stories`):
+
+- An article joins the best open story only if its average similarity to the story's members is at least `STORY_THRESHOLD` (0.92). That's average linkage; comparing to the mean vector instead drifted into a 96-article mega-story.
+- It must also be within `STORY_MAX_GAP_HOURS` (18) of the story's newest article and within `STORY_MAX_SPAN_HOURS` (24) of its first. The span cap is what splits daily weather forecasts.
+- Otherwise the article starts a new story. Stories close after `STORY_OPEN_HOURS` (48) without new articles.
+- Score = ln(1 + sources) × 2^(−hours since last activity / 6). Last activity is the newest article, or a member's meaningful text change.
 
 **Data model:**
 
-- `sources.language` holds the edition code. `articles` carries `source_categories`.
+- `sources.language` holds the edition code.
+- `articles` carries `source_categories`, `image_url` and `source_modified_at`, plus `checked_at`, `content_changed_at` and `change_count` for updates. A change counts as meaningful if the title changed or more than 5% of the text did.
 - `embeddings` are stored per model and content hash, so only new or changed articles are embedded.
-- `cluster_runs` holds one row per edition and threshold. `clusters` carry `region`/`subject` with their vote counts, and `cluster_articles` lists the members.
+- `stories` and `story_articles` hold the live, stable stories; an article belongs to at most one story.
+- `cluster_runs`, `clusters` and `cluster_articles` hold batch experiments, one run per edition and threshold.
 
 **Run it:**
 
 - `make` lists the targets.
-- `make all` builds, starts, scrapes, clusters and opens the viewer.
-- `make refresh EDITION=fr` re-scrapes and re-clusters one edition.
-- `make export-editions` saves `out/editions.html`.
+- `make all` builds, starts, scrapes, builds stories and opens the viewer.
+- `make refresh` scrapes, then updates stories with new articles only. `EDITION=fr` limits it to one edition.
+- `make cluster` runs a batch experiment and `make reset-stories` rebuilds stories from scratch.
+- `make export-editions VIEW=top|latest` saves `out/editions.html`.
 
-**Knobs:** `HOURS`, `THRESHOLDS`, `WINDOW_HOURS`, `MODEL`, `EDITION`, `MAX_ARTICLES`, `RUN`, `THRESHOLD`, `MIN_SOURCES`.
+**Knobs:**
+
+- Make variables: `HOURS`, `THRESHOLDS`, `WINDOW_HOURS`, `MODEL`, `EDITION`, `MAX_ARTICLES`, `RUN`, `THRESHOLD`, `VIEW`, `MIN_SOURCES`.
+- Compose environment: `STORY_*`, `REFRESH_HOURS`, `MAX_REFRESH_PER_SOURCE`, `CHANGE_MIN_RATIO`.
 
 ## Conventions
 
@@ -76,7 +89,9 @@ The plan doc is at https://claude.ai/artifact/R8G6t1iVaTFxkMmi7ZsgwQ.
 | Volume | 48 h ≈ 1,160 mk and 1,190 fr articles. Embedding runs at 3.4–5.3 articles/s on CPU. |
 | Stories (0.92) | mk: 194 stories with 2+ sources (largest 24). fr: 134 (largest 30). |
 | Categories | mk sites file by place (region 84%, subject 49%). fr sites file by subject (region 40%, subject 81%). Each edition needs a fallback for its weak facet. |
-| Failure modes | Recurring topics merge across days (weather); agency copy inflates source counts; all-caps titles; weak 1-vote categories. |
+| Stories (incremental) | Match the batch run: mk 194 and fr 141 stories with 2+ sources (batch: 193 and 134). The largest are 15 and 28 articles; the longest span is 23 h. A second run with no new articles changes nothing. |
+| Images and updates | Featured images on 100% of recent mk articles; og:image or sitemap images on 56–100% of recent fr articles per site. Le Figaro's extraction varies between fetches, so it raises a few false "updated" flags. |
+| Failure modes | Agency copy inflates source counts; all-caps titles; weak 1-vote categories. The daily weather merge is fixed by the 24 h span cap. |
 | Discovery | 88 of 105 reachable MK sites expose the WordPress API. The French news sites tested publish news sitemaps covering 48 h. |
 
 ## Gotchas in cloud sandboxes
@@ -90,6 +105,9 @@ The plan doc is at https://claude.ai/artifact/R8G6t1iVaTFxkMmi7ZsgwQ.
 
 - A subject and region fallback per edition: fixed vectors per category, or the edition's home region.
 - A minimum vote for categories, for example 2 or more votes and at least 20% of a story's articles.
-- A time cap per story and syndication fingerprints, which fix the weather and agency-copy problems.
+- Syndication fingerprints, so agency copy counts once.
+- A more stable extraction or a text-normalization step, so Le Figaro stops raising false "updated" flags.
+- Images. Linking to outlets' images is fine for the prototype but needs a legal check before going public, since agency photos are licensed.
+- Linking stories that continue past the 24 h span into one longer topic thread.
 - Linking the same story across editions. The US airspace story appears in both mk and fr today.
 - Labelled pairs to measure precision and recall properly.
