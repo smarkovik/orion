@@ -144,7 +144,7 @@ def run_threshold(conn: psycopg.Connection, threshold: float, rows: list) -> Non
     sources = [r[1] for r in rows]
     published = [r[2] for r in rows]
     titles = {r[0]: r[3] for r in rows}
-    vectors = np.array([r[4] for r in rows], dtype=np.float32).reshape(len(rows), -1)
+    vectors = np.array([r[4].to_numpy() for r in rows], dtype=np.float32).reshape(len(rows), -1)
     clusters = build_clusters(cluster_labels(vectors, threshold), vectors, ids, sources, published) if rows else []
     save_run(conn, threshold, len(rows), clusters)
     multi = sorted((c for c in clusters if c["source_count"] >= 2), key=lambda c: c["score"], reverse=True)

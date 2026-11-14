@@ -36,7 +36,7 @@ services:
     environment:
       DATABASE_URL: *db-url
       MODEL: intfloat/multilingual-e5-base
-      THRESHOLDS: "0.82,0.86,0.90"
+      THRESHOLDS: "0.90,0.92,0.94"
       WINDOW_HOURS: "48"
     volumes: ["hfcache:/root/.cache/huggingface"]
 
