@@ -3,12 +3,24 @@
 First end-to-end test of Seer: scrape 10 Macedonian news sites, embed the articles, cluster them into stories, and inspect the clusters in a browser. Everything runs in Docker.
 
 ```bash
-./run.sh          # db + viewer up, scrape the last 48 h, cluster at 3 thresholds
-open http://localhost:8080
-./run.sh down
+make all          # build, start, scrape the last 48 h, cluster at 3 thresholds, open the viewer
+make down         # stop; data is kept
 ```
 
-Steps can also run alone: `./run.sh up`, `./run.sh scrape`, `./run.sh cluster`.
+`make` alone lists every target. `./run.sh <target>` is a shortcut for the same thing.
+
+| Target | Does |
+| --- | --- |
+| `all` | Build, start, scrape, cluster, then open the viewer |
+| `build`, `up`, `down`, `restart` | Build the images; start the database and viewer; stop everything; restart the viewer |
+| `scrape`, `cluster`, `refresh` | Run the scraper, run the clusterer, or both |
+| `open` | Open http://localhost:8080 in a browser |
+| `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=viewer`); check the viewer and the database |
+| `stats`, `sql`, `psql` | Articles per source and recent runs; one query (`SQL="..."`); an interactive shell |
+| `clear-runs` | Delete cluster runs but keep articles and embeddings |
+| `clean` | Stop and delete all data, including the model cache |
+
+Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `WINDOW_HOURS` and `MODEL` work the same way.
 
 ## Services
 
