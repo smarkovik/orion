@@ -1,13 +1,19 @@
 {% extends "base.html" %}
+{% from "_cards.html" import cluster_card %}
 {% block title %}Run #{{ run.id }}{% endblock %}
 {% block content %}
-<h1>Run #{{ run.id }}</h1>
+<h1>Run #{{ run.id }} · {{ run.edition | edition_name }}</h1>
 <p class="meta">
 threshold {{ "%.2f" | format(run.threshold) }} · method {{ run.method }} · model {{ run.model }} ·
 window {{ run.window_hours }} h · created {{ run.created_at | local_dt }} (Europe/Skopje)<br>
 {{ run.article_count }} articles · {{ run.cluster_count }} clusters · {{ run.multi_source_count }} multi-source ·
 largest {{ run.largest_cluster }}
 </p>
+<div class="runs">
+Edition:
+{% for e in edition_links %}{% if e.run %}<a href="/runs/{{ e.run.id }}?min_sources={{ min_sources }}"{% if e.code == run.edition %} class="cur"{% endif %}>{{ e.code | edition_name }} · #{{ e.run.id }}</a>{% else %}<span class="muted">{{ e.code | edition_name }} · no runs</span>{% endif %}
+{% endfor %}
+</div>
 <div class="runs">
 Compare:
 {% for r in runs %}
@@ -37,26 +43,5 @@ Compare:
 {% endfor %}
 </div>
 <p class="muted">Showing {{ clusters | length }} of {{ total }} clusters</p>
-{% for c in clusters %}
-<div class="card">
-<h2><a href="{{ c.label_url | safe_url }}" target="_blank" rel="noopener">{{ c.label_title }}</a></h2>
-<div class="badges">
-<span class="badge{% if not c.subject %} none{% endif %}">{{ c.subject or "no subject" }}{% if c.subject %} · {{ c.subject_votes }}/{{ c.size }}{% endif %}</span>
-<span class="badge region{% if not c.region %} none{% endif %}">{{ c.region or "no region" }}{% if c.region %} · {{ c.region_votes }}/{{ c.size }}{% endif %}</span>
-</div>
-<div class="meta">{{ c.size }} article{{ "" if c.size == 1 else "s" }} · {{ c.source_count }}
-source{{ "" if c.source_count == 1 else "s" }} · {{ c.first_published | local_dt }} → {{ c.last_published | local_dt }}</div>
-<details>
-<summary>Members</summary>
-<ul class="members">
-{% for m in members[c.id] %}
-<li><span class="sim">{{ "%.2f" | format(m.similarity) }}</span> · <strong>{{ m.source_name }}</strong> ·
-<a href="{{ m.url | safe_url }}" target="_blank" rel="noopener">{{ m.title }}</a>
-<span class="meta">· {{ m.published_at | local_dt }}</span>
-{% if m.source_categories %}<span class="cats">· {{ m.source_categories | join(", ") }}</span>{% endif %}</li>
-{% endfor %}
-</ul>
-</details>
-</div>
-{% endfor %}
+{% for c in clusters %}{{ cluster_card(c, members[c.id]) }}{% endfor %}
 {% endblock %}

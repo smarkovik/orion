@@ -1,0 +1,22 @@
+{% macro cluster_card(c, members) %}
+<div class="card">
+<h2><a href="{{ c.label_url | safe_url }}" target="_blank" rel="noopener">{{ c.label_title }}</a></h2>
+<div class="badges">
+<span class="badge{% if not c.subject %} none{% endif %}">{{ c.subject or "no subject" }}{% if c.subject %} · {{ c.subject_votes }}/{{ c.size }}{% endif %}</span>
+<span class="badge region{% if not c.region %} none{% endif %}">{{ c.region or "no region" }}{% if c.region %} · {{ c.region_votes }}/{{ c.size }}{% endif %}</span>
+</div>
+<div class="meta">{{ c.size }} article{{ "" if c.size == 1 else "s" }} · {{ c.source_count }}
+source{{ "" if c.source_count == 1 else "s" }} · {{ c.first_published | local_dt }} → {{ c.last_published | local_dt }}</div>
+<details>
+<summary>Members</summary>
+<ul class="members">
+{% for m in members %}
+<li><span class="sim">{{ "%.2f" | format(m.similarity) }}</span> · <strong>{{ m.source_name }}</strong> ·
+<a href="{{ m.url | safe_url }}" target="_blank" rel="noopener">{{ m.title }}</a>
+<span class="meta">· {{ m.published_at | local_dt }}</span>
+{% if m.source_categories %}<span class="cats">· {{ m.source_categories | join(", ") }}</span>{% endif %}</li>
+{% endfor %}
+</ul>
+</details>
+</div>
+{% endmacro %}

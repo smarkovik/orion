@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_cards.html" import cluster_card %}
+{% block title %}Editions{% endblock %}
+{% block head %}
+<style>
+.tabs input { position:absolute; opacity:0; pointer-events:none; }
+.tabbar { display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0 1rem; }
+.tabbar label { padding:.25rem .9rem; border:1px solid var(--border); border-radius:99px; cursor:pointer; background:var(--card); }
+.panel { display:none; }
+.chips span.chip { padding:.1rem .55rem; border:1px solid var(--border); border-radius:99px; font-size:.82rem; }
+{% for p in panels %}#tab-{{ loop.index }}:checked ~ .tabbar label[for="tab-{{ loop.index }}"] { background:var(--accent); font-weight:600; }
+#tab-{{ loop.index }}:checked ~ #panel-{{ loop.index }} { display:block; }
+#tab-{{ loop.index }}:focus-visible ~ .tabbar label[for="tab-{{ loop.index }}"] { outline:2px solid var(--link); }
+{% endfor %}
+</style>
+{% endblock %}
+{% block content %}
+<h1>Editions · threshold {{ threshold | threshold }} · min sources {{ min_sources }}</h1>
+<div class="tabs">
+{% for p in panels %}<input type="radio" name="edition" id="tab-{{ loop.index }}"{% if loop.first %} checked{% endif %}>
+{% endfor %}
+<div class="tabbar">
+{% for p in panels %}<label for="tab-{{ loop.index }}">{{ p.code | edition_name }}</label>
+{% endfor %}
+</div>
+{% for p in panels %}
+<section class="panel" id="panel-{{ loop.index }}">
+{% if not p.run %}
+<p>No run for {{ p.code | edition_name }} at threshold {{ threshold | threshold }}.</p>
+{% else %}
+<p class="meta">
+run #{{ p.run.id }} · threshold {{ p.run.threshold | threshold }} · {{ p.run.article_count }} articles ·
+{{ p.run.cluster_count }} clusters · {{ p.run.multi_source_count }} multi-source
+</p>
+<div class="chips"><span class="label">Subject</span>
+{% for f in p.subjects %}<span class="chip">{{ "Uncategorized" if f.value == none_value else f.value }} · {{ f.n }}</span>
+{% endfor %}
+</div>
+<div class="chips"><span class="label">Region</span>
+{% for f in p.regions %}<span class="chip">{{ "No region" if f.value == none_value else f.value }} · {{ f.n }}</span>
+{% endfor %}
+</div>
+<p class="muted">Showing {{ p.clusters | length }} cluster{{ "" if p.clusters | length == 1 else "s" }} with at least {{ min_sources }} source{{ "" if min_sources == 1 else "s" }}</p>
+{% for c in p.clusters %}{{ cluster_card(c, p.members[c.id]) }}{% endfor %}
+{% endif %}
+</section>
+{% endfor %}
+</div>
+{% endblock %}

@@ -42,10 +42,11 @@ select, button { font:inherit; padding:.2rem .4rem; }
 .badge.none { background:transparent; border:1px dashed var(--border); color:var(--muted); }
 .cats { color:var(--muted); font-size:.8rem; }
 </style>
+{% block head %}{% endblock %}
 </head>
 <body>
 <main>
-<p class="muted"><a href="/">All runs</a></p>
+<p class="muted"><a href="/">All runs</a> · <a href="/editions">Editions</a></p>
 {% block content %}{% endblock %}
 </main>
 </body>

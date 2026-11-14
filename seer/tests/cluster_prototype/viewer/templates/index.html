@@ -2,17 +2,24 @@
 {% block title %}Cluster runs{% endblock %}
 {% block content %}
 <h1>Cluster runs</h1>
+<div class="runs">
+<a href="/"{% if edition is none %} class="cur"{% endif %}>All editions</a>
+{% for code in editions %}<a href="/?edition={{ code }}"{% if edition == code %} class="cur"{% endif %}>{{ code | edition_name }}</a>
+{% endfor %}
+<a href="/editions{% if latest_threshold is not none %}?threshold={{ latest_threshold | threshold }}{% endif %}">Side by side &rarr;</a>
+</div>
 {% if not runs %}
 <p>No cluster runs yet.</p>
 {% else %}
 <div class="table-wrap">
 <table>
-<thead><tr><th>Run</th><th>Created</th><th>Threshold</th><th>Model</th><th>Articles</th><th>Clusters</th>
+<thead><tr><th>Run</th><th>Edition</th><th>Created</th><th>Threshold</th><th>Model</th><th>Articles</th><th>Clusters</th>
 <th>Multi-source</th><th>Largest</th></tr></thead>
 <tbody>
 {% for r in runs %}
 <tr>
 <td><a href="/runs/{{ r.id }}">#{{ r.id }}</a></td>
+<td>{{ r.edition | edition_name }}</td>
 <td>{{ r.created_at | local_dt }}</td>
 <td>{{ "%.2f" | format(r.threshold) }}</td>
 <td>{{ r.model }}</td>
