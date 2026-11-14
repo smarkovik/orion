@@ -110,7 +110,8 @@ The live pipeline now adds only new articles to stable stories (`make stories`),
 - **Updates.**
     - A change is meaningful if the title changed or the text similarity (difflib) dropped below 0.95. A halved body was flagged; one appended word was not.
     - fr articles from the last 6 h are re-fetched, at most 20 per source per run.
-    - Le Figaro's extraction varies between fetches (ratio 0.93), so it produces a trickle of false "updated" flags.
+    - Le Figaro's extraction varies between fetches (ratio 0.93), so it produces false "updated" flags. A 48 h re-fetch flagged 17 of 111 Figaro articles against 2 of 863 for the other sites, enough to float the French top stories. Fix: a stricter ratio for that site, or normalizing the text before comparing.
+- **"New" after a rebuild.** A story's creation time is when we formed it, so after `make reset-stories` every story shows "new" for 3 h. That's harmless for incremental runs, but a "new" badge could instead use the story's first article time.
 
 ## Infrastructure notes
 
