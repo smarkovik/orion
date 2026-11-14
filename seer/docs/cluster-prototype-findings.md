@@ -87,6 +87,31 @@ These are 10 French sources read from news sitemaps, with article text extracted
     - So each edition needs a fallback for its weak facet. For fr's region, the edition's home region is a reasonable default.
 - **Cross-edition overlap.** The US airspace story leads both editions. That's a natural first case for linking stories across editions.
 
+## Stable stories, images and updates
+
+The live pipeline now adds only new articles to stable stories (`make stories`), instead of re-clustering 48 hours every run.
+
+- **First design: compare each article to the story's mean vector.** It joined if that cosine was 0.92 or more, and articles had to be within 18 h of the story's newest article. This drifted. One mk story absorbed 96 articles across Mickoski, SDSM and Alta Banka, and daily weather forecasts still chained across days.
+- **The fix has three parts:**
+    1. Join on the article's average similarity to the story's members, which is the batch run's average-link rule.
+    2. A 24 h span cap from the story's first article.
+    3. Activity time taken from article and update times, not from the time of the run.
+- **Result:**
+
+| | mk | fr |
+| --- | --- | --- |
+| Stories with 2+ sources (batch run) | 194 (193) | 141 (134) |
+| Largest story | 15 (was 96) | 28 |
+| Longest span | 22 h | 23 h |
+
+- **Weather now splits by day:** one story covers 13 November and another 14 November. The former mega-story became six stories of 7–13 articles each.
+- **Idempotent:** a second run with no new articles changes nothing. Removing 50 articles' assignments and re-running put 32 into existing stories and 18 into new ones.
+- **Images.** mk featured images cover 100% of recent articles. fr images, from sitemap `image:loc` or the page's `og:image`, cover 56–100% per site. The viewer links to the outlet's image URL with `referrerpolicy="no-referrer"` and removes broken images.
+- **Updates.**
+    - A change is meaningful if the title changed or the text similarity (difflib) dropped below 0.95. A halved body was flagged; one appended word was not.
+    - fr articles from the last 6 h are re-fetched, at most 20 per source per run.
+    - Le Figaro's extraction varies between fetches (ratio 0.93), so it produces a trickle of false "updated" flags.
+
 ## Infrastructure notes
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.

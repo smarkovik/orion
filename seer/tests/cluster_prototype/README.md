@@ -13,13 +13,15 @@ make down         # stop; data is kept
 | --- | --- |
 | `all` | Build, start, scrape, cluster, then open the viewer |
 | `build`, `up`, `down`, `restart` | Build the images; start the database and viewer; stop everything; restart the viewer |
-| `scrape`, `cluster`, `refresh` | Run the scraper, run the clusterer, or both |
+| `scrape`, `stories`, `refresh` | Run the scraper; add new articles to stable stories; or both |
+| `cluster` | Batch experiment: re-cluster the whole window at each threshold (`cluster_runs`) |
+| `reset-stories` | Delete all stories so the next `make stories` rebuilds them |
 | `open` | Open http://localhost:8080 in a browser |
 | `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=viewer`); check the viewer and the database |
 | `stats`, `sql`, `psql` | Articles per source and recent runs; one query (`SQL="..."`); an interactive shell |
 | `migrate` | Apply `db/schema.sql` to the running database (`up` does this too) |
 | `export` | Save a run page as static HTML in `out/` (`RUN=<id>`, `MIN_SOURCES=2`) |
-| `export-editions` | Save the side-by-side editions page, with tabs, to `out/editions.html` (`THRESHOLD=0.92`) |
+| `export-editions` | Save the side-by-side stories page, with tabs, to `out/editions.html` (`VIEW=top` or `latest`) |
 | `clear-runs` | Delete cluster runs but keep articles and embeddings |
 | `clean` | Stop and delete all data, including the model cache |
 
