@@ -6,3 +6,4 @@ scikit-learn==1.9.1
 numpy==2.5.4
 pgvector==0.5.1
 psycopg[binary]==3.3.9
+PyYAML==6.0.3

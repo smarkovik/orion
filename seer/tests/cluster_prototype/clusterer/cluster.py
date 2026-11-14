@@ -1,10 +1,13 @@
 import math
 import os
+import re
 import time
+from collections import Counter
 from datetime import datetime, timezone
 
 import numpy as np
 import psycopg
+import yaml
 from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import AgglomerativeClustering
@@ -15,6 +18,7 @@ THRESHOLDS = [float(t) for t in os.environ.get("THRESHOLDS", "0.82,0.86,0.90").s
 WINDOW_HOURS = int(os.environ.get("WINDOW_HOURS", "48"))
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "32"))
 MAX_CHARS = int(os.environ.get("MAX_CHARS", "1200"))
+CATEGORIES_FILE = os.environ.get("CATEGORIES_FILE", "/app/categories.yaml")
 METHOD = "hac-average"
 PREFIX = "query: " if "e5" in MODEL.lower() else ""
 
@@ -35,12 +39,57 @@ SET content_hash = EXCLUDED.content_hash, vector = EXCLUDED.vector, created_at =
 """
 
 WINDOW_SQL = """
-SELECT a.id, a.source_id, a.published_at, a.title, e.vector
+SELECT a.id, a.source_id, a.published_at, a.title, e.vector, s.domain, a.source_categories
 FROM articles a
+JOIN sources s ON s.id = a.source_id
 JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s AND e.content_hash = a.content_hash
 WHERE a.published_at >= now() - make_interval(hours => %(hours)s)
 ORDER BY a.id
 """
+
+
+class CategoryMap:
+    """Static mapping of source category names to our region and subject."""
+
+    def __init__(self, path: str) -> None:
+        with open(path, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        self.rules = {
+            facet: [(value, re.compile(p)) for value, patterns in values.items() for p in patterns]
+            for facet, values in cfg["rules"].items()
+        }
+        self.domains: dict[str, dict] = cfg.get("domains") or {}
+
+    def facets(self, domain: str, names: list[str]) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {facet: set() for facet in self.rules}
+        overrides = self.domains.get(domain, {})
+        for name in names:
+            if name in overrides:
+                for facet, value in (overrides[name] or {}).items():
+                    out[facet].add(value)
+                continue
+            low = name.strip().lower()
+            for facet, rules in self.rules.items():
+                match = next((value for value, pattern in rules if pattern.search(low)), None)
+                if match:
+                    out[facet].add(match)
+        return out
+
+
+def vote(
+    members: list[tuple[int, float]], facets: dict[int, dict[str, set[str]]], facet: str
+) -> tuple[str | None, int]:
+    counts = Counter(v for aid, _ in members for v in facets[aid][facet])
+    if not counts:
+        return None, 0
+    best = max(counts.values())
+    tied = {v for v, n in counts.items() if n == best}
+    # Ties go to the member closest to the centroid.
+    for aid, _ in sorted(members, key=lambda m: -m[1]):
+        hit = tied & facets[aid][facet]
+        if hit:
+            return min(hit), best
+    return None, 0
 
 
 def embed_pending(conn: psycopg.Connection) -> None:
@@ -120,8 +169,8 @@ def save_run(conn: psycopg.Connection, threshold: float, article_count: int, clu
                 cluster_id = cur.execute(
                     """
                     INSERT INTO clusters (run_id, label_article_id, size, source_count, first_published,
-                                          last_published, score)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                          last_published, score, region, region_votes, subject, subject_votes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                     """,
                     (
                         run_id,
@@ -131,6 +180,10 @@ def save_run(conn: psycopg.Connection, threshold: float, article_count: int, clu
                         c["first_published"],
                         c["last_published"],
                         c["score"],
+                        c["region"],
+                        c["region_votes"],
+                        c["subject"],
+                        c["subject_votes"],
                     ),
                 ).fetchone()[0]
                 cur.executemany(
@@ -139,23 +192,31 @@ def save_run(conn: psycopg.Connection, threshold: float, article_count: int, clu
                 )
 
 
-def run_threshold(conn: psycopg.Connection, threshold: float, rows: list) -> None:
+def run_threshold(conn: psycopg.Connection, threshold: float, rows: list, categories: CategoryMap) -> None:
     ids = [r[0] for r in rows]
     sources = [r[1] for r in rows]
     published = [r[2] for r in rows]
     titles = {r[0]: r[3] for r in rows}
     vectors = np.array([r[4].to_numpy() for r in rows], dtype=np.float32).reshape(len(rows), -1)
     clusters = build_clusters(cluster_labels(vectors, threshold), vectors, ids, sources, published) if rows else []
+    facets = {r[0]: categories.facets(r[5], r[6] or []) for r in rows}
+    for c in clusters:
+        c["region"], c["region_votes"] = vote(c["members"], facets, "region")
+        c["subject"], c["subject_votes"] = vote(c["members"], facets, "subject")
     save_run(conn, threshold, len(rows), clusters)
     multi = sorted((c for c in clusters if c["source_count"] >= 2), key=lambda c: c["score"], reverse=True)
     print(
         f"\ntau={threshold}: articles={len(rows)} clusters={len(clusters)} multi_source={len(multi)} "
         f"largest={max((c['size'] for c in clusters), default=0)}"
     )
+    if multi:
+        with_region = sum(c["region"] is not None for c in multi) / len(multi)
+        with_subject = sum(c["subject"] is not None for c in multi) / len(multi)
+        print(f"  categories on multi-source clusters: region {with_region:.0%}, subject {with_subject:.0%}")
     for c in multi[:5]:
         print(
-            f"  [{c['size']} articles / {c['source_count']} sources, score {c['score']:.2f}] "
-            f"{titles[c['label_article_id']]}"
+            f"  [{c['size']} articles / {c['source_count']} sources, {c['region'] or '-'} / {c['subject'] or '-'}, "
+            f"score {c['score']:.2f}] {titles[c['label_article_id']]}"
         )
 
 
@@ -164,8 +225,9 @@ def main() -> None:
         register_vector(conn)
         embed_pending(conn)
         rows = conn.execute(WINDOW_SQL, {"model": MODEL, "hours": WINDOW_HOURS}).fetchall()
+        categories = CategoryMap(CATEGORIES_FILE)
         for threshold in THRESHOLDS:
-            run_threshold(conn, threshold, rows)
+            run_threshold(conn, threshold, rows, categories)
 
 
 if __name__ == "__main__":

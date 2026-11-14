@@ -22,7 +22,7 @@ import yaml
 UA = "Mozilla/5.0 (compatible; SeerBot/0.1; research prototype)"
 MAX_PAGES = 10
 RETRIES = 2
-FIELDS = "id,date_gmt,link,title,content"
+FIELDS = "id,date_gmt,link,title,content,categories"
 DROP_PARAMS = ("utm_", "at_")
 DROP_EXACT = {"fbclid", "gclid"}
 BLOCK_TAGS = {"p", "br", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "tr", "figure"}
@@ -81,7 +81,7 @@ def canonical_url(link: str) -> str:
     return urlunsplit((parts.scheme.lower(), host, parts.path, urlencode(query), ""))
 
 
-def map_post(post: dict[str, Any]) -> dict[str, Any]:
+def map_post(post: dict[str, Any], category_names: dict[int, str]) -> dict[str, Any]:
     title = html_to_text(post["title"]["rendered"], keep_breaks=False)
     body = html_to_text(post["content"]["rendered"])
     published = datetime.fromisoformat(post["date_gmt"]).replace(tzinfo=timezone.utc)
@@ -92,6 +92,7 @@ def map_post(post: dict[str, Any]) -> dict[str, Any]:
         "body": body,
         "published_at": published,
         "content_hash": hashlib.sha256(f"{title}\n{body}".encode()).hexdigest(),
+        "source_categories": sorted({category_names[c] for c in post.get("categories", []) if c in category_names}),
     }
 
 
@@ -149,14 +150,28 @@ def robots_allowed(fetcher: Fetcher, base_url: str, api_url: str) -> bool:
     return rp.can_fetch(UA, api_url)
 
 
+def fetch_categories(fetcher: Fetcher, base: str) -> dict[int, str]:
+    names: dict[int, str] = {}
+    page, total = 1, 1
+    while page <= min(total, MAX_PAGES):
+        resp = fetcher.get(f"{base}/wp-json/wp/v2/categories", {"per_page": 100, "page": page, "_fields": "id,name"})
+        total = int(resp.headers.get("X-WP-TotalPages", 1))
+        names.update({c["id"]: html_to_text(c["name"], keep_breaks=False) for c in resp.json()})
+        page += 1
+    return names
+
+
 def upsert_articles(conn: psycopg.Connection, source_id: int, rows: list[dict[str, Any]]) -> tuple[int, int]:
     ins = upd = 0
     sql = """
-        INSERT INTO articles (source_id, url, external_id, title, body, published_at, content_hash)
-        VALUES (%(source_id)s, %(url)s, %(external_id)s, %(title)s, %(body)s, %(published_at)s, %(content_hash)s)
+        INSERT INTO articles (source_id, url, external_id, title, body, published_at, content_hash, source_categories)
+        VALUES (%(source_id)s, %(url)s, %(external_id)s, %(title)s, %(body)s, %(published_at)s, %(content_hash)s,
+                %(source_categories)s)
         ON CONFLICT (url) DO UPDATE SET title = EXCLUDED.title, body = EXCLUDED.body,
-            published_at = EXCLUDED.published_at, content_hash = EXCLUDED.content_hash, updated_at = now()
+            published_at = EXCLUDED.published_at, content_hash = EXCLUDED.content_hash,
+            source_categories = EXCLUDED.source_categories, updated_at = now()
         WHERE articles.content_hash <> EXCLUDED.content_hash
+            OR articles.source_categories IS DISTINCT FROM EXCLUDED.source_categories
         RETURNING (xmax = 0) AS inserted
     """
     with conn.cursor() as cur:
@@ -182,6 +197,7 @@ def scrape_source(
             log.warning("%s: disallowed by robots.txt, skipping", domain)
             res.skipped = True
             return res
+        category_names = fetch_categories(fetcher, base)
         after = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
         total_pages = 1
         page = 1
@@ -202,7 +218,7 @@ def scrape_source(
                 rows = []
                 for post in posts:
                     try:
-                        rows.append(map_post(post))
+                        rows.append(map_post(post, category_names))
                     except (KeyError, TypeError, ValueError) as e:
                         res.errors += 1
                         log.warning("%s: bad post %s: %r", domain, post.get("id"), e)

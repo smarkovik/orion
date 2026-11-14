@@ -38,7 +38,7 @@ services:
       MODEL: intfloat/multilingual-e5-base
       THRESHOLDS: "0.90,0.92,0.94"
       WINDOW_HOURS: "48"
-    volumes: ["hfcache:/root/.cache/huggingface"]
+    volumes: ["hfcache:/root/.cache/huggingface", "./categories.yaml:/app/categories.yaml:ro"]
 
   viewer:
     build: {context: ., dockerfile: viewer/Dockerfile}
