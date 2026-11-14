@@ -25,6 +25,7 @@ MODE = os.environ.get("MODE", "runs")
 STORY_THRESHOLD = float(os.environ.get("STORY_THRESHOLD", "0.92"))
 STORY_OPEN_HOURS = int(os.environ.get("STORY_OPEN_HOURS", "48"))
 STORY_MAX_GAP_HOURS = float(os.environ.get("STORY_MAX_GAP_HOURS", "18"))
+STORY_MAX_SPAN_HOURS = float(os.environ.get("STORY_MAX_SPAN_HOURS", "24"))
 METHOD = "hac-average"
 PREFIX = "query: " if "e5" in MODEL.lower() else ""
 
@@ -248,7 +249,9 @@ class Story:
     idx: int
     members: list[int] = field(default_factory=list)
     vsum: np.ndarray | None = None
+    first_pub: datetime | None = None
     last_pub: datetime | None = None
+    created_at: datetime | None = None
     size: int = 0
     updated_at: datetime | None = None
     is_new: bool = False
@@ -259,7 +262,7 @@ class Story:
 
 
 OPEN_STORIES_SQL = """
-SELECT id, size, last_published, updated_at FROM stories
+SELECT id, size, created_at, updated_at FROM stories
 WHERE edition = %(edition)s AND model = %(model)s AND abs(threshold - %(tau)s) < 1e-6 AND state = 'open'
 ORDER BY id
 """
@@ -290,8 +293,7 @@ UPDATE stories SET centroid = %(centroid)s, label_article_id = %(label)s, size =
     source_count = %(sources)s, first_published = %(first)s, last_published = %(last)s,
     region = %(region)s, region_votes = %(region_votes)s, subject = %(subject)s, subject_votes = %(subject_votes)s,
     updated_at = coalesce(%(upd)s, updated_at),
-    last_activity_at = CASE WHEN %(gained)s THEN now()
-                            ELSE greatest(last_activity_at, coalesce(%(upd)s, last_activity_at)) END
+    last_activity_at = greatest(%(last)s, coalesce(%(upd)s, updated_at))
 WHERE id = %(id)s
 """
 
@@ -313,6 +315,7 @@ def unit(v: np.ndarray) -> np.ndarray:
 def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap) -> None:
     params = {"edition": edition, "model": MODEL, "tau": STORY_THRESHOLD}
     gap = timedelta(hours=STORY_MAX_GAP_HOURS)
+    span = timedelta(hours=STORY_MAX_SPAN_HOURS)
     with conn.transaction():
         closed = conn.execute(
             "UPDATE stories SET state = 'closed' WHERE edition = %(edition)s AND model = %(model)s "
@@ -325,11 +328,13 @@ def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap)
         rows = conn.execute(OPEN_STORIES_SQL, params).fetchall()
         unassigned = [art_from_row(r) for r in conn.execute(UNASSIGNED_SQL, {**params, "hours": WINDOW_HOURS})]
         cap = len(rows) + len(unassigned)
-        cents = np.zeros((cap, 768), dtype=np.float32)
+        sums = np.zeros((cap, 768), dtype=np.float32)
+        counts = np.ones(cap, dtype=np.float32)
+        first_pubs = np.zeros(cap)
         last_pubs = np.zeros(cap)
         by_idx: list[Story] = []
-        for sid, size, last, upd in rows:
-            st = Story(sid, len(by_idx), size=size, last_pub=last, updated_at=upd)
+        for sid, size, created, upd in rows:
+            st = Story(sid, len(by_idx), size=size, created_at=created, updated_at=upd)
             stories[sid] = st
             by_idx.append(st)
         for r in conn.execute(MEMBERS_SQL, params).fetchall():
@@ -346,9 +351,10 @@ def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap)
         for i, st in enumerate(by_idx):
             st.idx = i
             st.dirty = len(st.members) != st.size
+            st.first_pub = min(arts[m].published for m in st.members)
             st.last_pub = max(arts[m].published for m in st.members)
-            cents[i] = unit(st.vsum)
-            last_pubs[i] = st.last_pub.timestamp()
+            sums[i], counts[i] = st.vsum, len(st.members)
+            first_pubs[i], last_pubs[i] = st.first_pub.timestamp(), st.last_pub.timestamp()
 
         joined = 0
         for a in unassigned:
@@ -357,27 +363,30 @@ def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap)
             ts = a.published.timestamp()
             best, best_sim = None, -1.0
             if n:
-                sims = cents[:n] @ a.vec
+                sims = sums[:n] @ a.vec / counts[:n]
                 sims[np.abs(last_pubs[:n] - ts) > gap.total_seconds()] = -1.0
+                sims[np.abs(first_pubs[:n] - ts) > span.total_seconds()] = -1.0
                 j = int(np.argmax(sims))
                 best, best_sim = by_idx[j], float(sims[j])
             if best is not None and best_sim >= STORY_THRESHOLD:
                 best.vsum = best.vsum + a.vec
                 joined += 1
             else:
-                best = Story(None, n, is_new=True, vsum=a.vec.copy(), last_pub=a.published)
+                best = Story(None, n, is_new=True, vsum=a.vec.copy(), first_pub=a.published, last_pub=a.published)
                 by_idx.append(best)
             best.members.append(a.id)
             best.gained = True
+            best.first_pub = min(best.first_pub, a.published)
             if a.published > best.last_pub:
                 best.last_pub = a.published
-            cents[best.idx] = unit(best.vsum)
+            sums[best.idx], counts[best.idx] = best.vsum, len(best.members)
+            first_pubs[best.idx] = best.first_pub.timestamp()
             last_pubs[best.idx] = best.last_pub.timestamp()
         new_count = sum(st.is_new for st in by_idx)
 
         for st in by_idx:
             changed = [arts[m].changed for m in st.members if arts[m].changed]
-            if changed and (st.updated_at is None or max(changed) > st.updated_at):
+            if changed and not st.is_new and max(changed) > max(st.created_at, st.updated_at or st.created_at):
                 st.updated, st.changed_to = True, max(changed)
         facets = {aid: categories.facets(a.domain, a.cats) for aid, a in arts.items()}
         touched = [st for st in by_idx if st.gained or st.updated or st.dirty]
@@ -411,7 +420,6 @@ def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap)
                         "subject": subject,
                         "subject_votes": subject_votes,
                         "upd": st.changed_to,
-                        "gained": st.gained,
                     },
                 )
                 cur.executemany(
