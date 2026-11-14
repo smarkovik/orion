@@ -1,0 +1,14 @@
+# 10 Macedonian news outlets with an open WordPress posts API.
+# Picked 2026-11-14 by volume (90-155 posts per 48 h each).
+language: mk
+sources:
+  - {name: "Независен", domain: nezavisen.mk, base_url: "https://nezavisen.mk"}
+  - {name: "Во Центар", domain: vocentar.com, base_url: "https://vocentar.com"}
+  - {name: "Рацин", domain: racin.mk, base_url: "https://racin.mk"}
+  - {name: "Press24", domain: press24.mk, base_url: "https://press24.mk"}
+  - {name: "iNFOMAX", domain: infomax.mk, base_url: "https://infomax.mk"}
+  - {name: "+инфо", domain: plusinfo.mk, base_url: "https://plusinfo.mk"}
+  - {name: "Журнал", domain: zurnal.mk, base_url: "https://zurnal.mk"}
+  - {name: "Либертас", domain: libertas.mk, base_url: "https://libertas.mk"}
+  - {name: "24Инфо", domain: 24info.mk, base_url: "https://24info.mk"}
+  - {name: "Нова Македонија", domain: novamakedonija.com.mk, base_url: "https://novamakedonija.com.mk"}
