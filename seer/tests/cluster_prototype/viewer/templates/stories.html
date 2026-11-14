@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_cards.html" import story_card %}
+{% block title %}Stories {{ edition | edition_name }}{% endblock %}
+{% block content %}
+<h1>Stories · {{ edition | edition_name }} · {{ view }}</h1>
+<div class="runs">
+Edition:
+{% for code in editions %}<a href="{{ link(edition=code, region=None, subject=None) }}"{% if code == edition %} class="cur"{% endif %}>{{ code | edition_name }}</a>
+{% endfor %}
+</div>
+<div class="runs">
+View:
+{% for v in views %}<a href="{{ link(view=v) }}"{% if v == view %} class="cur"{% endif %}>{{ v | capitalize }}</a>
+{% endfor %}
+</div>
+<form method="get">
+<input type="hidden" name="edition" value="{{ edition }}">
+<input type="hidden" name="view" value="{{ view }}">
+<label>Min sources
+<select name="min_sources" onchange="this.form.submit()">
+{% for n in range(1, 11) %}<option value="{{ n }}"{% if n == min_sources %} selected{% endif %}>{{ n }}</option>{% endfor %}
+</select></label>
+{% if region %}<input type="hidden" name="region" value="{{ region }}">{% endif %}
+{% if subject %}<input type="hidden" name="subject" value="{{ subject }}">{% endif %}
+<button type="submit">Apply</button>
+</form>
+<div class="chips"><span class="label">Subject</span>
+<a href="{{ link(subject=None) }}"{% if subject is none %} class="cur"{% endif %}>All</a>
+{% for f in subjects %}<a href="{{ link(subject=f.value) }}"{% if subject == f.value %} class="cur"{% endif %}>
+{{ "Uncategorized" if f.value == none_value else f.value }} · {{ f.n }}</a>
+{% endfor %}
+</div>
+<div class="chips"><span class="label">Region</span>
+<a href="{{ link(region=None) }}"{% if region is none %} class="cur"{% endif %}>All</a>
+{% for f in regions %}<a href="{{ link(region=f.value) }}"{% if region == f.value %} class="cur"{% endif %}>
+{{ "No region" if f.value == none_value else f.value }} · {{ f.n }}</a>
+{% endfor %}
+</div>
+<p class="muted">Showing {{ stories | length }} stor{{ "y" if stories | length == 1 else "ies" }}</p>
+{% for c in stories %}{{ story_card(c, members[c.id]) }}{% endfor %}
+{% endblock %}

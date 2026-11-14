@@ -1,12 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Cluster runs{% endblock %}
 {% block content %}
+<h1>Stories</h1>
+<div class="runs">
+{% for code in story_editions %}<a href="/stories?edition={{ code }}&amp;view=top">{{ code | edition_name }} · Top</a>
+<a href="/stories?edition={{ code }}&amp;view=latest">{{ code | edition_name }} · Latest</a>
+{% endfor %}
+<a href="/editions">Side by side &rarr;</a>
+</div>
 <h1>Cluster runs</h1>
 <div class="runs">
 <a href="/"{% if edition is none %} class="cur"{% endif %}>All editions</a>
 {% for code in editions %}<a href="/?edition={{ code }}"{% if edition == code %} class="cur"{% endif %}>{{ code | edition_name }}</a>
 {% endfor %}
-<a href="/editions{% if latest_threshold is not none %}?threshold={{ latest_threshold | threshold }}{% endif %}">Side by side &rarr;</a>
 </div>
 {% if not runs %}
 <p>No cluster runs yet.</p>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "_cards.html" import cluster_card %}
-{% block title %}Editions{% endblock %}
+{% from "_cards.html" import story_card %}
+{% block title %}Stories{% endblock %}
 {% block head %}
 <style>
 .tabs input { position:absolute; opacity:0; pointer-events:none; }
@@ -15,7 +15,11 @@
 </style>
 {% endblock %}
 {% block content %}
-<h1>Editions · threshold {{ threshold | threshold }} · min sources {{ min_sources }}</h1>
+<h1>Stories · {{ view }} · min sources {{ min_sources }}</h1>
+<div class="runs">
+{% for v in views %}<a href="/editions?view={{ v }}&amp;min_sources={{ min_sources }}"{% if v == view %} class="cur"{% endif %}>{{ v | capitalize }}</a>
+{% endfor %}
+</div>
 <div class="tabs">
 {% for p in panels %}<input type="radio" name="edition" id="tab-{{ loop.index }}"{% if loop.first %} checked{% endif %}>
 {% endfor %}
@@ -25,13 +29,6 @@
 </div>
 {% for p in panels %}
 <section class="panel" id="panel-{{ loop.index }}">
-{% if not p.run %}
-<p>No run for {{ p.code | edition_name }} at threshold {{ threshold | threshold }}.</p>
-{% else %}
-<p class="meta">
-run #{{ p.run.id }} · threshold {{ p.run.threshold | threshold }} · {{ p.run.article_count }} articles ·
-{{ p.run.cluster_count }} clusters · {{ p.run.multi_source_count }} multi-source
-</p>
 <div class="chips"><span class="label">Subject</span>
 {% for f in p.subjects %}<span class="chip">{{ "Uncategorized" if f.value == none_value else f.value }} · {{ f.n }}</span>
 {% endfor %}
@@ -40,9 +37,8 @@ run #{{ p.run.id }} · threshold {{ p.run.threshold | threshold }} · {{ p.run.a
 {% for f in p.regions %}<span class="chip">{{ "No region" if f.value == none_value else f.value }} · {{ f.n }}</span>
 {% endfor %}
 </div>
-<p class="muted">Showing {{ p.clusters | length }} cluster{{ "" if p.clusters | length == 1 else "s" }} with at least {{ min_sources }} source{{ "" if min_sources == 1 else "s" }}</p>
-{% for c in p.clusters %}{{ cluster_card(c, p.members[c.id]) }}{% endfor %}
-{% endif %}
+<p class="muted">Showing {{ p.stories | length }} stor{{ "y" if p.stories | length == 1 else "ies" }} with at least {{ min_sources }} source{{ "" if min_sources == 1 else "s" }}</p>
+{% for c in p.stories %}{{ story_card(c, p.members[c.id]) }}{% endfor %}
 </section>
 {% endfor %}
 </div>

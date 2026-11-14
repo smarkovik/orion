@@ -31,12 +31,12 @@ def safe_url(value: str) -> str:
 NONE = "none"
 
 
-def facet_filter(column: str, value: str | None) -> tuple[str, tuple[Any, ...]]:
+def facet_filter(column: str, value: str | None, alias: str = "c") -> tuple[str, tuple[Any, ...]]:
     if value is None:
         return "", ()
     if value == NONE:
-        return f" AND c.{column} IS NULL", ()
-    return f" AND c.{column} = %s", (value,)
+        return f" AND {alias}.{column} IS NULL", ()
+    return f" AND {alias}.{column} = %s", (value,)
 
 
 templates.env.filters["local_dt"] = local_dt
@@ -58,15 +58,6 @@ def fmt_threshold(value: float) -> str:
 
 templates.env.filters["edition_name"] = edition_name
 templates.env.filters["threshold"] = fmt_threshold
-
-
-def find_run(edition: str, threshold: float) -> dict[str, Any] | None:
-    rows = query(
-        "SELECT * FROM cluster_runs WHERE edition = %s AND abs(threshold - %s) <= %s "
-        "ORDER BY created_at DESC, id DESC LIMIT 1",
-        (edition, threshold, THRESHOLD_TOLERANCE),
-    )
-    return rows[0] if rows else None
 
 
 def load_clusters(
@@ -112,13 +103,74 @@ def facet_counts(run_id: int, column: str, min_sources: int) -> list[dict[str, A
     )
 
 
+VIEWS = ("top", "latest")
+STORY_ORDER = {"top": "s.score DESC, s.created_at DESC, s.id DESC", "latest": "s.created_at DESC, s.id DESC"}
+
+
+def load_stories(
+    edition: str, view: str, min_sources: int, region: str | None = None, subject: str | None = None
+) -> tuple[list[dict[str, Any]], dict[int, list[dict[str, Any]]]]:
+    region_sql, region_args = facet_filter("region", region, "s")
+    subject_sql, subject_args = facet_filter("subject", subject, "s")
+    stories = query(
+        f"""
+        SELECT s.id, s.size, s.source_count, s.first_published, s.last_published, s.score,
+               s.region, s.region_votes, s.subject, s.subject_votes,
+               a.title AS label_title, a.url AS label_url, a.image_url,
+               s.created_at > now() - interval '3 hours' AS is_new,
+               coalesce(s.updated_at > now() - interval '6 hours', false) AS is_updated
+        FROM stories s JOIN articles a ON a.id = s.label_article_id
+        WHERE s.edition = %s AND s.state = 'open' AND s.source_count >= %s{region_sql}{subject_sql}
+        ORDER BY {STORY_ORDER[view]}
+        """,
+        (edition, min_sources, *region_args, *subject_args),
+    )
+    members: dict[int, list[dict[str, Any]]] = {s["id"]: [] for s in stories}
+    if stories:
+        rows = query(
+            """
+            SELECT sa.story_id, sa.similarity, a.title, a.url, a.published_at, a.source_categories,
+                   coalesce(a.content_changed_at > now() - interval '6 hours', false) AS changed,
+                   src.name AS source_name
+            FROM story_articles sa
+            JOIN articles a ON a.id = sa.article_id
+            JOIN sources src ON src.id = a.source_id
+            WHERE sa.story_id = ANY(%s)
+            ORDER BY sa.story_id, sa.similarity DESC, a.id
+            """,
+            (list(members),),
+        )
+        for row in rows:
+            members[row["story_id"]].append(row)
+    return stories, members
+
+
+def story_facets(edition: str, column: str, min_sources: int) -> list[dict[str, Any]]:
+    return query(
+        f"SELECT coalesce(s.{column}, %s) AS value, count(*) AS n FROM stories s "
+        "WHERE s.edition = %s AND s.state = 'open' AND s.source_count >= %s GROUP BY 1 ORDER BY n DESC, value",
+        (NONE, edition, min_sources),
+    )
+
+
+def story_editions() -> list[str]:
+    rows = query("SELECT DISTINCT edition FROM stories WHERE state = 'open'")
+    return [*EDITIONS, *sorted({r["edition"] for r in rows} - set(EDITIONS))]
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, edition: str | None = Query(None, max_length=20)) -> HTMLResponse:
     runs = query("SELECT * FROM cluster_runs ORDER BY created_at DESC, id DESC")
     codes = edition_codes(runs)
     shown = [r for r in runs if edition is None or r["edition"] == edition]
     latest = next(iter(runs), None)
-    ctx = {"runs": shown, "editions": codes, "edition": edition, "latest_threshold": latest and latest["threshold"]}
+    ctx = {
+        "runs": shown,
+        "editions": codes,
+        "edition": edition,
+        "latest_threshold": latest and latest["threshold"],
+        "story_editions": story_editions(),
+    }
     return templates.TemplateResponse(request, "index.html", ctx)
 
 
@@ -172,27 +224,59 @@ def run_detail(
     return templates.TemplateResponse(request, "run.html", ctx)
 
 
+@app.get("/stories", response_class=HTMLResponse)
+def stories_page(
+    request: Request,
+    edition: str = Query("mk", max_length=20),
+    view: str = Query("top", pattern="^(top|latest)$"),
+    min_sources: int = Query(2, ge=1, le=10),
+    region: str | None = Query(None, max_length=40),
+    subject: str | None = Query(None, max_length=40),
+) -> HTMLResponse:
+    stories, members = load_stories(edition, view, min_sources, region, subject)
+
+    def link(**overrides: Any) -> str:
+        params = {"edition": edition, "view": view, "min_sources": min_sources, "region": region, "subject": subject}
+        params.update(overrides)
+        return "/stories?" + urlencode({k: v for k, v in params.items() if v is not None})
+
+    ctx = {
+        "edition": edition,
+        "editions": story_editions(),
+        "view": view,
+        "views": VIEWS,
+        "min_sources": min_sources,
+        "region": region,
+        "subject": subject,
+        "stories": stories,
+        "members": members,
+        "regions": story_facets(edition, "region", min_sources),
+        "subjects": story_facets(edition, "subject", min_sources),
+        "link": link,
+        "none_value": NONE,
+    }
+    return templates.TemplateResponse(request, "stories.html", ctx)
+
+
 @app.get("/editions", response_class=HTMLResponse)
 def editions(
     request: Request,
-    threshold: float = Query(0.92, ge=0, le=1),
+    view: str = Query("top", pattern="^(top|latest)$"),
     min_sources: int = Query(2, ge=1, le=10),
 ) -> HTMLResponse:
-    runs = query("SELECT edition FROM cluster_runs")
     panels = []
-    for code in edition_codes(runs):
-        run = find_run(code, threshold)
-        panel: dict[str, Any] = {"code": code, "run": run}
-        if run:
-            clusters, members = load_clusters(run["id"], min_sources)
-            panel.update(
-                clusters=clusters,
-                members=members,
-                regions=facet_counts(run["id"], "region", min_sources),
-                subjects=facet_counts(run["id"], "subject", min_sources),
-            )
-        panels.append(panel)
-    ctx = {"panels": panels, "threshold": threshold, "min_sources": min_sources, "none_value": NONE}
+    for code in story_editions():
+        stories, members = load_stories(code, view, min_sources)
+        panels.append(
+            {
+                "code": code,
+                "stories": stories,
+                "members": members,
+                "regions": story_facets(code, "region", min_sources),
+                "subjects": story_facets(code, "subject", min_sources),
+            }
+        )
+    ctx = {"panels": panels, "view": view, "views": VIEWS, "min_sources": min_sources, "none_value": NONE}
     return templates.TemplateResponse(request, "editions.html", ctx)
 
 
