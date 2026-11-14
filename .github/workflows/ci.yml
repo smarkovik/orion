@@ -4,7 +4,11 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "seer/**"
   pull_request:
+    paths-ignore:
+      - "seer/**"
 
 jobs:
   flake8:
