@@ -46,6 +46,24 @@ The full pipeline works on 10 Macedonian sites: scrape, embed, cluster and view,
 4. Try named entities as a second signal for topic-versus-event merges.
 5. Convert all-caps titles to normal case when choosing headlines.
 
+## Static categories
+
+Each story gets one region and one subject by majority vote of its articles' WordPress categories. Those categories are mapped through `tests/cluster_prototype/categories.yaml`, which holds 4 regions, 9 subjects, regex rules by category name, and per-site overrides. No model is involved.
+
+- **Every article has categories** (1,155 of 1,156), but sites file by place, not by subject. The most common are Македонија (377) and Свет (216). Subject sections are rare: Хроника 49, Економија 40, Политика 35. Catch-alls are common: Актуелно 129, ПЕЧАТЕНО ИЗДАНИЕ 43, Избор 38.
+- **Coverage at 0.92**, across 194 stories with 2+ sources: **84% get a region and 49% get a subject.**
+    - Subjects assigned: Економија 25, Хроника 25, Политика 19, Лајфстајл 10, Сцена 7, Спорт 6, Технологија 2, Култура 2.
+    - 98 stories get no subject.
+- **Weak votes decide.** The diabetes story got Лајфстајл from 1 vote out of 12 articles, through one "Магазин" article.
+- **Sites misfile.** A story about a global copper shortage was filed under Македонија.
+- **No Albanian-language articles** appeared in the window. nezavisen.mk has Albanian categories, but none were used in these 48 hours.
+
+**Conclusion.** Static allocation is good enough for region. For subject it needs:
+
+1. **A minimum vote**, such as 2 or more votes covering at least 20% of the story's articles.
+2. **A static fallback:** one fixed vector per subject, built from the stories that do get a subject vote. A story with no vote takes its nearest subject.
+3. **A check** on 100 hand-labelled stories before trusting either.
+
 ## Infrastructure notes
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.

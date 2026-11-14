@@ -20,12 +20,30 @@ Compare:
 <select name="min_sources" onchange="this.form.submit()">
 {% for n in range(1, 11) %}<option value="{{ n }}"{% if n == min_sources %} selected{% endif %}>{{ n }}</option>{% endfor %}
 </select></label>
+{% if region %}<input type="hidden" name="region" value="{{ region }}">{% endif %}
+{% if subject %}<input type="hidden" name="subject" value="{{ subject }}">{% endif %}
 <button type="submit">Apply</button>
 </form>
+<div class="chips"><span class="label">Subject</span>
+<a href="{{ link(subject=None) }}"{% if subject is none %} class="cur"{% endif %}>All</a>
+{% for f in subjects %}<a href="{{ link(subject=f.value) }}"{% if subject == f.value %} class="cur"{% endif %}>
+{{ "Uncategorized" if f.value == none_value else f.value }} · {{ f.n }}</a>
+{% endfor %}
+</div>
+<div class="chips"><span class="label">Region</span>
+<a href="{{ link(region=None) }}"{% if region is none %} class="cur"{% endif %}>All</a>
+{% for f in regions %}<a href="{{ link(region=f.value) }}"{% if region == f.value %} class="cur"{% endif %}>
+{{ "No region" if f.value == none_value else f.value }} · {{ f.n }}</a>
+{% endfor %}
+</div>
 <p class="muted">Showing {{ clusters | length }} of {{ total }} clusters</p>
 {% for c in clusters %}
 <div class="card">
 <h2><a href="{{ c.label_url | safe_url }}" target="_blank" rel="noopener">{{ c.label_title }}</a></h2>
+<div class="badges">
+<span class="badge{% if not c.subject %} none{% endif %}">{{ c.subject or "no subject" }}{% if c.subject %} · {{ c.subject_votes }}/{{ c.size }}{% endif %}</span>
+<span class="badge region{% if not c.region %} none{% endif %}">{{ c.region or "no region" }}{% if c.region %} · {{ c.region_votes }}/{{ c.size }}{% endif %}</span>
+</div>
 <div class="meta">{{ c.size }} article{{ "" if c.size == 1 else "s" }} · {{ c.source_count }}
 source{{ "" if c.source_count == 1 else "s" }} · {{ c.first_published | local_dt }} → {{ c.last_published | local_dt }}</div>
 <details>
@@ -34,7 +52,8 @@ source{{ "" if c.source_count == 1 else "s" }} · {{ c.first_published | local_d
 {% for m in members[c.id] %}
 <li><span class="sim">{{ "%.2f" | format(m.similarity) }}</span> · <strong>{{ m.source_name }}</strong> ·
 <a href="{{ m.url | safe_url }}" target="_blank" rel="noopener">{{ m.title }}</a>
-<span class="meta">· {{ m.published_at | local_dt }}</span></li>
+<span class="meta">· {{ m.published_at | local_dt }}</span>
+{% if m.source_categories %}<span class="cats">· {{ m.source_categories | join(", ") }}</span>{% endif %}</li>
 {% endfor %}
 </ul>
 </details>

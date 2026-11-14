@@ -12,18 +12,20 @@ PSQL := $(DC) exec -T db psql -U seer -d seer
 VIEWER_URL ?= http://localhost:8080
 CA_FILE ?= $(or $(SSL_CERT_FILE),/root/.ccr/ca-bundle.crt)
 IMAGES := viewer scraper clusterer
+MIGRATE := $(PSQL) -q -v ON_ERROR_STOP=1 -c "set client_min_messages = warning" -f - < db/schema.sql
+MIN_SOURCES ?= 2
 WAIT_VIEWER := (for _ in $$(seq 1 30); do curl -fsS "$(VIEWER_URL)/healthz" >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1)
 
 # Optional per-run overrides, e.g. `make cluster THRESHOLDS=0.91,0.92`.
 JOB_ENV := $(if $(HOURS),-e HOURS=$(HOURS)) $(if $(THRESHOLDS),-e THRESHOLDS=$(THRESHOLDS)) \
 	$(if $(WINDOW_HOURS),-e WINDOW_HOURS=$(WINDOW_HOURS)) $(if $(MODEL),-e MODEL=$(MODEL))
 
-.PHONY: help all docker certs build up down restart scrape cluster refresh open ps logs health stats sql psql \
-	clear-runs clean
+.PHONY: help all docker certs build up migrate down restart scrape cluster refresh open export ps logs health \
+	stats sql psql clear-runs clean
 
 help: ## Show this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-11s %s\n", $$1, $$2}'
-	@echo "  Variables: HOURS, THRESHOLDS, WINDOW_HOURS, MODEL, SERVICE, SQL, VIEWER_URL"
+	@echo "  Variables: HOURS, THRESHOLDS, WINDOW_HOURS, MODEL, SERVICE, SQL, RUN, MIN_SOURCES, VIEWER_URL"
 
 all: build up scrape cluster open ## Build, start, scrape, cluster, then open the viewer
 
@@ -52,7 +54,11 @@ endif
 
 up: docker ## Start the database and the viewer
 	$(DC) up -d db viewer
+	@$(MIGRATE)
 	@$(WAIT_VIEWER) || echo "viewer: not ready after 30 s; see make logs SERVICE=viewer"
+
+migrate: docker ## Apply db/schema.sql to the running database (idempotent)
+	@$(MIGRATE) && echo "schema: up to date"
 
 down: docker ## Stop all containers; data is kept
 	$(DC) --profile jobs down
@@ -71,6 +77,11 @@ open: ## Open the viewer in a browser
 	@if command -v xdg-open >/dev/null; then xdg-open "$(VIEWER_URL)" >/dev/null 2>&1 & \
 	elif command -v open >/dev/null; then open "$(VIEWER_URL)"; \
 	elif command -v wslview >/dev/null; then wslview "$(VIEWER_URL)"; fi
+
+export: docker ## Save a run page as static HTML in out/: RUN=<id> (default latest), MIN_SOURCES=2
+	@mkdir -p out; run=$(or $(RUN),$$($(PSQL) -tAc "select id from cluster_runs order by id desc limit 1")); \
+	curl -fsS "$(VIEWER_URL)/runs/$$run?min_sources=$(MIN_SOURCES)" -o "out/run-$$run.html" \
+		&& echo "Saved out/run-$$run.html"
 
 ps: docker ## Show containers
 	$(DC) --profile jobs ps -a

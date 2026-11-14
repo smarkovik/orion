@@ -63,3 +63,11 @@ CREATE TABLE IF NOT EXISTS cluster_articles (
     similarity  real NOT NULL,
     PRIMARY KEY (cluster_id, article_id)
 );
+
+-- Categories (idempotent, also applied to existing databases by `make migrate`).
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS source_categories text[] NOT NULL DEFAULT '{}';
+ALTER TABLE clusters
+    ADD COLUMN IF NOT EXISTS region         text,
+    ADD COLUMN IF NOT EXISTS region_votes   int NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS subject        text,
+    ADD COLUMN IF NOT EXISTS subject_votes  int NOT NULL DEFAULT 0;
