@@ -28,6 +28,7 @@ DROP_EXACT = {"fbclid", "gclid"}
 BLOCK_TAGS = {"p", "br", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "tr", "figure"}
 SKIP_TAGS = {"script", "style"}
 
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("scraper")
 
 

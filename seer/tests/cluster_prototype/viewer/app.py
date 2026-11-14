@@ -21,7 +21,12 @@ def local_dt(value: datetime | None) -> str:
     return value.astimezone(TZ).strftime("%Y-%m-%d %H:%M") if value else "?"
 
 
+def safe_url(value: str) -> str:
+    return value if value.lower().startswith(("http://", "https://")) else "#"
+
+
 templates.env.filters["local_dt"] = local_dt
+templates.env.filters["safe_url"] = safe_url
 
 
 def query(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
@@ -69,7 +74,14 @@ def run_detail(request: Request, run_id: int, min_sources: int = Query(2, ge=1, 
         for row in rows:
             members[row["cluster_id"]].append(row)
     total = query("SELECT count(*) AS n FROM clusters WHERE run_id = %s", (run_id,))[0]["n"]
-    ctx = {"run": run, "runs": runs, "clusters": clusters, "members": members, "min_sources": min_sources, "total": total}
+    ctx = {
+        "run": run,
+        "runs": runs,
+        "clusters": clusters,
+        "members": members,
+        "min_sources": min_sources,
+        "total": total,
+    }
     return templates.TemplateResponse(request, "run.html", ctx)
 
 
