@@ -71,3 +71,6 @@ ALTER TABLE clusters
     ADD COLUMN IF NOT EXISTS region_votes   int NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS subject        text,
     ADD COLUMN IF NOT EXISTS subject_votes  int NOT NULL DEFAULT 0;
+
+-- Editions (idempotent). An edition is clustered on its own; sources.language holds the edition code.
+ALTER TABLE cluster_runs ADD COLUMN IF NOT EXISTS edition text NOT NULL DEFAULT 'mk';

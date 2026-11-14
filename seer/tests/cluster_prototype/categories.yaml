@@ -1,31 +1,56 @@
-# Static categories. A story gets one region and one subject by majority vote of its articles'
-# mapped source categories. Source category names that match no rule (Актуелно, Вести, Избор,
-# Топ вести, Печатено издание, ...) are ignored.
-taxonomy:
-  region: [Македонија, Скопје, Балкан, Свет]
-  subject: [Политика, Економија, Хроника, Спорт, Култура, Сцена, Технологија, Здравје, Лајфстајл]
-
-# Language layer: regex patterns matched against the lowercased source category name.
-rules:
-  region:
-    Македонија: ["^македонија$", "^macedonia$", "^maqedoni", "^во земјава$"]
-    Скопје: ["^скопје$", "^skopje$", "^shkupi$", "^локално$", "^скопски"]
-    Балкан: ["^балкан$", "^регион$", "^region$", "^rajoni$"]
-    Свет: ["^свет$", "^world$", "^botë$", "^европа$", "^русија$", "^глобус$", "^глобално$"]
-  subject:
-    Политика: ["^политика$", "^избори", "^кластер еу$", "^мк во\\(н\\) еу$"]
-    Економија: ["^економија$", "^economy$", "^ekonomi$", "^бизнис$", "^пари$"]
-    Хроника: ["хроника$", "^crime$", "^kronikë$"]
-    Спорт: ["^спорт", "^sport$", "^фудбал$", "^кошарка$", "^ракомет$", "^одбојка$", "^мундијал$"]
-    Култура: ["^култура$", "^culture$", "^уметност$", "^музика$", "^филм", "^кинонома$"]
-    Сцена: ["^сцена$", "^шоубиз$", "^шоу-биз$", "^забава$"]
-    Технологија: ["технологија$", "^техно$"]
-    Здравје: ["^здравје$", "^ковид", "^медицински", "^здравa храна$"]
-    Лајфстајл: ["^лајфстајл$", "^lifestyle$", "^живот$", "^магазин$", "^мозаик$", "^занимливости$", "^рецепти$",
-                "^хороскоп$", "^мајка и дете$", "^родители и деца$"]
+# Static categories per edition. A story gets one region and one subject by majority vote of its articles'
+# mapped source categories. Source category names that match no rule are ignored (catch-alls such as
+# Актуелно, Вести, Избор, Печатено издание, info-en-continu, replay-jt).
+# Source categories: WordPress category names (mk) or URL path sections (fr), lowercased before matching.
+editions:
+  mk:
+    taxonomy:
+      region: [Македонија, Скопје, Балкан, Свет]
+      subject: [Политика, Економија, Хроника, Спорт, Култура, Сцена, Технологија, Здравје, Лајфстајл]
+    rules:
+      region:
+        Македонија: ["^македонија$", "^macedonia$", "^maqedoni", "^во земјава$"]
+        Скопје: ["^скопје$", "^skopje$", "^shkupi$", "^локално$", "^скопски"]
+        Балкан: ["^балкан$", "^регион$", "^region$", "^rajoni$"]
+        Свет: ["^свет$", "^world$", "^botë$", "^европа$", "^русија$", "^глобус$", "^глобално$"]
+      subject:
+        Политика: ["^политика$", "^избори", "^кластер еу$", "^мк во\\(н\\) еу$"]
+        Економија: ["^економија$", "^economy$", "^ekonomi$", "^бизнис$", "^пари$"]
+        Хроника: ["хроника$", "^crime$", "^kronikë$"]
+        Спорт: ["^спорт", "^sport$", "^фудбал$", "^кошарка$", "^ракомет$", "^одбојка$", "^мундијал$"]
+        Култура: ["^култура$", "^culture$", "^уметност$", "^музика$", "^филм", "^кинонома$"]
+        Сцена: ["^сцена$", "^шоубиз$", "^шоу-биз$", "^забава$"]
+        Технологија: ["технологија$", "^техно$"]
+        Здравје: ["^здравје$", "^ковид", "^медицински", "^здравa храна$"]
+        Лајфстајл: ["^лајфстајл$", "^lifestyle$", "^живот$", "^магазин$", "^мозаик$", "^занимливости$", "^рецепти$",
+                    "^хороскоп$", "^мајка и дете$", "^родители и деца$"]
+  fr:
+    taxonomy:
+      region: [France, Europe, Monde]
+      subject: [Politique, Économie, Faits divers, Sport, Culture, Société, Tech, Santé, Environnement, Lifestyle]
+    rules:
+      region:
+        France: ["^france$", "^actualite-france$", "^paris", "^marseille$", "^lyon$", "^cote-d-azur$", "^grand-",
+                 "-\\d{2,3}$"]
+        Europe: ["^europe$"]
+        Monde: ["^international$", "^monde$", "^afrique$", "^amériques$", "^moyen-orient$", "^asie-pacifique$"]
+      subject:
+        Politique: ["^politique$", "^elections$"]
+        Économie: ["^[eé]conomie$", "^flash-eco$", "^conjoncture$", "^secteur$", "^societes$", "^argent$",
+                   "^éco-tech$"]
+        Faits divers: ["^faits[-_]divers$", "^police-justice$", "^justice$"]
+        Sport: ["^sports?$", "^afrique-foot$", "^jeux-olympiques$"]
+        Culture: ["^culture", "^musique$", "^medias", "^tv$"]
+        Société: ["^societe$"]
+        Tech: ["^tech", "^high-tech$", "^internet$", "^technologies$"]
+        Santé: ["^sante$", "^sciences-sante$"]
+        Environnement: ["^environnement$", "^planète$"]
+        Lifestyle: ["^styles$", "^life$", "^divertissement$", "^arts-stars$", "^tempo$", "^voyages$"]
 
 # Domain layer: overrides for one site, keyed by the exact source category name.
 # A value replaces what the rules give; null ignores the category.
 domains:
   infomax.mk:
     Метео: {subject: Лајфстајл}
+  france24.com:
+    france: {region: France}
