@@ -17,6 +17,8 @@ make down         # stop; data is kept
 | `open` | Open http://localhost:8080 in a browser |
 | `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=viewer`); check the viewer and the database |
 | `stats`, `sql`, `psql` | Articles per source and recent runs; one query (`SQL="..."`); an interactive shell |
+| `migrate` | Apply `db/schema.sql` to the running database (`up` does this too) |
+| `export` | Save a run page as static HTML in `out/` (`RUN=<id>`, `MIN_SOURCES=2`) |
 | `clear-runs` | Delete cluster runs but keep articles and embeddings |
 | `clean` | Stop and delete all data, including the model cache |
 
@@ -30,6 +32,10 @@ Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `
 | `scraper` | Reads `sources.yaml`, pulls the last `HOURS` of posts from each site's WordPress API, upserts `articles` by canonical URL | One-shot job |
 | `clusterer` | Embeds new articles with `intfloat/multilingual-e5-base` (CPU), then average-link clustering at each threshold in `THRESHOLDS`; one `cluster_runs` row per threshold | One-shot job |
 | `viewer` | Read-only web page: runs, clusters per run, articles per cluster | Always; port 8080 |
+
+## Categories
+
+`categories.yaml` holds the static category list: 4 regions and 9 subjects. Each site's WordPress categories map to that list through regex rules by category name, plus per-site overrides. Catch-all categories map to nothing. The clusterer gives each story the majority region and subject of its articles, and the viewer shows them as badges and filters. Results are in [the findings](../../docs/cluster-prototype-findings.md#static-categories).
 
 ## Choices
 
