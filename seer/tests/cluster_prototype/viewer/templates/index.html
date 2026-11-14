@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Cluster runs{% endblock %}
+{% block content %}
+<h1>Cluster runs</h1>
+{% if not runs %}
+<p>No cluster runs yet.</p>
+{% else %}
+<div class="table-wrap">
+<table>
+<thead><tr><th>Run</th><th>Created</th><th>Threshold</th><th>Model</th><th>Articles</th><th>Clusters</th>
+<th>Multi-source</th><th>Largest</th></tr></thead>
+<tbody>
+{% for r in runs %}
+<tr>
+<td><a href="/runs/{{ r.id }}">#{{ r.id }}</a></td>
+<td>{{ r.created_at | local_dt }}</td>
+<td>{{ "%.2f" | format(r.threshold) }}</td>
+<td>{{ r.model }}</td>
+<td>{{ r.article_count }}</td>
+<td>{{ r.cluster_count }}</td>
+<td>{{ r.multi_source_count }}</td>
+<td>{{ r.largest_cluster }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

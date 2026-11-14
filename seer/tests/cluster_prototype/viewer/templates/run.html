@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Run #{{ run.id }}{% endblock %}
+{% block content %}
+<h1>Run #{{ run.id }}</h1>
+<p class="meta">
+threshold {{ "%.2f" | format(run.threshold) }} · method {{ run.method }} · model {{ run.model }} ·
+window {{ run.window_hours }} h · created {{ run.created_at | local_dt }} (Europe/Skopje)<br>
+{{ run.article_count }} articles · {{ run.cluster_count }} clusters · {{ run.multi_source_count }} multi-source ·
+largest {{ run.largest_cluster }}
+</p>
+<div class="runs">
+Compare:
+{% for r in runs %}
+<a href="/runs/{{ r.id }}?min_sources={{ min_sources }}"{% if r.id == run.id %} class="cur"{% endif %}>
+#{{ r.id }} · {{ "%.2f" | format(r.threshold) }}</a>
+{% endfor %}
+</div>
+<form method="get">
+<label>Min sources
+<select name="min_sources" onchange="this.form.submit()">
+{% for n in range(1, 11) %}<option value="{{ n }}"{% if n == min_sources %} selected{% endif %}>{{ n }}</option>{% endfor %}
+</select></label>
+<button type="submit">Apply</button>
+</form>
+<p class="muted">Showing {{ clusters | length }} of {{ total }} clusters</p>
+{% for c in clusters %}
+<div class="card">
+<h2><a href="{{ c.label_url }}" target="_blank" rel="noopener">{{ c.label_title }}</a></h2>
+<div class="meta">{{ c.size }} article{{ "" if c.size == 1 else "s" }} · {{ c.source_count }}
+source{{ "" if c.source_count == 1 else "s" }} · {{ c.first_published | local_dt }} → {{ c.last_published | local_dt }}</div>
+<details>
+<summary>Members</summary>
+<ul class="members">
+{% for m in members[c.id] %}
+<li><span class="sim">{{ "%.2f" | format(m.similarity) }}</span> · <strong>{{ m.source_name }}</strong> ·
+<a href="{{ m.url }}" target="_blank" rel="noopener">{{ m.title }}</a>
+<span class="meta">· {{ m.published_at | local_dt }}</span></li>
+{% endfor %}
+</ul>
+</details>
+</div>
+{% endfor %}
+{% endblock %}
