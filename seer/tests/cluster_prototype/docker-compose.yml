@@ -1,0 +1,52 @@
+name: seer-proto
+
+x-db-url: &db-url postgresql://seer:seer@db:5432/seer
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.7-pg16
+    environment:
+      POSTGRES_USER: seer
+      POSTGRES_PASSWORD: seer
+      POSTGRES_DB: seer
+    ports: ["5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U seer -d seer"]
+      interval: 2s
+      retries: 30
+
+  scraper:
+    build: {context: ., dockerfile: scraper/Dockerfile}
+    profiles: ["jobs"]
+    depends_on: {db: {condition: service_healthy}}
+    environment:
+      DATABASE_URL: *db-url
+      HOURS: "48"
+      REQUEST_DELAY_S: "2"
+      IGNORE_ROBOTS: "true" # experiments only
+    volumes: ["./sources.yaml:/app/sources.yaml:ro"]
+
+  clusterer:
+    build: {context: ., dockerfile: clusterer/Dockerfile}
+    profiles: ["jobs"]
+    depends_on: {db: {condition: service_healthy}}
+    environment:
+      DATABASE_URL: *db-url
+      MODEL: intfloat/multilingual-e5-base
+      THRESHOLDS: "0.90,0.92,0.94"
+      WINDOW_HOURS: "48"
+    volumes: ["hfcache:/root/.cache/huggingface"]
+
+  viewer:
+    build: {context: ., dockerfile: viewer/Dockerfile}
+    depends_on: {db: {condition: service_healthy}}
+    environment:
+      DATABASE_URL: *db-url
+    ports: ["8080:8080"]
+
+volumes:
+  pgdata: {}
+  hfcache: {}

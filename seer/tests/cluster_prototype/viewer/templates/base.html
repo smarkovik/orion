@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Cluster viewer{% endblock %}</title>
+<style>
+:root { --bg:#fafafa; --fg:#1d1d1f; --muted:#6b6b72; --card:#fff; --border:#dcdce0; --link:#0b5cd5; --accent:#e8f0fd; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#16171a; --fg:#e7e7ea; --muted:#9a9aa3; --card:#202226; --border:#33353b; --link:#7db1ff; --accent:#25324a; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); line-height:1.45;
+  font:16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "DejaVu Sans", Arial, sans-serif; }
+main { max-width:60rem; margin:0 auto; padding:1rem; }
+a { color:var(--link); overflow-wrap:anywhere; }
+h1 { font-size:1.4rem; margin:.2rem 0 1rem; }
+.muted { color:var(--muted); font-size:.9rem; }
+.table-wrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; background:var(--card); }
+th, td { text-align:left; padding:.4rem .6rem; border-bottom:1px solid var(--border); font-size:.9rem; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:.8rem; margin:.7rem 0; }
+.card h2 { font-size:1.05rem; margin:0 0 .3rem; overflow-wrap:anywhere; }
+.meta { color:var(--muted); font-size:.9rem; }
+details { margin-top:.5rem; }
+summary { cursor:pointer; color:var(--link); }
+ul.members { list-style:none; padding:0; margin:.5rem 0 0; }
+ul.members li { padding:.4rem 0; border-top:1px solid var(--border); overflow-wrap:anywhere; }
+.sim { font-variant-numeric:tabular-nums; font-weight:600; }
+.runs { margin:.5rem 0 1rem; display:flex; flex-wrap:wrap; gap:.4rem; }
+.runs a { padding:.15rem .6rem; border:1px solid var(--border); border-radius:99px; text-decoration:none; font-size:.85rem; }
+.runs a.cur { background:var(--accent); font-weight:600; }
+form { margin:.6rem 0; }
+select, button { font:inherit; padding:.2rem .4rem; }
+</style>
+</head>
+<body>
+<main>
+<p class="muted"><a href="/">All runs</a></p>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
