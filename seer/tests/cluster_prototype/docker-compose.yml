@@ -26,6 +26,7 @@ services:
       DATABASE_URL: *db-url
       HOURS: "48"
       REQUEST_DELAY_S: "2"
+      MAX_ARTICLES_PER_SOURCE: "150"
       IGNORE_ROBOTS: "true" # experiments only
     volumes: ["./sources.yaml:/app/sources.yaml:ro"]
 

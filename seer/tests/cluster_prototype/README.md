@@ -1,6 +1,6 @@
 # Cluster prototype
 
-First end-to-end test of Seer: scrape 10 Macedonian news sites, embed the articles, cluster them into stories, and inspect the clusters in a browser. Everything runs in Docker.
+An end-to-end test of Seer in Docker. It scrapes two editions of 10 news sites each, Macedonian (`mk`) and French (`fr`), embeds the articles, and clusters each edition into stories. You can then inspect the stories side by side in a browser. To add a source or a country, see [the guide](../../docs/adding-sources-and-editions.md).
 
 ```bash
 make all          # build, start, scrape the last 48 h, cluster at 3 thresholds, open the viewer
@@ -19,23 +19,24 @@ make down         # stop; data is kept
 | `stats`, `sql`, `psql` | Articles per source and recent runs; one query (`SQL="..."`); an interactive shell |
 | `migrate` | Apply `db/schema.sql` to the running database (`up` does this too) |
 | `export` | Save a run page as static HTML in `out/` (`RUN=<id>`, `MIN_SOURCES=2`) |
+| `export-editions` | Save the side-by-side editions page, with tabs, to `out/editions.html` (`THRESHOLD=0.92`) |
 | `clear-runs` | Delete cluster runs but keep articles and embeddings |
 | `clean` | Stop and delete all data, including the model cache |
 
-Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `WINDOW_HOURS` and `MODEL` work the same way.
+Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `make refresh EDITION=fr` limits a run to one edition. `MAX_ARTICLES` caps articles per source for news-sitemap sites. `WINDOW_HOURS` and `MODEL` work the same way.
 
 ## Services
 
 | Service | Does | Runs |
 | --- | --- | --- |
 | `db` | Postgres 16 + pgvector 0.8.7; schema in `db/schema.sql` | Always; host port 5433 |
-| `scraper` | Reads `sources.yaml`, pulls the last `HOURS` of posts from each site's WordPress API, upserts `articles` by canonical URL | One-shot job |
-| `clusterer` | Embeds new articles with `intfloat/multilingual-e5-base` (CPU), then average-link clustering at each threshold in `THRESHOLDS`; one `cluster_runs` row per threshold | One-shot job |
-| `viewer` | Read-only web page: runs, clusters per run, articles per cluster | Always; port 8080 |
+| `scraper` | Reads `sources.yaml` and pulls the last `HOURS` from each source, then upserts `articles` by canonical URL. `wp_api` sources (mk) come from the WordPress posts API. `news_sitemap` sources (fr) come from the news sitemap, with each article page fetched and its text extracted by trafilatura. | One-shot job |
+| `clusterer` | Embeds new articles with `intfloat/multilingual-e5-base` (CPU). Then clusters each edition on its own, with average-link clustering at each threshold in `THRESHOLDS`. Writes one `cluster_runs` row per edition and threshold. | One-shot job |
+| `viewer` | Read-only web pages: runs, the clusters in each run, and the articles in each cluster. `/editions` shows every edition in CSS tabs. | Always; port 8080 |
 
 ## Categories
 
-`categories.yaml` holds the static category list: 4 regions and 9 subjects. Each site's WordPress categories map to that list through regex rules by category name, plus per-site overrides. Catch-all categories map to nothing. The clusterer gives each story the majority region and subject of its articles, and the viewer shows them as badges and filters. Results are in [the findings](../../docs/cluster-prototype-findings.md#static-categories).
+`categories.yaml` holds a static category list for each edition: mk has 4 regions and 9 subjects, fr has 3 regions and 10 subjects. Each site's source categories map to that list through regex rules, plus per-site overrides. For mk, source categories are WordPress category names; for fr, they're URL sections. Catch-all categories map to nothing. The clusterer gives each story the majority region and subject of its articles, and the viewer shows them as badges and filters. Results are in [the findings](../../docs/cluster-prototype-findings.md#static-categories).
 
 ## Choices
 

@@ -1,14 +1,42 @@
-# 10 Macedonian news outlets with an open WordPress posts API.
-# Picked 2026-11-14 by volume (90-155 posts per 48 h each).
-language: mk
-sources:
-  - {name: "Независен", domain: nezavisen.mk, base_url: "https://nezavisen.mk"}
-  - {name: "Во Центар", domain: vocentar.com, base_url: "https://vocentar.com"}
-  - {name: "Рацин", domain: racin.mk, base_url: "https://racin.mk"}
-  - {name: "Press24", domain: press24.mk, base_url: "https://press24.mk"}
-  - {name: "iNFOMAX", domain: infomax.mk, base_url: "https://infomax.mk"}
-  - {name: "+инфо", domain: plusinfo.mk, base_url: "https://plusinfo.mk"}
-  - {name: "Журнал", domain: zurnal.mk, base_url: "https://zurnal.mk"}
-  - {name: "Либертас", domain: libertas.mk, base_url: "https://libertas.mk"}
-  - {name: "24Инфо", domain: 24info.mk, base_url: "https://24info.mk"}
-  - {name: "Нова Македонија", domain: novamakedonija.com.mk, base_url: "https://novamakedonija.com.mk"}
+# Sources per edition. An edition is one language and one market; it's clustered on its own.
+# method: wp_api (WordPress posts API, full text) or news_sitemap (Google News sitemap + article page fetch).
+editions:
+  mk:
+    language: mk
+    # 10 outlets with an open WordPress posts API, picked 2026-11-14 by volume (90-155 posts per 48 h each).
+    sources:
+      - {name: "Независен", domain: nezavisen.mk, base_url: "https://nezavisen.mk", method: wp_api}
+      - {name: "Во Центар", domain: vocentar.com, base_url: "https://vocentar.com", method: wp_api}
+      - {name: "Рацин", domain: racin.mk, base_url: "https://racin.mk", method: wp_api}
+      - {name: "Press24", domain: press24.mk, base_url: "https://press24.mk", method: wp_api}
+      - {name: "iNFOMAX", domain: infomax.mk, base_url: "https://infomax.mk", method: wp_api}
+      - {name: "+инфо", domain: plusinfo.mk, base_url: "https://plusinfo.mk", method: wp_api}
+      - {name: "Журнал", domain: zurnal.mk, base_url: "https://zurnal.mk", method: wp_api}
+      - {name: "Либертас", domain: libertas.mk, base_url: "https://libertas.mk", method: wp_api}
+      - {name: "24Инфо", domain: 24info.mk, base_url: "https://24info.mk", method: wp_api}
+      - {name: "Нова Македонија", domain: novamakedonija.com.mk, base_url: "https://novamakedonija.com.mk", method: wp_api}
+  fr:
+    language: fr
+    # 10 outlets whose news sitemap covers 48 h, checked 2026-11-14 (30-895 articles per 48 h each).
+    # Le Monde is left out: its article pages return 402 to bots.
+    sources:
+      - {name: "Le Figaro", domain: lefigaro.fr, base_url: "https://www.lefigaro.fr", method: news_sitemap,
+         sitemap_url: "https://www.lefigaro.fr/sitemap_news.xml"}
+      - {name: "franceinfo", domain: franceinfo.fr, base_url: "https://www.franceinfo.fr", method: news_sitemap,
+         sitemap_url: "https://www.franceinfo.fr/sitemap_news.xml"}
+      - {name: "20 Minutes", domain: 20minutes.fr, base_url: "https://www.20minutes.fr", method: news_sitemap,
+         sitemap_url: "https://www.20minutes.fr/sitemap-news.xml"}
+      - {name: "France 24", domain: france24.com, base_url: "https://www.france24.com", method: news_sitemap,
+         sitemap_url: "https://www.france24.com/sitemaps/fr/news.xml"}
+      - {name: "BFMTV", domain: bfmtv.com, base_url: "https://www.bfmtv.com", method: news_sitemap,
+         sitemap_url: "https://www.bfmtv.com/sitemap_news.xml"}
+      - {name: "RFI", domain: rfi.fr, base_url: "https://www.rfi.fr", method: news_sitemap,
+         sitemap_url: "https://www.rfi.fr/sitemaps/fr/news.xml"}
+      - {name: "Le Parisien", domain: leparisien.fr, base_url: "https://www.leparisien.fr", method: news_sitemap,
+         sitemap_url: "https://www.leparisien.fr/arc/outboundfeeds/sitemapnews/?outputType=xml&from=0"}
+      - {name: "HuffPost", domain: huffingtonpost.fr, base_url: "https://www.huffingtonpost.fr", method: news_sitemap,
+         sitemap_url: "https://www.huffingtonpost.fr/sitemaps/news.xml"}
+      - {name: "Europe 1", domain: europe1.fr, base_url: "https://www.europe1.fr", method: news_sitemap,
+         sitemap_url: "https://www.europe1.fr/googlenews.xml"}
+      - {name: "L'Express", domain: lexpress.fr, base_url: "https://www.lexpress.fr", method: news_sitemap,
+         sitemap_url: "https://www.lexpress.fr/arc/outboundfeeds/sitemap-news.xml"}

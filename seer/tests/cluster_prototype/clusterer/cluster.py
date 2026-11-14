@@ -19,6 +19,7 @@ WINDOW_HOURS = int(os.environ.get("WINDOW_HOURS", "48"))
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "32"))
 MAX_CHARS = int(os.environ.get("MAX_CHARS", "1200"))
 CATEGORIES_FILE = os.environ.get("CATEGORIES_FILE", "/app/categories.yaml")
+EDITION = os.environ.get("EDITION", "")
 METHOD = "hac-average"
 PREFIX = "query: " if "e5" in MODEL.lower() else ""
 
@@ -39,7 +40,7 @@ SET content_hash = EXCLUDED.content_hash, vector = EXCLUDED.vector, created_at =
 """
 
 WINDOW_SQL = """
-SELECT a.id, a.source_id, a.published_at, a.title, e.vector, s.domain, a.source_categories
+SELECT a.id, a.source_id, a.published_at, a.title, e.vector, s.domain, a.source_categories, s.language
 FROM articles a
 JOIN sources s ON s.id = a.source_id
 JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s AND e.content_hash = a.content_hash
@@ -51,18 +52,17 @@ ORDER BY a.id
 class CategoryMap:
     """Static mapping of source category names to our region and subject."""
 
-    def __init__(self, path: str) -> None:
-        with open(path, encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
+    def __init__(self, cfg: dict, edition: str) -> None:
+        rules = ((cfg.get("editions") or {}).get(edition) or {}).get("rules") or {}
         self.rules = {
-            facet: [(value, re.compile(p)) for value, patterns in values.items() for p in patterns]
-            for facet, values in cfg["rules"].items()
+            facet: [(value, re.compile(p)) for value, patterns in (values or {}).items() for p in patterns]
+            for facet, values in rules.items()
         }
         self.domains: dict[str, dict] = cfg.get("domains") or {}
 
     def facets(self, domain: str, names: list[str]) -> dict[str, set[str]]:
-        out: dict[str, set[str]] = {facet: set() for facet in self.rules}
-        overrides = self.domains.get(domain, {})
+        out: dict[str, set[str]] = {facet: set() for facet in ("region", "subject")}
+        overrides = self.domains.get(domain) or {}
         for name in names:
             if name in overrides:
                 for facet, value in (overrides[name] or {}).items():
@@ -145,13 +145,15 @@ def build_clusters(
     return clusters
 
 
-def save_run(conn: psycopg.Connection, threshold: float, article_count: int, clusters: list[dict]) -> None:
+def save_run(
+    conn: psycopg.Connection, edition: str, threshold: float, article_count: int, clusters: list[dict]
+) -> None:
     with conn.transaction():
         run_id = conn.execute(
             """
             INSERT INTO cluster_runs (model, method, threshold, window_hours, article_count, cluster_count,
-                                      multi_source_count, largest_cluster)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                      multi_source_count, largest_cluster, edition)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (
                 MODEL,
@@ -162,6 +164,7 @@ def save_run(conn: psycopg.Connection, threshold: float, article_count: int, clu
                 len(clusters),
                 sum(c["source_count"] >= 2 for c in clusters),
                 max((c["size"] for c in clusters), default=0),
+                edition,
             ),
         ).fetchone()[0]
         with conn.cursor() as cur:
@@ -192,7 +195,9 @@ def save_run(conn: psycopg.Connection, threshold: float, article_count: int, clu
                 )
 
 
-def run_threshold(conn: psycopg.Connection, threshold: float, rows: list, categories: CategoryMap) -> None:
+def run_threshold(
+    conn: psycopg.Connection, edition: str, threshold: float, rows: list, categories: CategoryMap
+) -> None:
     ids = [r[0] for r in rows]
     sources = [r[1] for r in rows]
     published = [r[2] for r in rows]
@@ -203,10 +208,10 @@ def run_threshold(conn: psycopg.Connection, threshold: float, rows: list, catego
     for c in clusters:
         c["region"], c["region_votes"] = vote(c["members"], facets, "region")
         c["subject"], c["subject_votes"] = vote(c["members"], facets, "subject")
-    save_run(conn, threshold, len(rows), clusters)
+    save_run(conn, edition, threshold, len(rows), clusters)
     multi = sorted((c for c in clusters if c["source_count"] >= 2), key=lambda c: c["score"], reverse=True)
     print(
-        f"\ntau={threshold}: articles={len(rows)} clusters={len(clusters)} multi_source={len(multi)} "
+        f"\n[{edition}] tau={threshold}: articles={len(rows)} clusters={len(clusters)} multi_source={len(multi)} "
         f"largest={max((c['size'] for c in clusters), default=0)}"
     )
     if multi:
@@ -221,13 +226,20 @@ def run_threshold(conn: psycopg.Connection, threshold: float, rows: list, catego
 
 
 def main() -> None:
+    with open(CATEGORIES_FILE, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         register_vector(conn)
         embed_pending(conn)
-        rows = conn.execute(WINDOW_SQL, {"model": MODEL, "hours": WINDOW_HOURS}).fetchall()
-        categories = CategoryMap(CATEGORIES_FILE)
-        for threshold in THRESHOLDS:
-            run_threshold(conn, threshold, rows, categories)
+        by_edition: dict[str, list] = {}
+        for row in conn.execute(WINDOW_SQL, {"model": MODEL, "hours": WINDOW_HOURS}).fetchall():
+            by_edition.setdefault(row[7], []).append(row)
+        for edition in sorted(by_edition):
+            if EDITION and edition != EDITION:
+                continue
+            categories = CategoryMap(cfg, edition)
+            for threshold in THRESHOLDS:
+                run_threshold(conn, edition, threshold, by_edition[edition], categories)
 
 
 if __name__ == "__main__":
