@@ -46,6 +46,7 @@ services:
       STORY_THRESHOLD: "0.92"
       STORY_OPEN_HOURS: "48"
       STORY_MAX_GAP_HOURS: "18"
+      STORY_MAX_SPAN_HOURS: "24"
     volumes: ["hfcache:/root/.cache/huggingface", "./categories.yaml:/app/categories.yaml:ro"]
 
   viewer:
