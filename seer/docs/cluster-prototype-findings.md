@@ -64,6 +64,29 @@ Each story gets one region and one subject by majority vote of its articles' Wor
 2. **A static fallback:** one fixed vector per subject, built from the stories that do get a subject vote. A story with no vote takes its nearest subject.
 3. **A check** on 100 hand-labelled stories before trusting either.
 
+## French edition
+
+These are 10 French sources read from news sitemaps, with article text extracted by trafilatura and capped at 150 articles per source. They're clustered separately from Macedonian.
+
+| | mk | fr |
+| --- | --- | --- |
+| Articles in 48 h | 1,158 | 1,189 |
+| Stories with 2+ sources at 0.92 | 194 | 134 |
+| Largest story at 0.92 | 24 | 30 |
+| Region / subject coverage | 84% / 49% | 40% / 81% |
+
+- **Scraping.** 1,187 articles with no fetch or extraction failures. Median text length is about 2,500 characters; BFMTV is the shortest at about 960. The cap of 150 per source covers only about 24 h for the busiest sites (Le Figaro, BFMTV, Le Parisien).
+- **Threshold.**
+    - 0.92 suits French too.
+    - At 0.90 a Teddy Riner story absorbed a separate set of reactions to Macron (31 articles).
+    - At 0.94 single stories start to split, and stories with 2+ sources drop from 88 to 79 in the clusterer agent's run on part of the data.
+- **Good merges:** US airspace closure (30 articles, 10 sources), Microsoft outage (18, 9) and Meta's fine in Italy (5, 5).
+- **Categories mirror Macedonian.**
+    - French sites file by subject: politique, economie, societe, sports.
+    - Macedonian sites file by place.
+    - So each edition needs a fallback for its weak facet. For fr's region, the edition's home region is a reasonable default.
+- **Cross-edition overlap.** The US airspace story leads both editions. That's a natural first case for linking stories across editions.
+
 ## Infrastructure notes
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.
