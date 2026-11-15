@@ -345,6 +345,14 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </tr>
 </tbody>
 </table></div>
+<p><strong>Measured hourly run</strong> (02:31 Skopje time, a quiet night hour): <strong>58 s end to end, about 40 GB-s.</strong></p>
+<ul>
+<li><strong>Scrape:</strong> mk took 5.4 s and found 0 posts. fr took 51 s for 110 pages (5 new and 105 re-checks), a 7 MB raw batch.</li>
+<li><strong>Ingest:</strong> fr took 5.5 s and found 6 meaningful edits.</li>
+<li><strong>Stories:</strong> 1.4 s with the container warm, for 5 new articles. A cold start adds about 8 s.</li>
+<li><strong>Export:</strong> 0.2 s.</li>
+</ul>
+<p>That's under the estimates in the table, so the cost below is slightly conservative.</p>
 <ul>
 <li><strong>About 52,000 GB-s a month</strong>, 13% of Lambda's free 400,000.</li>
 <li><strong>Peak memory:</strong> scrape 334 MiB, ingest 562 MiB, stories 757 MiB, export 47 MiB. The memory limit caught a real bug: scrape held a whole backfill in RAM, and both scrape and ingest now stream.</li>
