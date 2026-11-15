@@ -33,3 +33,7 @@ output "ecr_repository_urls" {
 output "alarm_topic_arn" {
   value = aws_sns_topic.alarms.arn
 }
+
+output "control_function_name" {
+  value = local.control_enabled ? aws_lambda_function.control[0].function_name : null
+}

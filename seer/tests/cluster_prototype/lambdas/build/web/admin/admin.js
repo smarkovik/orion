@@ -502,10 +502,14 @@
     });
     t.appendChild(tb);
   }
+  function lambdaLogged(r) {
+    var c = window.AdminControl && window.AdminControl.runCost(r);
+    return c == null ? "–" : usd(c);
+  }
   function drawRuns() {
     var t = $("runs"), runs = scoped().slice(-50).reverse();
     t.textContent = "";
-    var cols = ["Time", "Edition", "Status", "Records", "Inserted", "Embedded", "New stories", "Duration", "Cost"];
+    var cols = ["Time", "Edition", "Status", "Records", "Inserted", "Embedded", "New stories", "Duration", "Cost", "Lambda (logs)"];
     t.appendChild(h("thead", {}, [h("tr", {}, cols.map(function (c, i) { return h("th", { text: c, class: i < 3 ? "l" : "" }); }))]));
     var tb = h("tbody");
     if (!runs.length) tb.appendChild(h("tr", {}, [h("td", { class: "l", colspan: cols.length, text: "No runs in this window yet." })]));
@@ -516,7 +520,7 @@
         h("td", { class: "l" }, [btn, document.createTextNode(hm(r._t))]), h("td", { class: "l", text: r._ed }),
         h("td", { class: "l" }, [h("span", { class: "pill " + (errs || r.scrape.truncated ? "bad" : "ok"), text: errs ? errs + " errors" : r.scrape.truncated ? "truncated" : "ok" })]),
         h("td", { text: num(r.scrape.records) }), h("td", { text: num(r.build.inserted) }), h("td", { text: num(r.build.embedded) }),
-        h("td", { text: num(r.stories.new) }), h("td", { text: num(r.scrape_s + r.build_s, 0) + " s" }), h("td", { text: usd(r.cost.total_usd) })]);
+        h("td", { text: num(r.stories.new) }), h("td", { text: num(r.scrape_s + r.build_s, 0) + " s" }), h("td", { text: usd(r.cost.total_usd) }), h("td", { text: lambdaLogged(r) })]);
       var raw = null;
       btn.addEventListener("click", function () {
         if (raw) { raw.remove(); raw = null; btn.textContent = "▸"; btn.setAttribute("aria-expanded", "false"); return; }
@@ -537,7 +541,7 @@
 
   // helpers shared with readers.js
   window.AdminKit = { $: $, h: h, s: s, num: num, pad: pad, slot: slot, sum: sum, getJson: getJson, showTip: showTip, hideTip: hideTip, niceMax: niceMax,
-    frame: frame, geometry: geometry, axes: axes, attach: attach, xlabels: xlabels, bars: bars, tableFor: tableFor };
+    frame: frame, geometry: geometry, axes: axes, attach: attach, xlabels: xlabels, bars: bars, tableFor: tableFor, drawRuns: drawRuns, refresh: refresh };
 
   function init() {
     buildCards();
