@@ -42,6 +42,8 @@ def update(window: Window, cfg: dict[str, Any], now: datetime, previous: list[di
     for day in web_render.live_dates(window, cfg, now, previous):
         new = _entry(window, cfg, day)
         old = by_date.get(new["date"])
+        if old and old.get("briefing"):
+            new["briefing"] = True
         # Closed stories leave the window, so a recomputed past day may only shrink: keep the fuller entry.
         if day != today and old and old.get("stories", 0) > new["stories"]:
             continue

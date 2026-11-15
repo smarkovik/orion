@@ -20,6 +20,7 @@ limits:
   day: 30
   feed: 30
   week: 10  # stories on a week page
+  briefing: 10  # stories in the morning briefing
   min_sources: 2
 cache_seconds:
   html: 300  # front, section, story pages, today's and yesterday's day pages
@@ -91,6 +92,20 @@ editions:
       copy_link: Копирај линк
       copied: Линкот е копиран
       install_tip: "Додајте го {brand} на почетниот екран на телефонот: во прелистувачот отворете „Сподели“ или менито ⋮ и изберете „Додај на почетен екран“."
+      developing: Во тек
+      follow: Следи ја веста
+      following: Ја следите ✓
+      follow_notice_one: "1 вест што ја следите има нови статии"
+      follow_notice_many: "{n} вести што ги следите имаат нови статии"
+      briefing: Утрински преглед
+      briefing_sub: Што се случи од вчера вечер
+      display: Приказ
+      display_short: Аа
+      text_size: Големина на текстот
+      text_sizes: [Нормална, Голема, Најголема]
+      images: Слики
+      images_on: Со слики
+      images_off: Без слики
       about_sources: Медиуми од кои собираме вести
       about_body: |
         {brand} ги собира најновите вести од македонските медиуми и ги групира по настан, за да видите што се случува на едно место. Секоја вест води до оригиналниот текст кај медиумот што ја објавил.
@@ -165,6 +180,20 @@ editions:
       copy_link: Copier le lien
       copied: Lien copié
       install_tip: "Ajoutez {brand} à l'écran d'accueil de votre téléphone : dans le navigateur, ouvrez « Partager » ou le menu ⋮, puis choisissez « Sur l'écran d'accueil »."
+      developing: En cours
+      follow: Suivre
+      following: Suivie ✓
+      follow_notice_one: "1 actualité que vous suivez a de nouveaux articles"
+      follow_notice_many: "{n} actualités que vous suivez ont de nouveaux articles"
+      briefing: Le point du matin
+      briefing_sub: Ce qui s'est passé depuis hier soir
+      display: Affichage
+      display_short: Aa
+      text_size: Taille du texte
+      text_sizes: [Normale, Grande, Très grande]
+      images: Images
+      images_on: Avec images
+      images_off: Sans images
       about_sources: Médias dont nous réunissons les actualités
       about_body: |
         {brand} rassemble les dernières actualités des médias français et les regroupe par événement, pour voir l'essentiel en un seul endroit. Chaque article renvoie vers le texte original du média qui l'a publié.

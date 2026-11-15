@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_share.html" as sh %}
+{% import "_cards.html" as k %}
 {% block head %}
 {% for k, v in og.items() %}
 <meta property="og:{{ k }}" content="{{ v }}">
@@ -11,7 +12,7 @@
   <figure class="hero">
     <span class="pic">
     {% if img %}
-      <img src="{{ img }}" alt="{{ heading }}" width="640" height="360" decoding="async" referrerpolicy="no-referrer">
+      <img src="{{ img }}" alt="{{ heading }}" width="640" height="360" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     {% else %}
       <span class="ph">{{ section }}</span>
     {% endif %}
@@ -22,12 +23,15 @@
   <p class="meta big">{{ sources }} · {{ span }}{% if mark %}<span class="mk mk-{{ mark[0] }}"> · <span class="mark mark-{{ mark[0] }}">{{ mark[1] }}</span></span>{% endif %}</p>
   {% if first_by %}<p class="meta">{{ first_by }}</p>{% endif %}
   {% if section_href %}<p class="meta"><a href="{{ section_href }}">{{ section }}</a></p>{% endif %}
-  {{ sh.share(t, share_targets, share_title) }}
+  <div class="story-tools">
+    <button type="button" class="btn follow" hidden aria-pressed="false" data-id="{{ story_id }}" data-size="{{ size }}" data-on="{{ t.following }}" data-off="{{ t.follow }}">{{ t.follow }}</button>
+    {{ sh.share(t, share_targets, share_title) }}
+  </div>
   <h2 class="cov">{{ t.coverage }}</h2>
   <ol class="rows">
   {% for r in rows %}
     <li>
-      <p class="outlet">{{ r.outlet }} <span class="meta">· {{ r.time }}</span></p>
+      <p class="outlet">{{ k.chip(r.chip, true) }}{{ r.outlet }} <span class="meta">· {{ r.time }}</span></p>
       <p class="atitle">{{ r.title }}</p>
       <a class="btn read" href="{{ r.url }}" rel="noopener">{{ r.read }} →</a>
     </li>

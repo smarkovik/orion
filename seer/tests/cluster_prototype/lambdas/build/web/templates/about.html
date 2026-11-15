@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_cards.html" as k %}
 {% block content %}
 <div class="prose">
   <h1 class="page-h">{{ heading }}</h1>
@@ -8,7 +9,7 @@
   {% if outlets %}
   <h2>{{ outlets_title }}</h2>
   <ul class="outlets">
-    {% for o in outlets %}<li>{{ o.name }} <span class="meta">{{ o.domain }}</span></li>{% endfor %}
+    {% for o in outlets %}<li>{{ k.chip(o.chip, true) }}{{ o.name }} <span class="meta">{{ o.domain }}</span></li>{% endfor %}
   </ul>
   {% endif %}
 </div>

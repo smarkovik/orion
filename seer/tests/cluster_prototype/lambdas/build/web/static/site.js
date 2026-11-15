@@ -55,6 +55,9 @@
       var meta = el.querySelector(".meta");
       if (!(t > prev) || !meta) return;
       count++;
+      if (meta.querySelector(".mk-developing")) return;
+      var upd = meta.querySelector(".mk-updated");
+      if (upd) upd.hidden = true;
       var mk = document.createElement("span");
       mk.className = "mk mk-fresh";
       mk.appendChild(document.createTextNode(" \u00b7 "));
@@ -140,7 +143,154 @@
       .catch(function () {});
   }
 
+  function store(key, value) {
+    try {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    } catch (e) {}
+  }
+
+  function display() {
+    var tg = document.getElementById("disp-toggle");
+    var panel = document.getElementById("disp-panel");
+    if (!tg || !panel) return;
+    tg.hidden = false;
+    var sizes = panel.querySelectorAll("[data-text]");
+    var img = document.getElementById("disp-images");
+    function paint() {
+      var z = root.getAttribute("data-text") || "100";
+      Array.prototype.forEach.call(sizes, function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-text") === z));
+      });
+      var on = root.getAttribute("data-images") !== "off";
+      img.setAttribute("aria-checked", String(on));
+      img.textContent = img.getAttribute(on ? "data-on" : "data-off");
+    }
+    function open(v) {
+      panel.hidden = !v;
+      tg.setAttribute("aria-expanded", String(v));
+      if (v) {
+        var first = panel.querySelector('[aria-pressed="true"]') || panel.querySelector("button");
+        first.focus();
+      }
+    }
+    Array.prototype.forEach.call(sizes, function (b) {
+      b.addEventListener("click", function () {
+        var z = b.getAttribute("data-text");
+        if (z === "100") root.removeAttribute("data-text");
+        else root.setAttribute("data-text", z);
+        store("textsize", z === "100" ? null : z);
+        paint();
+      });
+    });
+    img.addEventListener("click", function () {
+      var off = root.getAttribute("data-images") !== "off";
+      if (off) root.setAttribute("data-images", "off");
+      else root.removeAttribute("data-images");
+      store("images", off ? "off" : null);
+      paint();
+    });
+    tg.addEventListener("click", function () {
+      open(panel.hidden);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !panel.hidden) {
+        open(false);
+        tg.focus();
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (!panel.hidden && !panel.contains(e.target) && !tg.contains(e.target)) open(false);
+    });
+    paint();
+  }
+
+  function follows() {
+    var key = body.getAttribute("data-follow");
+    if (!key) return;
+    var now = Date.now();
+    var f = {};
+    try {
+      f = JSON.parse(localStorage.getItem(key)) || {};
+    } catch (e) {}
+    Object.keys(f).forEach(function (id) {
+      if (!f[id] || typeof f[id].at !== "number" || now - f[id].at > 7 * 86400000) delete f[id];
+    });
+    function save() {
+      var ids = Object.keys(f).sort(function (a, b) {
+        return f[b].at - f[a].at;
+      });
+      ids.slice(50).forEach(function (id) {
+        delete f[id];
+      });
+      store(key, ids.length ? JSON.stringify(f) : null);
+    }
+    var btn = document.querySelector(".follow");
+    var current = btn ? btn.getAttribute("data-id") : "";
+    if (btn) {
+      var id = btn.getAttribute("data-id");
+      var size = parseInt(btn.getAttribute("data-size"), 10) || 0;
+      var paint = function () {
+        var on = !!f[id];
+        btn.setAttribute("aria-pressed", String(on));
+        btn.textContent = btn.getAttribute(on ? "data-on" : "data-off");
+      };
+      if (f[id]) f[id] = { at: now, n: size };
+      btn.hidden = false;
+      paint();
+      btn.addEventListener("click", function () {
+        if (f[id]) delete f[id];
+        else f[id] = { at: Date.now(), n: size };
+        save();
+        paint();
+      });
+    }
+    save();
+    if (!Object.keys(f).length || !window.fetch) return;
+    var url = new URL(body.getAttribute("data-follow-json"), location.href);
+    fetch(url.href, { cache: "no-cache" })
+      .then(function (r) {
+        return r.ok ? r.json() : null;
+      })
+      .then(function (doc) {
+        if (!doc || !doc.stories) return;
+        var changed = [];
+        Object.keys(f).forEach(function (id) {
+          var s = doc.stories[id];
+          if (!s) delete f[id];
+          else if (id === current) f[id].n = Math.max(f[id].n, s[0]);
+          else if (s[0] > f[id].n) changed.push({ add: s[0] - f[id].n, title: s[2], href: new URL(s[3], url).href });
+        });
+        save();
+        var note = document.getElementById("follow-notice");
+        if (!note || !changed.length) return;
+        var p = document.createElement("p");
+        p.textContent = note.getAttribute(changed.length === 1 ? "data-one" : "data-many").replace("{n}", changed.length);
+        var ul = document.createElement("ul");
+        changed.forEach(function (c) {
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.href = c.href;
+          var t = document.createElement("span");
+          t.textContent = c.title;
+          var n = document.createElement("span");
+          n.className = "plus";
+          n.textContent = "+" + c.add;
+          a.appendChild(t);
+          a.appendChild(n);
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+        note.appendChild(p);
+        note.appendChild(ul);
+        note.hidden = false;
+      })
+      .catch(function () {});
+  }
+
   visits();
+  display();
+  follows();
   share();
   worker();
 

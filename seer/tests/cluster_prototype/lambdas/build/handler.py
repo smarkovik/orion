@@ -10,6 +10,7 @@ from urllib.parse import unquote_plus
 import archive
 import days
 import ingest
+import logos
 import render
 import state
 import stories
@@ -113,6 +114,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     shown = set(web.selection(window, site_cfg, now)) | set(touched_story_ids)
     thumb_counts = thumbs.ensure(window, shown, now)
     t = lap("thumbs", t)
+    logo_map = logos.ensure({s["domain"]: s["base_url"] for s in editions[edition]["sources"]}, now)
+    t = lap("logos", t)
     day_index = days.update(window, site_cfg, now, days.load(edition))
     t = lap("days", t)
 
@@ -125,7 +128,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     asset_pages, _, _ = web.render_assets(site_cfg)
     site_pages = [
         *asset_pages,
-        *web.render_edition(window, site_cfg, now, day_index, names, set(touched_story_ids)),
+        *web.render_edition(window, site_cfg, now, day_index, names, set(touched_story_ids), logo_map),
         *web.render_root(site_cfg, summaries, now),
     ]
     lab_pages = render.render_edition(window, now)
