@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-h">{{ heading }}</h1>
+<nav class="daynav" aria-label="{{ calendar_title }}">
+  {% if prev %}<a class="btn" href="{{ prev.href }}">← {{ prev.label }}</a>{% else %}<span></span>{% endif %}
+  <span></span>
+  {% if next %}<a class="btn" href="{{ next.href }}">{{ next.label }} →</a>{% else %}<span></span>{% endif %}
+</nav>
+<div class="wd" aria-hidden="true">{% for w in weekdays %}<span>{{ w }}</span>{% endfor %}</div>
+<ol class="cal">
+{% for c in cells %}
+  <li class="{% if not c.href %}none{% endif %}{% if c.today %} today{% endif %}"{% if loop.first and offset %} style="grid-column-start:{{ offset + 1 }}"{% endif %}>
+  {% if c.href %}
+    <a href="{{ c.href }}"><span class="d">{{ c.day }} <span class="wdn">{{ c.weekday }}</span></span><span class="n">{{ c.count }}</span><span class="l">{{ c.lead }}</span></a>
+  {% else %}
+    <span class="d">{{ c.day }}</span>
+  {% endif %}
+  </li>
+{% endfor %}
+</ol>
+{% endblock %}

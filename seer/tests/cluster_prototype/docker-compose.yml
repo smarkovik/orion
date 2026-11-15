@@ -74,9 +74,12 @@ services:
       TOP_LIMIT: "60"
       LATEST_LIMIT: "60"
       MIN_SOURCES: "2"
+      THUMBS_PER_RUN: "80"
+      SITE_FILE: /var/task/site.yaml
     ports: ["9102:8080"]
     volumes:
       - ./sources.yaml:/var/task/sources.yaml:ro
+      - ./site.yaml:/var/task/site.yaml:ro
       - ./categories.yaml:/var/task/categories.yaml:ro
 
   clusterer:

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-h choose-h">{{ brand }}</h1>
+<ul class="choose">
+{% for e in chooser %}
+  <li><a href="{{ e.href }}" lang="{{ e.lang }}"><span class="en">{{ e.name }}</span><span class="tg">{{ e.tagline }}</span></a></li>
+{% endfor %}
+</ul>
+{% endblock %}

@@ -135,6 +135,22 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </ol>
 <p><strong>Updates are bumped, not reprocessed.</strong> An edited article keeps its first embedding and its story. Its story only gets a new activity time, so it rises in Top.</p>
 <p><strong>Replays are exact.</strong> Build uses the scrape's own clock, so replaying the raw batches rebuilds the same window and pages. If extraction or clustering improves, the state can be rebuilt from S3 without scraping again.</p>
+<h2>Public site</h2>
+<p>Build also renders the public site for readers, next to the analysis pages (now under <code>/lab/</code>, hidden from search engines).</p>
+<ul>
+<li><strong>Pages:</strong><ul>
+<li><strong>Front page:</strong> a lead story with a large picture, then cards with a picture, title, number of outlets and time.</li>
+<li><strong>Sections:</strong> mk by region, fr by subject.</li>
+<li><strong>Story pages:</strong> every outlet's article with a "Read on {outlet}" link.</li>
+<li><strong>Archive:</strong> day pages with previous/next and a month calendar.</li>
+<li><strong>Also:</strong> an about page with the outlets, and RSS.</li>
+</ul>
+</li>
+<li><strong>For non-technical readers aged 30–60:</strong> large type, calm colours, light and dark themes, no jargon, no search; history is browsed by day.</li>
+<li><strong>Thumbnails:</strong> one per story, from its lead image, 640×360 WebP (about 19 KB), stored in the site bucket with a 1-year cache. Each image carries a photo credit to the outlet.</li>
+<li><strong>Brand and text:</strong> the name is a codename set only in <code>site.yaml</code>, with all Macedonian and French interface text.</li>
+<li><strong>Kept 3 years:</strong> story pages, day pages and thumbnails, like the archive.</li>
+</ul>
 <h2>Storage and retention</h2>
 <p><strong>S3 raw bucket</strong></p>
 <div class="table"><table>
@@ -405,6 +421,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <li><strong>Removing Aurora saved about $5–8.50 a month</strong> (compute, storage, I/O and its password secret), and Step Functions too.</li>
 <li><strong>Not included:</strong> tax, AWS support, and new-account credits.</li>
 </ul>
+<p><strong>Thumbnails add a little at 1M views.</strong> A front page loads about 6–13 pictures as the reader scrolls, so image requests can pass CloudFront's free 10M a month. I estimate <strong>$0–10 extra a month</strong>, depending on how far readers scroll; returning readers hit their browser cache. Transfer stays well inside the free 1 TB. Thumbnail storage adds about 4 GB a year, which is cents.</p>
 <h2>Revenue with Google ads (best guess)</h2>
 <p>I found no published AdSense rates for news websites in France or North Macedonia; searches only turned up YouTube figures, which don't carry over. The rates below are my estimate from general industry knowledge. Treat them as a range to test with real traffic, not a forecast.</p>
 <div class="table"><table>

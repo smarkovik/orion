@@ -14,6 +14,7 @@ ENV MODEL_PATH=/opt/model/e5-base HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HOM
 COPY lambdas/common/seer_common/ ${LAMBDA_TASK_ROOT}/seer_common/
 COPY lambdas/build/*.py ${LAMBDA_TASK_ROOT}/
 COPY clusterer/categories.py ${LAMBDA_TASK_ROOT}/categories.py
+COPY lambdas/build/web/ ${LAMBDA_TASK_ROOT}/web/
 COPY viewer/templates/ ${LAMBDA_TASK_ROOT}/templates/
-COPY sources.yaml categories.yaml ${LAMBDA_TASK_ROOT}/
+COPY sources.yaml categories.yaml site.yaml ${LAMBDA_TASK_ROOT}/
 CMD ["handler.handler"]

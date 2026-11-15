@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<meta name="color-scheme" content="light dark">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<link rel="stylesheet" href="{{ css }}">
+{% if feed %}
+<link rel="alternate" type="application/rss+xml" title="{{ brand }}" href="{{ feed }}">
+{% endif %}
+<script src="{{ js }}" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">{{ t.skip }}</a>
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="{{ home }}">{{ brand }}</a>
+    <div class="tools">
+      {% if editions %}
+      <nav class="editions" aria-label="{{ t.edition }}">
+        {% for e in editions %}
+        <a href="{{ e.href }}" lang="{{ e.lang }}"{% if e.current %} aria-current="true"{% endif %}>{{ e.name }}</a>
+        {% endfor %}
+      </nav>
+      {% endif %}
+      <button type="button" class="btn theme" id="theme-toggle" hidden data-label="{{ t.theme }}" data-light="{{ t.theme_light }}" data-dark="{{ t.theme_dark }}"><span class="lbl"></span></button>
+    </div>
+  </div>
+  {% if sections %}
+  <nav class="sections" aria-label="{{ t.sections }}">
+    <ul class="wrap">
+      <li><a href="{{ home }}"{% if all_current %} aria-current="page"{% endif %}>{{ t.home }}</a></li>
+      {% for s in sections %}
+      <li><a href="{{ s.href }}"{% if s.current %} aria-current="page"{% endif %}>{{ s.name }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  {% endif %}
+</header>
+<main id="main" class="wrap">
+{% block content %}{% endblock %}
+</main>
+{% if foot_about %}
+<footer class="foot">
+  <div class="wrap">
+    <nav aria-label="{{ brand }}">
+      <a href="{{ foot_archive }}">{{ t.archive }}</a>
+      <a href="{{ foot_calendar }}">{{ t.calendar }}</a>
+      <a href="{{ foot_about }}">{{ t.about }}</a>
+      <a href="{{ feed }}">{{ t.rss }}</a>
+    </nav>
+  </div>
+</footer>
+{% endif %}
+</body>
+</html>

@@ -3,20 +3,23 @@
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import unquote_plus
 
 import archive
+import days
 import ingest
 import render
 import state
 import stories
+import thumbs
 import yaml
 from categories import CategoryMap
 from model import summary_key, build_report_key
 from seer_common import store
 from seer_common.text import parse_utc
+from web import render as web
 
 logging.getLogger().setLevel(logging.INFO)
 log = logging.getLogger("build")
@@ -26,6 +29,22 @@ def _manifest_key(event: dict[str, Any]) -> str:
     if event.get("manifest_key"):
         return event["manifest_key"]
     return unquote_plus(event["Records"][0]["s3"]["object"]["key"])
+
+
+def _upload_pages(pages: list[Any]) -> dict[str, int]:
+    """Upload site pages; assets and thumbnails are immutable, so an existing key is left alone."""
+
+    def put(page: Any) -> int | None:
+        if page.key.startswith("assets/") and thumbs.exists(page.key):
+            return None
+        return store.put_bytes(
+            store.SITE_BUCKET, page.key, page.body, page.content_type, CacheControl=page.cache_control
+        )
+
+    with ThreadPoolExecutor(8) as pool:
+        sizes = list(pool.map(put, pages))
+    sent = [n for n in sizes if n is not None]
+    return {"count": len(sent), "skipped": len(sizes) - len(sent), "bytes": sum(sent)}
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -88,15 +107,31 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     story_counts = {**story_counts, "open": len(window.stories)}
     t = lap("assign", t)
 
-    pages = render.render_edition(window, now)
+    with open(os.environ.get("SITE_FILE", "/var/task/site.yaml"), encoding="utf-8") as f:
+        site_cfg = {**yaml.safe_load(f), "edition": edition}
+    names = {s["domain"]: s.get("name", s["domain"]) for s in editions[edition]["sources"]}
+    shown = set(web.selection(window, site_cfg, now)) | set(touched_story_ids)
+    thumb_counts = thumbs.ensure(window, shown, now)
+    t = lap("thumbs", t)
+    day_index = days.update(window, site_cfg, now, days.load(edition))
+    t = lap("days", t)
+
     summary = render.edition_summary(window, now)
     summaries = []
     for e in editions:
         s = summary if e == edition else store.get_json(store.RAW_BUCKET, summary_key(e))
         if s:
             summaries.append(s)
-    pages["index.html"] = render.render_index(summaries, now)
-    uploaded = render.upload(pages)
+    asset_pages, _, _ = web.render_assets()
+    site_pages = [
+        *asset_pages,
+        *web.render_edition(window, site_cfg, now, day_index, names, set(touched_story_ids)),
+        *web.render_root(site_cfg, summaries, now),
+    ]
+    lab_pages = render.render_edition(window, now)
+    lab_pages[f"{render.LAB}/index.html"] = render.render_index(summaries, now)
+    uploaded = render.upload(lab_pages)
+    site_uploaded = _upload_pages(site_pages)
     t = lap("render", t)
 
     store.put_json(store.RAW_BUCKET, summary_key(edition), summary)
@@ -111,6 +146,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         closed_ids=closed_ids,
     )
     window_bytes = state.save_window(window, etag)
+    days_bytes = days.save(edition, day_index, now)
     state.write_scrape_state(window, now)
     t = lap("save", t)
 
@@ -121,6 +157,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "embedded": embedded,
         "embed_s": round(embed_s, 2),
         "stories": story_counts,
+        "thumbs": thumb_counts,
+        "days": {"entries": len(day_index), "bytes": days_bytes},
+        "site_pages": site_uploaded,
         "pages": uploaded,
         "window_bytes": window_bytes,
         "archive_bytes": arch_bytes,

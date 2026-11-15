@@ -15,7 +15,7 @@ x-proxy-env: &proxy-env
 
 services:
   # Needs the internet, so it runs on the host network. The host's 8080 is the viewer,
-  # so the emulator listens on 9101. fn-build gets no proxy on purpose.
+  # so the emulator listens on 9101.
   fn-scrape:
     build: *proxy-build
     network_mode: host
@@ -32,8 +32,24 @@ services:
       S3_ENDPOINT_URL: http://127.0.0.1:7070
       _HANDLER: handler.handler
 
+  # Thumbnails need the internet too. Its runtime API moves off the default 9001, which fn-scrape holds.
   fn-build:
     build: *proxy-build
+    network_mode: host
+    ports: !reset []
+    entrypoint:
+      - /usr/local/bin/aws-lambda-rie
+      - --runtime-interface-emulator-address
+      - 0.0.0.0:9102
+      - --runtime-api-address
+      - 127.0.0.1:9003
+      - /var/runtime/bootstrap
+    environment:
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: 127.0.0.1,localhost
+      S3_ENDPOINT_URL: http://127.0.0.1:7070
+      _HANDLER: handler.handler
 
   clusterer:
     build: *proxy-build

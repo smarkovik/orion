@@ -1,0 +1,15 @@
+{
+  "Rules": [
+    {"ID": "expire-mk-stories", "Status": "Enabled", "Filter": {"Prefix": "mk/story/"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-fr-stories", "Status": "Enabled", "Filter": {"Prefix": "fr/story/"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-mk-days", "Status": "Enabled", "Filter": {"Prefix": "mk/20"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-fr-days", "Status": "Enabled", "Filter": {"Prefix": "fr/20"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-thumbs", "Status": "Enabled", "Filter": {"Prefix": "thumbs/"}, "Expiration": {"Days": 1095}},
+    {
+      "ID": "abort-incomplete-multipart",
+      "Status": "Enabled",
+      "Filter": {"Prefix": ""},
+      "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}
+    }
+  ]
+}
