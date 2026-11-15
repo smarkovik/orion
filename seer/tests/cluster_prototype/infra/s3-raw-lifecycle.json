@@ -1,0 +1,22 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-raw",
+      "Status": "Enabled",
+      "Filter": {"Prefix": "raw/"},
+      "Expiration": {"Days": 730}
+    },
+    {
+      "ID": "expire-runs",
+      "Status": "Enabled",
+      "Filter": {"Prefix": "runs/"},
+      "Expiration": {"Days": 730}
+    },
+    {
+      "ID": "abort-incomplete-multipart",
+      "Status": "Enabled",
+      "Filter": {"Prefix": ""},
+      "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}
+    }
+  ]
+}

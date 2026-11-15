@@ -11,20 +11,25 @@ DC := docker compose $(COMPOSE_FILES)
 PSQL := $(DC) exec -T db psql -U seer -d seer
 VIEWER_URL ?= http://localhost:8080
 CA_FILE ?= $(or $(SSL_CERT_FILE),/root/.ccr/ca-bundle.crt)
-IMAGES := viewer scraper clusterer
+FNS := fn-scrape fn-ingest fn-stories fn-export
+IMAGES := viewer clusterer $(FNS)
 MIGRATE := $(PSQL) -q -v ON_ERROR_STOP=1 -c "set client_min_messages = warning" -f - < db/schema.sql
 MIN_SOURCES ?= 2
 THRESHOLD ?= 0.92
 VIEW ?= top
 WAIT_VIEWER := (for _ in $$(seq 1 30); do curl -fsS "$(VIEWER_URL)/healthz" >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1)
 
-# Optional per-run overrides, e.g. `make cluster THRESHOLDS=0.91,0.92`.
+# Pipeline runner (stand-in for Step Functions); HOURS and EDITION map to its flags.
+PIPELINE := python3 pipeline/run_pipeline.py $(if $(HOURS),--hours $(HOURS)) $(if $(EDITION),--editions $(EDITION))
+S3_DIR := data/s3
+
+# Optional per-run overrides for the batch experiment, e.g. `make cluster THRESHOLDS=0.91,0.92`.
 JOB_ENV := $(if $(HOURS),-e HOURS=$(HOURS)) $(if $(THRESHOLDS),-e THRESHOLDS=$(THRESHOLDS)) \
 	$(if $(WINDOW_HOURS),-e WINDOW_HOURS=$(WINDOW_HOURS)) $(if $(MODEL),-e MODEL=$(MODEL)) \
 	$(if $(EDITION),-e EDITION=$(EDITION)) $(if $(MAX_ARTICLES),-e MAX_ARTICLES_PER_SOURCE=$(MAX_ARTICLES))
 
-.PHONY: help all docker certs build up migrate down restart scrape cluster stories reset-stories refresh open export \
-	export-editions ps \
+.PHONY: help all docker certs build up migrate down restart scrape cluster stories site raw reset-stories refresh open \
+	export export-editions ps \
 	logs health stats sql psql clear-runs clean
 
 help: ## Show this list
@@ -32,9 +37,10 @@ help: ## Show this list
 	@echo "  Variables: HOURS, THRESHOLDS, WINDOW_HOURS, MODEL, EDITION, MAX_ARTICLES, SERVICE, SQL, RUN,"
 	@echo "             THRESHOLD, VIEW, MIN_SOURCES, VIEWER_URL"
 
-all: build up scrape stories open ## Build, start, scrape, build stories, then open the viewer
+all: build up refresh open ## Build, start, run the whole pipeline, then open the viewer
 
-refresh: scrape stories ## Scrape new articles and update stories (containers already up)
+refresh: docker ## Run all four steps: scrape, ingest, stories, export (containers already up)
+	$(PIPELINE) --steps scrape,ingest,stories,export
 
 docker: ## Start the Docker daemon if it isn't running (cloud sandboxes)
 	@docker info >/dev/null 2>&1 || { \
@@ -57,8 +63,9 @@ else
 	$(DC) build $(IMAGES)
 endif
 
-up: docker ## Start the database and the viewer
-	$(DC) up -d db viewer
+up: docker ## Start the database, S3, the four Lambda containers and the viewer
+	@mkdir -p $(S3_DIR)
+	$(DC) up -d db s3 $(FNS) viewer
 	@$(MIGRATE)
 	@$(WAIT_VIEWER) || echo "viewer: not ready after 30 s; see make logs SERVICE=viewer"
 
@@ -71,11 +78,25 @@ down: docker ## Stop all containers; data is kept
 restart: docker ## Restart the viewer
 	$(DC) restart viewer
 
-scrape: docker ## Scrape the last HOURS (default 48) from all sources
-	$(DC) run --rm $(JOB_ENV) scraper
+scrape: docker ## Scrape to S3 and ingest into Postgres (HOURS, EDITION)
+	$(PIPELINE) --steps scrape,ingest
 
 stories: docker ## Embed new articles and add them to stable stories (incremental; new articles only)
-	$(DC) run --rm -e MODE=stories $(JOB_ENV) clusterer
+	$(PIPELINE) --steps stories
+
+site: docker ## Export the static site to S3, then print the path of its index.html
+	$(PIPELINE) --steps export
+	@echo "Site: $(CURDIR)/$(S3_DIR)/seer-site/index.html"
+
+raw: ## List raw objects, manifests and state in data/s3/seer-raw, with sizes
+	@d=$(S3_DIR)/seer-raw; [ -d "$$d" ] || { echo "$$d: nothing yet (run make scrape)"; exit 0; }; \
+	for p in raw runs state; do \
+		echo "== $$p/"; \
+		find "$$d/$$p" -type f 2>/dev/null | sort | while read -r f; do \
+			printf "%12d  %s\n" "$$(stat -c %s "$$f")" "$${f#$$d/}"; done; \
+		find "$$d/$$p" -type f 2>/dev/null | xargs -r stat -c %s | awk -v p=$$p '{n++; t+=$$1} END {printf "%12d  total %s (%d files)\n", t, p, n}'; \
+	done; \
+	echo "== all"; du -sh "$$d" | awk '{print "   " $$1 " on disk"}'
 
 reset-stories: docker ## Delete all stories so the next `make stories` rebuilds them from scratch
 	@$(PSQL) -c "delete from stories;"
@@ -101,7 +122,7 @@ export-editions: docker ## Save the side-by-side stories page (tabs) to out/edit
 ps: docker ## Show containers
 	$(DC) --profile jobs ps -a
 
-logs: docker ## Follow logs; SERVICE=viewer|db for one service
+logs: docker ## Follow logs; SERVICE=viewer|db|s3|fn-scrape|... for one service
 	$(DC) logs -f --tail=100 $(SERVICE)
 
 health: docker ## Check the viewer and the database
@@ -124,6 +145,7 @@ psql: docker ## Open an interactive psql shell
 clear-runs: docker ## Delete all cluster runs; articles and embeddings stay
 	@$(PSQL) -c "delete from cluster_runs;"
 
-clean: docker ## Stop everything and delete all data, including the model cache
+clean: docker ## Stop everything and delete all data, including the model cache and data/s3
 	$(DC) --profile jobs down -v
+	@find $(S3_DIR) -mindepth 1 -delete 2>/dev/null || true
 	rm -f certs/extra-ca.crt

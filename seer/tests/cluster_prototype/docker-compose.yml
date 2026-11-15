@@ -2,6 +2,14 @@ name: seer-proto
 
 x-db-url: &db-url postgresql://seer:seer@db:5432/seer
 
+x-s3-env: &s3-env
+  S3_ENDPOINT_URL: http://s3:7070
+  S3_AUTO_CREATE: "true"
+  AWS_ACCESS_KEY_ID: seer
+  AWS_SECRET_ACCESS_KEY: seersecret
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_LAMBDA_FUNCTION_TIMEOUT: "900"
+
 services:
   db:
     image: pgvector/pgvector:0.8.7-pg16
@@ -18,20 +26,85 @@ services:
       interval: 2s
       retries: 30
 
-  scraper:
-    build: {context: ., dockerfile: scraper/Dockerfile}
-    profiles: ["jobs"]
-    depends_on: {db: {condition: service_healthy}}
+  s3:
+    image: versity/versitygw:v1.11.0
+    command: --access seer --secret seersecret --region eu-central-1 --port :7070 posix /data
+    volumes: ["./data/s3:/data"]
+    ports: ["7070:7070"]
+
+  fn-scrape:
+    build: {context: ., dockerfile: lambdas/scrape/Dockerfile}
+    image: seer-proto-fn-scrape
+    read_only: true
+    tmpfs: ["/tmp:size=512m"]
+    mem_limit: 512m
+    depends_on: [s3]
     environment:
-      DATABASE_URL: *db-url
+      <<: *s3-env
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "512"
       HOURS: "48"
       REQUEST_DELAY_S: "2"
       MAX_ARTICLES_PER_SOURCE: "150"
       REFRESH_HOURS: "6"
       MAX_REFRESH_PER_SOURCE: "20"
-      CHANGE_MIN_RATIO: "0.05"
       IGNORE_ROBOTS: "true" # experiments only
-    volumes: ["./sources.yaml:/app/sources.yaml:ro"]
+    ports: ["9101:8080"]
+    volumes: ["./sources.yaml:/var/task/sources.yaml:ro"]
+
+  fn-ingest:
+    build: {context: ., dockerfile: lambdas/ingest/Dockerfile}
+    image: seer-proto-fn-ingest
+    read_only: true
+    tmpfs: ["/tmp:size=512m"]
+    mem_limit: 1g
+    depends_on:
+      s3: {condition: service_started}
+      db: {condition: service_healthy}
+    environment:
+      <<: *s3-env
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "1024"
+      DATABASE_URL: *db-url
+      CHANGE_MIN_RATIO: "0.05"
+      STATE_HOURS: "48"
+    ports: ["9102:8080"]
+    volumes: ["./sources.yaml:/var/task/sources.yaml:ro"]
+
+  fn-stories:
+    build: {context: ., dockerfile: lambdas/stories/Dockerfile}
+    image: seer-proto-fn-stories
+    read_only: true
+    tmpfs: ["/tmp:size=512m"]
+    mem_limit: 4g
+    depends_on:
+      s3: {condition: service_started}
+      db: {condition: service_healthy}
+    environment:
+      <<: *s3-env
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "4096"
+      DATABASE_URL: *db-url
+      MODEL: intfloat/multilingual-e5-base
+      WINDOW_HOURS: "48"
+      STORY_THRESHOLD: "0.92"
+      STORY_OPEN_HOURS: "48"
+      STORY_MAX_GAP_HOURS: "18"
+      STORY_MAX_SPAN_HOURS: "24"
+    ports: ["9103:8080"]
+    volumes: ["./categories.yaml:/var/task/categories.yaml:ro"]
+
+  fn-export:
+    build: {context: ., dockerfile: lambdas/export/Dockerfile}
+    image: seer-proto-fn-export
+    read_only: true
+    tmpfs: ["/tmp:size=512m"]
+    mem_limit: 512m
+    depends_on:
+      s3: {condition: service_started}
+      db: {condition: service_healthy}
+    environment:
+      <<: *s3-env
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "512"
+      DATABASE_URL: *db-url
+    ports: ["9104:8080"]
 
   clusterer:
     build: {context: ., dockerfile: clusterer/Dockerfile}

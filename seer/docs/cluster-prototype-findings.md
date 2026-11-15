@@ -113,6 +113,24 @@ The live pipeline now adds only new articles to stable stories (`make stories`),
     - Le Figaro's extraction varies between fetches (ratio 0.93), so it produces false "updated" flags. A 48 h re-fetch flagged 17 of 111 Figaro articles against 2 of 863 for the other sites, enough to float the French top stories. Fix: a stricter ratio for that site, or normalizing the text before comparing.
 - **"New" after a rebuild.** A story's creation time is when we formed it, so after `make reset-stories` every story shows "new" for 3 h. That's harmless for incremental runs, but a "new" badge could instead use the story's first article time.
 
+## Lambda split and the S3 raw record
+
+The pipeline now runs as four Lambda container images (scrape, ingest, stories, export) behind AWS's Runtime Interface Emulator, with a folder-backed S3 stand-in. The contract is in [`lambdas/README.md`](../tests/cluster_prototype/lambdas/README.md), and the AWS plan and cost are in the infrastructure doc (https://claude.ai/artifact/CDgvfxgsj3SiQJx4Zwsf66).
+
+| Run | Scrape | Ingest | Stories | Export | Raw batch (gzipped) |
+| --- | --- | --- | --- | --- | --- |
+| Backfill, 48 h | mk 10 s, 1,157 posts; fr 382 s, 1,182 pages | mk 2 s; fr 54 s | 8.8 s with model load | 0.6 s | mk 2.1 MB; fr 75 MB |
+| Re-run minutes later | mk 6 s, 0 posts; fr 11 s, 2 pages | under 1 s | 0.9 s | 0.2 s | mk 20 B; fr 135 KB |
+
+- **The memory limit caught a real bug.** At 512 MB, scrape was killed while holding the fr backfill's raw HTML (about 400 KB a page). Records now stream through a gzip writer that spills to `/tmp`, and ingest reads the batch line by line in chunks of 50 per source.
+- **Peak memory**, measured with Docker: scrape 334 MiB, ingest 562 MiB, stories 757 MiB, export 47 MiB. The Lambda sizes in the plan (512 MB, 1 GB, 4 GB, 512 MB) fit, and stories could drop to 2 GB.
+- **Raw HTML is heavy and compresses about 6×**: about 64 KB gzipped per French page, against about 1.8 KB per WordPress post.
+- **One WordPress site ignores `modified_after`.** novamakedonija.com.mk returned its last 86 posts every hour. Scrape now also drops posts whose `modified_gmt` is older than the cutoff.
+- **Ingest is idempotent.** The backfill of articles already in the database inserted 1 of 1,157 mk posts. French pages that came back with edits were flagged (59 updated, 33 meaningful).
+- **No internet needed in the VPC.** fn-ingest, fn-stories and fn-export ran with no network route out at all.
+- **The static pages** are about 170–215 KB each, or 28–39 KB gzipped, with 60 stories per page.
+- **Database growth:** about 14 KB per article across all tables, so about 6 GB a year.
+
 ## Infrastructure notes
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.
