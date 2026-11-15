@@ -15,7 +15,7 @@ x-proxy-env: &proxy-env
 
 services:
   # Needs the internet, so it runs on the host network. The host's 8080 is the viewer,
-  # so the emulator listens on 9101. fn-ingest, fn-stories and fn-export get no proxy on purpose.
+  # so the emulator listens on 9101. fn-build gets no proxy on purpose.
   fn-scrape:
     build: *proxy-build
     network_mode: host
@@ -32,13 +32,7 @@ services:
       S3_ENDPOINT_URL: http://127.0.0.1:7070
       _HANDLER: handler.handler
 
-  fn-ingest:
-    build: *proxy-build
-
-  fn-stories:
-    build: *proxy-build
-
-  fn-export:
+  fn-build:
     build: *proxy-build
 
   clusterer:

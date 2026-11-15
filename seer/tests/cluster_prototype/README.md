@@ -1,64 +1,70 @@
 # Cluster prototype
 
-An end-to-end test of Seer in Docker. It scrapes two editions of 10 news sites each, Macedonian (`mk`) and French (`fr`), embeds the articles, and clusters each edition into stories. You can then inspect the stories side by side in a browser. To add a source or a country, see [the guide](../../docs/adding-sources-and-editions.md).
+An end-to-end test of Seer in Docker. It scrapes two editions of 10 news sites each, Macedonian (`mk`) and French (`fr`), embeds the articles, and clusters each edition into stories, rendered as a static site. To add a source or a country, see [the guide](../../docs/adding-sources-and-editions.md).
 
 ```bash
-make all          # build, start, run the Lambda pipeline (scrape, ingest, stories, export), open the viewer
+make all          # build, start, scrape and build both editions, print the site path
 make down         # stop; data is kept
 ```
 
 `make` alone lists every target. `./run.sh <target>` is a shortcut for the same thing.
 
+There is no database. Two Lambdas and S3 do everything; the contract is in [lambdas/README.md](lambdas/README.md).
+
 | Target | Does |
 | --- | --- |
-| `all` | Build, start, run the whole pipeline, then open the viewer |
-| `build`, `up`, `down`, `restart` | Build the images; start the database, S3, the four Lambda containers and the viewer; stop everything; restart the viewer |
-| `scrape`, `stories`, `site`, `refresh` | Scrape to S3 and ingest; add new articles to stable stories; export the static site to S3 (prints `data/s3/seer-site/index.html`); or all four steps |
-| `raw` | List raw objects, manifests and state under `data/s3/seer-raw`, with sizes |
-| `cluster` | Batch experiment: re-cluster the whole window at each threshold (`cluster_runs`) |
-| `reset-stories` | Delete all stories so the next `make stories` rebuilds them |
-| `open` | Open http://localhost:8080 in a browser |
-| `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=viewer`); check the viewer and the database |
-| `stats`, `sql`, `psql` | Articles per source and recent runs; one query (`SQL="..."`); an interactive shell |
-| `migrate` | Apply `db/schema.sql` to the running database (`up` does this too) |
-| `export` | Save a run page as static HTML in `out/` (`RUN=<id>`, `MIN_SOURCES=2`) |
-| `export-editions` | Save the side-by-side stories page, with tabs, to `out/editions.html` (`VIEW=top` or `latest`) |
-| `clear-runs` | Delete cluster runs but keep articles and embeddings |
-| `clean` | Stop and delete all data, including the model cache and `data/s3` |
+| `all` | Build, start, run the pipeline, print the site path |
+| `build`, `up`, `down`, `restart` | Build the two Lambda images; start S3 and the two Lambdas; stop everything (all profiles); restart the Lambdas |
+| `refresh` | Scrape, then build from the new manifest, per edition |
+| `scrape` | Scrape to S3 only |
+| `site` | Build from the latest manifest of each edition without scraping; prints `data/s3/seer-site/index.html` |
+| `replay` | `EDITION=mk` (default both): delete the edition's state, then build every manifest in `runs/` in order |
+| `raw` | List `raw/`, `runs/`, `state/`, `archive/` and `builds/` under `data/s3/seer-raw`, with sizes |
+| `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=fn-build`); check the containers |
+| `clean` | Stop and delete all data, including `data/s3` |
 
-Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `make refresh EDITION=fr` limits a run to one edition (`--editions`). `WINDOW_HOURS` and `MODEL` apply to `make cluster`; scrape knobs such as `MAX_ARTICLES_PER_SOURCE` live in the `fn-scrape` environment in `docker-compose.yml`.
+Per-run overrides: `make refresh HOURS=6 EDITION=fr` (`--hours`, `--editions`). Scrape knobs such as `MAX_ARTICLES_PER_SOURCE` live in the `fn-scrape` environment and build knobs such as `STORY_THRESHOLD` in the `fn-build` environment in `docker-compose.yml`.
 
 ## Services
 
 | Service | Does | Runs |
 | --- | --- | --- |
-| `db` | Postgres 16 + pgvector 0.8.7; schema in `db/schema.sql` | Always; host port 5433 |
 | `s3` | versitygw, a local S3 stand-in; objects are plain files under `data/s3/` | Always; port 7070 |
-| `fn-scrape` | Lambda: fetches each source into one raw object per edition per run. No database. | Invoked on port 9101 |
-| `fn-ingest` | Lambda: parses the raw object, upserts `articles` by canonical URL, rebuilds `state/` | Invoked on port 9102 |
-| `fn-stories` | Lambda: embeds new articles with `intfloat/multilingual-e5-base` (CPU) and joins stable stories | Invoked on port 9103 |
-| `fn-export` | Lambda: renders the static site into the site bucket | Invoked on port 9104 |
-| `clusterer` | Batch experiments (`make cluster`). Embeds new articles with `intfloat/multilingual-e5-base` (CPU), then clusters each edition on its own, with average-link clustering at each threshold in `THRESHOLDS`. Writes one `cluster_runs` row per edition and threshold. | One-shot job |
-| `viewer` | Read-only web pages: runs, the clusters in each run, and the articles in each cluster. `/editions` shows every edition in CSS tabs. | Always; port 8080 |
+| `fn-scrape` | Lambda: fetches each source into one raw object per edition per run, plus a manifest. Internet access only. | Invoked on port 9101 |
+| `fn-build` | Lambda: ingests the raw object, embeds new articles with `intfloat/multilingual-e5-base` (CPU), joins stable stories, renders the site, writes the window and state. No internet. | Invoked on port 9102 |
 
 ## Lambda pipeline
 
-The hourly pipeline runs as four Lambda container images behind AWS's Runtime Interface Emulator. `pipeline/run_pipeline.py` (standard library only) stands in for Step Functions: scrape then ingest per edition, then stories, then export. It writes every step's output to `out/pipeline-<timestamp>.json`. The emulator handles one call at a time, so calls to the same function run one after another. `infra/` holds the matching Step Functions definition and S3 lifecycle files. Contract and S3 layout: [lambdas/README.md](lambdas/README.md).
+Each hour, per edition: scrape writes a raw object and a manifest to S3, the S3 event for the manifest invokes build, and build reads the edition's 48 h window from S3, updates it and writes the site, the window, the scrape state, an archive and a report. `pipeline/run_pipeline.py` (standard library only) stands in for the scheduler and the S3 event: it invokes scrape, then build with an S3-event payload for the new manifest. It writes every step's output to `out/pipeline-<timestamp>.json`. The emulator handles one call at a time, so calls to the same function run one after another. `--replay` (`make replay`) rebuilds an edition from its manifests. `S3_DIR` or `--s3-dir` points the runner at another S3 folder. `infra/` holds the S3 notification, lifecycle and scheduler definitions.
 
-Only `fn-scrape` has internet access (host network behind the proxy). The other three run on the default network without a proxy, which shows they need none.
+Only `fn-scrape` has internet access (host network behind the proxy). `fn-build` runs on the default network without a proxy, which shows it needs none.
+
+## Legacy (Postgres)
+
+The earlier design kept articles, embeddings and stories in Postgres. It is still here under the Compose profile `legacy`: `db`, `viewer` and the batch `clusterer`. Use it for threshold experiments and to check the new results.
+
+| Target | Does |
+| --- | --- |
+| `build-legacy`, `up-legacy` | Build the viewer and clusterer images; start Postgres and the viewer and apply the schema |
+| `cluster`, `reset-stories` | Batch experiment (`THRESHOLDS`, `WINDOW_HOURS`, `MODEL`); delete all stories |
+| `compare` | `tools/compare_stories.py` in the clusterer image: open stories in S3 (`state/{edition}/window.json.gz`) against Postgres, per edition, with pairwise co-assignment agreement. Run `up-legacy` first. |
+| `stats`, `sql`, `psql`, `migrate`, `clear-runs` | Database helpers |
+| `open`, `export`, `export-editions` | Viewer and its static pages |
+
+The legacy Lambdas (`fn-ingest`, `fn-stories`, `fn-export`) are gone; the legacy database no longer receives new articles.
 
 ## Categories
 
-`categories.yaml` holds a static category list for each edition: mk has 4 regions and 9 subjects, fr has 3 regions and 10 subjects. Each site's source categories map to that list through regex rules, plus per-site overrides. For mk, source categories are WordPress category names; for fr, they're URL sections. Catch-all categories map to nothing. The clusterer gives each story the majority region and subject of its articles, and the viewer shows them as badges and filters. Results are in [the findings](../../docs/cluster-prototype-findings.md#static-categories).
+`categories.yaml` holds a static category list for each edition: mk has 4 regions and 9 subjects, fr has 3 regions and 10 subjects. Each site's source categories map to that list through regex rules, plus per-site overrides. For mk, source categories are WordPress category names; for fr, they're URL sections. Catch-all categories map to nothing. Build (and the legacy clusterer) gives each story the majority region and subject of its articles, and the pages show them as badges and filters. Results are in [the findings](../../docs/cluster-prototype-findings.md#static-categories).
 
 ## Choices
 
 - **10 sources, one language.** Clustering needs several outlets covering the same event, so all 10 are Macedonian. All expose the WordPress posts API with full text, so no article pages are fetched.
-- **Several thresholds per run.** The right cosine threshold for e5 is unknown, so each run stores one result per threshold and the viewer lets you compare them.
+- **Several thresholds per run (legacy).** The right cosine threshold for e5 is unknown, so each batch run stores one result per threshold and the viewer lets you compare them.
 - **robots.txt is ignored** (`IGNORE_ROBOTS=true`) for experiments only. Requests stay at 1 per 2 s per host and the bot identifies itself.
-- **Proxy sandboxes.** `docker-compose.proxy.yml` adds host networking, proxy variables and an extra CA for environments behind an HTTPS proxy. `run.sh` uses it when `HTTPS_PROXY` is set, and builds images with `docker buildx bake --allow=network.host`, because Compose's builder won't run a host-network build without that grant.
+- **Proxy sandboxes.** `docker-compose.proxy.yml` adds host networking, proxy variables and an extra CA for environments behind an HTTPS proxy. The Makefile uses it when `HTTPS_PROXY` is set, and builds images with `docker buildx bake --allow=network.host`, because Compose's builder won't run a host-network build without that grant.
 
-## Results (2026-11-14, 48 h window)
+## Results (2026-11-14, 48 h window, legacy Postgres run)
 
 - **Scrape:** 1,240 posts from 10 sites in 6 s. A second run inserts only the new posts.
 - **Embedding:** about 3.9 articles/s on CPU; 1,222 articles took 312 s. Vectors are cached in Postgres, so later runs only embed new articles.
