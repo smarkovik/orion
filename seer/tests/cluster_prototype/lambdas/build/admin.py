@@ -20,6 +20,7 @@ STATIC = (
     ("index.html", "text/html; charset=utf-8"),
     ("admin.css", "text/css; charset=utf-8"),
     ("admin.js", "text/javascript; charset=utf-8"),
+    ("readers.js", "text/javascript; charset=utf-8"),
 )
 KEEP_DAYS = 400
 BUCKETS = (("1", 1, 1), ("2", 2, 2), ("3-4", 3, 4), ("5-9", 5, 9), ("10+", 10, 10**9))

@@ -232,12 +232,12 @@
     }, function () { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
   }
   function periodCard(id, title, cats, vals) {
-    var spec = { title: title, cats: cats, series: [{ name: "Readers", color: NEW_C, vals: vals }] };
+    var spec = { kind: "bars", title: title, cats: cats, series: [{ name: "Readers", color: NEW_C, vals: vals }] };
     spec.table = K.tableFor(spec);
     K.bars($(id), spec);
   }
   function stackCard(id, title, days, series) {
-    var spec = { title: title, cats: days.map(function (d) { return d.slice(5); }), series: series };
+    var spec = { kind: "bars", title: title, cats: days.map(function (d) { return d.slice(5); }), series: series };
     spec.table = K.tableFor(spec);
     K.bars($(id), spec);
   }
@@ -479,6 +479,7 @@
     $("ed").addEventListener("change", function () { if (R.open) draw(); });
     var rt;
     window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { if (R.open && !root.hidden && R.files.length) draw(); }, 150); });
+    window.addEventListener("hashchange", function () { var rd = location.hash === "#readers"; if (rd !== ($("tab-readers").getAttribute("aria-selected") === "true")) show(rd ? "readers" : "ops"); });
     if (location.hash === "#readers") show("readers");
   }
   init();
