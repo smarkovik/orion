@@ -14,7 +14,11 @@ from seer_common import store
 log = logging.getLogger("admin")
 
 HERE = Path(__file__).parent / "web" / "admin"
-STATIC = (("index.html", "text/html; charset=utf-8"), ("admin.css", "text/css; charset=utf-8"), ("admin.js", "text/javascript; charset=utf-8"))
+STATIC = (
+    ("index.html", "text/html; charset=utf-8"),
+    ("admin.css", "text/css; charset=utf-8"),
+    ("admin.js", "text/javascript; charset=utf-8"),
+)
 KEEP_DAYS = 400
 BUCKETS = (("1", 1, 1), ("2", 2, 2), ("3-4", 3, 4), ("5-9", 5, 9), ("10+", 10, 10**9))
 # PUT/GET calls outside the page uploads: window, days, state, archive, report, summary, admin day file and index
@@ -154,9 +158,7 @@ def record(edition: str, run: dict[str, Any], cfg: dict[str, Any], now: datetime
         key = f"admin/data/{edition}/{day}.json"
         doc = store.get_json(store.SITE_BUCKET, key) or {"edition": edition, "date": day, "runs": []}
         doc["runs"] = [r for r in doc["runs"] if r.get("run_id") != run["run_id"]] + [run]
-        store.put_bytes(
-            store.SITE_BUCKET, key, store.dumps(doc).encode(), "application/json", CacheControl="no-cache"
-        )
+        store.put_bytes(store.SITE_BUCKET, key, store.dumps(doc).encode(), "application/json", CacheControl="no-cache")
         index = store.get_json(store.SITE_BUCKET, "admin/data/index.json") or {}
         eds = index.get("editions") or {}
         cutoff = (now - timedelta(days=KEEP_DAYS)).date().isoformat()
@@ -176,7 +178,11 @@ def record(edition: str, run: dict[str, Any], cfg: dict[str, Any], now: datetime
             "assumed_views_month": cfg["admin"]["assumed_views_month"],
         }
         store.put_bytes(
-            store.SITE_BUCKET, "admin/data/index.json", store.dumps(index).encode(), "application/json", CacheControl="no-cache"
+            store.SITE_BUCKET,
+            "admin/data/index.json",
+            store.dumps(index).encode(),
+            "application/json",
+            CacheControl="no-cache",
         )
         return 2
     except Exception:  # noqa: BLE001 - the admin data must never fail the build
