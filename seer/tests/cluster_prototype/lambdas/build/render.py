@@ -22,8 +22,14 @@ TEMPLATES = Path(os.environ.get("TEMPLATES_DIR", "/var/task/templates"))
 SOURCES_FILE = os.environ.get("SOURCES_FILE", "/var/task/sources.yaml")
 CACHE_SECONDS = int(os.environ.get("SITE_CACHE_SECONDS", "300"))
 LIMITS = {"top": int(os.environ.get("TOP_LIMIT", "60")), "latest": int(os.environ.get("LATEST_LIMIT", "60"))}
+LAB = "lab"
+NOINDEX = '<meta name="robots" content="noindex">'
 PAGES = {"top": "index.html", "latest": "latest.html"}
 MIN_SOURCES = int(os.environ.get("MIN_SOURCES", "2"))
+
+
+def noindex(html: str) -> str:
+    return html.replace("<head>", f"<head>\n{NOINDEX}", 1)
 
 
 def local_dt(value: datetime | None) -> str:
@@ -167,7 +173,7 @@ def render_edition(window: Window, now: datetime) -> dict[str, str]:
                 generated_at=local_dt(now),
             )
         )
-        pages[f"{window.edition}/{name}"] = html
+        pages[f"{LAB}/{window.edition}/{name}"] = noindex(html)
     return pages
 
 
@@ -184,7 +190,7 @@ def render_index(summaries: list[dict[str, Any]], now: datetime) -> str:
     order = {c: i for i, c in enumerate(known_editions())}
     rows = sorted(summaries, key=lambda s: (order.get(s["edition"], len(order)), s["edition"]))
     editions = [{"code": s["edition"], "total": s["stories"]} for s in rows]
-    return env().get_template("static_index.html").render(editions=editions, generated_at=local_dt(now))
+    return noindex(env().get_template("static_index.html").render(editions=editions, generated_at=local_dt(now)))
 
 
 def upload(pages: dict[str, str]) -> list[dict[str, Any]]:

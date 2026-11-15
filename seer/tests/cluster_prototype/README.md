@@ -1,6 +1,6 @@
 # Cluster prototype
 
-An end-to-end test of Seer in Docker. It scrapes two editions of 10 news sites each, Macedonian (`mk`) and French (`fr`), embeds the articles, and clusters each edition into stories, rendered as a static site. To add a source or a country, see [the guide](../../docs/adding-sources-and-editions.md).
+An end-to-end test of Seer in Docker. It scrapes two editions of 10 news sites each, Macedonian (`mk`) and French (`fr`), embeds the articles, and clusters each edition into stories, rendered as a public static site (contract: [lambdas/build/SITE.md](lambdas/build/SITE.md)) plus the analysis pages under `/lab/`. To add a source or a country, see [the guide](../../docs/adding-sources-and-editions.md).
 
 ```bash
 make all          # build, start, scrape and build both editions, print the site path
@@ -18,6 +18,7 @@ There is no database. Two Lambdas and S3 do everything; the contract is in [lamb
 | `refresh` | Scrape, then build from the new manifest, per edition |
 | `scrape` | Scrape to S3 only |
 | `site` | Build from the latest manifest of each edition without scraping; prints `data/s3/seer-site/index.html` |
+| `preview` | Serve `data/s3/seer-site` at http://localhost:8090 (`PREVIEW_PORT`); the analysis pages are under `/lab/` |
 | `replay` | `EDITION=mk` (default both): delete the edition's state, then build every manifest in `runs/` in order |
 | `raw` | List `raw/`, `runs/`, `state/`, `archive/` and `builds/` under `data/s3/seer-raw`, with sizes |
 | `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=fn-build`); check the containers |
@@ -31,13 +32,13 @@ Per-run overrides: `make refresh HOURS=6 EDITION=fr` (`--hours`, `--editions`). 
 | --- | --- | --- |
 | `s3` | versitygw, a local S3 stand-in; objects are plain files under `data/s3/` | Always; port 7070 |
 | `fn-scrape` | Lambda: fetches each source into one raw object per edition per run, plus a manifest. Internet access only. | Invoked on port 9101 |
-| `fn-build` | Lambda: ingests the raw object, embeds new articles with `intfloat/multilingual-e5-base` (CPU), joins stable stories, renders the site, writes the window and state. No internet. | Invoked on port 9102 |
+| `fn-build` | Lambda: ingests the raw object, embeds new articles with `intfloat/multilingual-e5-base` (CPU), joins stable stories, downloads story thumbnails, renders the public site and `/lab/` pages, writes the window and state. Needs internet for thumbnails. | Invoked on port 9102 |
 
 ## Lambda pipeline
 
 Each hour, per edition: scrape writes a raw object and a manifest to S3, the S3 event for the manifest invokes build, and build reads the edition's 48 h window from S3, updates it and writes the site, the window, the scrape state, an archive and a report. `pipeline/run_pipeline.py` (standard library only) stands in for the scheduler and the S3 event: it invokes scrape, then build with an S3-event payload for the new manifest. It writes every step's output to `out/pipeline-<timestamp>.json`. The emulator handles one call at a time, so calls to the same function run one after another. `--replay` (`make replay`) rebuilds an edition from its manifests. `S3_DIR` or `--s3-dir` points the runner at another S3 folder. `infra/` holds the S3 notification, lifecycle and scheduler definitions.
 
-Only `fn-scrape` has internet access (host network behind the proxy). `fn-build` runs on the default network without a proxy, which shows it needs none.
+`fn-scrape` and `fn-build` need internet access (scrape for the news sites, build for thumbnails); behind the proxy both run on the host network, on emulator ports 9101 and 9102 with runtime APIs on 9001 and 9003. Without internet the build still succeeds: stories just get a placeholder instead of a picture. Settings and interface text of the public site are in `site.yaml`.
 
 ## Legacy (Postgres)
 

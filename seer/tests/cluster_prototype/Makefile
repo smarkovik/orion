@@ -24,18 +24,19 @@ WAIT_VIEWER := (for _ in $$(seq 1 30); do curl -fsS "$(VIEWER_URL)/healthz" >/de
 # Pipeline runner (stand-in for the scheduler and the S3 event); HOURS and EDITION map to its flags.
 PIPELINE := python3 pipeline/run_pipeline.py
 S3_DIR := data/s3
+PREVIEW_PORT ?= 8090
 
 # Optional per-run overrides for the legacy batch experiment, e.g. `make cluster THRESHOLDS=0.91,0.92`.
 JOB_ENV := $(if $(HOURS),-e HOURS=$(HOURS)) $(if $(THRESHOLDS),-e THRESHOLDS=$(THRESHOLDS)) \
 	$(if $(WINDOW_HOURS),-e WINDOW_HOURS=$(WINDOW_HOURS)) $(if $(MODEL),-e MODEL=$(MODEL)) \
 	$(if $(EDITION),-e EDITION=$(EDITION)) $(if $(MAX_ARTICLES),-e MAX_ARTICLES_PER_SOURCE=$(MAX_ARTICLES))
 
-.PHONY: help all docker certs build build-legacy up up-legacy migrate down restart scrape site replay compare raw \
+.PHONY: help all docker certs build build-legacy up up-legacy migrate down restart scrape site preview replay compare raw \
 	reset-stories refresh cluster _images open export export-editions ps logs health stats sql psql clear-runs clean
 
 help: ## Show this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
-	@echo "  Variables: HOURS, EDITION, SERVICE; legacy: THRESHOLDS, WINDOW_HOURS, MODEL, MAX_ARTICLES, SQL, RUN,"
+	@echo "  Variables: HOURS, EDITION, SERVICE, PREVIEW_PORT; legacy: THRESHOLDS, WINDOW_HOURS, MODEL, MAX_ARTICLES, SQL, RUN,"
 	@echo "             THRESHOLD, VIEW, MIN_SOURCES, VIEWER_URL"
 
 all: build up refresh site ## Build, start, scrape and build the editions, then print the site path
@@ -48,7 +49,11 @@ scrape: docker ## Scrape to S3 only; HOURS, EDITION
 
 site: docker ## Build from the latest manifest of each edition, no scraping; print the site path
 	$(PIPELINE) --steps build $(if $(EDITION),--editions $(EDITION))
-	@echo "Site: $(CURDIR)/$(S3_DIR)/seer-site/index.html"
+	@echo "Site: $(CURDIR)/$(S3_DIR)/seer-site/index.html (make preview serves it)"
+
+preview: ## Serve the public site from data/s3/seer-site at http://localhost:8090 (PREVIEW_PORT); Ctrl-C to stop
+	@echo "Site: http://localhost:$(PREVIEW_PORT)/index.html (analysis pages under /lab/)"
+	@python3 -m http.server $(PREVIEW_PORT) --directory $(S3_DIR)/seer-site
 
 replay: docker ## Rebuild editions from scratch: delete their state, apply every manifest in order; EDITION=mk
 	$(PIPELINE) --replay $(EDITION)
