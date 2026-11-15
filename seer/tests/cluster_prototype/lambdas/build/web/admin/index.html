@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<title>Admin</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<link rel="stylesheet" href="admin.css">
+<script src="admin.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <h1 id="title">Admin</h1>
+    <div class="controls" role="group" aria-label="Filters">
+      <div class="seg" id="win" role="group" aria-label="Window">
+        <button type="button" data-days="14" aria-pressed="true">14 days</button>
+        <button type="button" data-days="30" aria-pressed="false">30 days</button>
+        <button type="button" data-days="90" aria-pressed="false">90 days</button>
+      </div>
+      <label class="sel">Edition
+        <select id="ed"><option value="all">All</option></select>
+      </label>
+      <button type="button" id="theme" class="btn">Theme</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <p id="msg" class="msg" role="status" hidden></p>
+  <p id="stamp" class="stamp"></p>
+  <section id="tiles" class="tiles" aria-label="Health"></section>
+  <section id="charts" class="charts" aria-label="Charts"></section>
+  <section class="block">
+    <h2>Sources</h2>
+    <p class="sub">Per outlet over the selected window. Highlighted: errors in the last 24 h, or no new articles in the last 24 h. Click a header to sort.</p>
+    <div class="scroll"><table id="sources"></table></div>
+  </section>
+  <section class="block">
+    <h2>Latest runs</h2>
+    <p class="sub">The last 50 runs. Open a row to see its raw summary.</p>
+    <div class="scroll"><table id="runs"></table></div>
+  </section>
+</main>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+</body>
+</html>

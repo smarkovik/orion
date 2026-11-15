@@ -7,9 +7,11 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import unquote_plus
 
+import admin
 import archive
 import days
 import ingest
+import logos
 import render
 import state
 import stories
@@ -45,6 +47,48 @@ def _upload_pages(pages: list[Any]) -> dict[str, int]:
         sizes = list(pool.map(put, pages))
     sent = [n for n in sizes if n is not None]
     return {"count": len(sent), "skipped": len(sizes) - len(sent), "bytes": sum(sent)}
+
+
+def _record_admin(
+    manifest: dict[str, Any],
+    window: Any,
+    now: Any,
+    site_cfg: dict[str, Any],
+    site_pages: list[Any],
+    out: dict[str, Any],
+    t_start: float,
+) -> None:
+    try:
+        story_pages = [len(p.body) for p in site_pages if "/story/" in p.key]
+        avg = sum(story_pages) / len(story_pages) if story_pages else 0
+        th = out["thumbs"]
+        thumb_bytes = th.get("fetched", 0) * site_cfg["admin"]["thumb_kb"] * 1024
+        build = {
+            "counts": {k: out[k] for k in ("inserted", "updated", "changed", "refreshed", "failures")},
+            "embedded": out["embedded"],
+            "stories": out["stories"],
+            "timings": out["timings"],
+            "thumbs": th,
+            "logos": dict(logos.LAST),
+            "site": out["site_pages"],
+            "window_bytes": out["window_bytes"],
+            "archive_bytes": out["archive_bytes"],
+            "days_entries": out["days"]["entries"],
+            "build_s": time.perf_counter() - t_start,
+            "puts": out["site_pages"]["count"] + len(out["pages"]) + th.get("fetched", 0) + logos.LAST["fetched"],
+            "gets": th.get("fetched", 0) + th.get("reused", 0),
+            "storage": {
+                "raw": manifest.get("bytes_gz", 0),
+                "archive": out["archive_bytes"],
+                "thumbs": thumb_bytes,
+                "pages": int(out["stories"].get("new", 0) * avg),
+            },
+        }
+        run = admin.summary(manifest, window, now, build, site_cfg)
+        admin.record(manifest["edition"], run, site_cfg, now)
+        admin.publish_static()
+    except Exception:  # noqa: BLE001
+        log.exception("admin summary failed")
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -113,6 +157,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     shown = set(web.selection(window, site_cfg, now)) | set(touched_story_ids)
     thumb_counts = thumbs.ensure(window, shown, now)
     t = lap("thumbs", t)
+    logo_map = logos.ensure({s["domain"]: s["base_url"] for s in editions[edition]["sources"]}, now)
+    t = lap("logos", t)
     day_index = days.update(window, site_cfg, now, days.load(edition))
     t = lap("days", t)
 
@@ -122,10 +168,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         s = summary if e == edition else store.get_json(store.RAW_BUCKET, summary_key(e))
         if s:
             summaries.append(s)
-    asset_pages, _, _ = web.render_assets()
+    asset_pages, _, _ = web.render_assets(site_cfg)
     site_pages = [
         *asset_pages,
-        *web.render_edition(window, site_cfg, now, day_index, names, set(touched_story_ids)),
+        *web.render_edition(window, site_cfg, now, day_index, names, set(touched_story_ids), logo_map),
         *web.render_root(site_cfg, summaries, now),
     ]
     lab_pages = render.render_edition(window, now)
@@ -168,5 +214,6 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "duration_s": round(time.perf_counter() - t_start, 2),
     }
     store.put_json(store.RAW_BUCKET, build_report_key(edition, run_id), out)
+    _record_admin(manifest, window, now, site_cfg, site_pages, out, t_start)
     log.info("build %s: %s", run_id, out)
     return out

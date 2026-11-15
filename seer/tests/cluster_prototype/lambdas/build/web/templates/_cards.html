@@ -1,19 +1,21 @@
 {% macro thumb(c, lead=false) %}
 <span class="pic">
 {% if c.img %}
-  <img src="{{ c.img }}" alt="{{ c.title }}" width="640" height="360"{% if not lead %} loading="lazy"{% endif %} decoding="async" referrerpolicy="no-referrer">
+  <img src="{{ c.img }}" alt="{{ c.title }}" width="640" height="360" loading="lazy" decoding="async" referrerpolicy="no-referrer">
 {% else %}
   <span class="ph">{{ c.section }}</span>
 {% endif %}
 </span>
 {% endmacro %}
 
+{% macro chip(x, row=false) %}{% if x.logo %}<span class="lg{% if row %} lg-row{% endif %}"><img src="{{ x.logo }}" alt="" width="64" height="64" loading="lazy" decoding="async"></span>{% else %}<span class="lg lg-i{% if row %} lg-row{% endif %}" aria-hidden="true">{{ x.initial }}</span>{% endif %}{% endmacro %}
+
 {% macro meta(c) %}
-<span class="meta">{{ c.sources }} · {{ c.time }}{% if c.mark %} · <span class="mark mark-{{ c.mark[0] }}">{{ c.mark[1] }}</span>{% endif %}</span>
+<span class="meta">{% if c.chips %}<span class="lgs">{% for x in c.chips %}{{ chip(x) }}{% endfor %}{% if c.more %}<span class="lg-more">+{{ c.more }}</span>{% endif %}</span>{% endif %}{{ c.sources }} · {{ c.time }}{% if c.mark %}<span class="mk mk-{{ c.mark[0] }}"> · <span class="mark mark-{{ c.mark[0] }}">{{ c.mark[1] }}</span></span>{% endif %}</span>
 {% endmacro %}
 
 {% macro lead(c) %}
-<a class="lead" href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}>
+<a class="lead" href="{{ c.href }}"{% if c.created %} data-created="{{ c.created }}"{% endif %}{% if c.ext %} rel="noopener"{% endif %}>
   {{ thumb(c, true) }}
   <span class="body"><h2 class="ttl">{{ c.title }}</h2>{{ meta(c) }}</span>
 </a>
@@ -22,7 +24,7 @@
 {% macro grid(cards) %}
 <div class="grid">
 {% for c in cards %}
-  <a class="card" href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}>
+  <a class="card" href="{{ c.href }}"{% if c.created %} data-created="{{ c.created }}"{% endif %}{% if c.ext %} rel="noopener"{% endif %}>
     {{ thumb(c) }}
     <span class="body"><h3 class="ttl">{{ c.title }}</h3>{{ meta(c) }}</span>
   </a>
@@ -36,7 +38,7 @@
   <h2 id="more-h">{{ title }}</h2>
   <ul>
   {% for c in cards %}
-    <li><a href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}><span class="t">{{ c.title }}</span> {{ meta(c) }}</a></li>
+    <li{% if c.created %} data-created="{{ c.created }}"{% endif %}><a href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}><span class="t">{{ c.title }}</span> {{ meta(c) }}</a></li>
   {% endfor %}
   </ul>
 </section>

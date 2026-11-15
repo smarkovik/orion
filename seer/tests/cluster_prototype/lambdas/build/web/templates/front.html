@@ -2,6 +2,14 @@
 {% import "_cards.html" as k %}
 {% block content %}
 <h1 class="sr">{{ brand }} · {{ t.top }}</h1>
+<p class="notice" id="since" role="status" data-one="{{ t.new_since_one }}" data-many="{{ t.new_since_many }}" hidden></p>
+{% if briefing_href %}
+<a class="briefing-entry" href="{{ briefing_href }}"><span class="t">{{ t.briefing }} →</span><span class="s">{{ t.briefing_sub }}</span></a>
+{% endif %}
+<nav class="weekbar" aria-label="{{ t.this_week }}">
+  <a class="btn" href="{{ week_href }}">{{ t.this_week }} →</a>
+  {% if last_week_href %}<a class="btn plain" href="{{ last_week_href }}">{{ t.last_week }}</a>{% endif %}
+</nav>
 {% if lead %}
 {{ k.lead(lead) }}
 {% endif %}

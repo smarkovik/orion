@@ -1,4 +1,4 @@
-"""Per-edition day index (state/{edition}/days.json): one entry per day with its lead story, newest first."""
+"""Per-edition day index (state/{edition}/days.json): per day the lead story and top list, newest first."""
 
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -31,6 +31,7 @@ def _entry(window: Window, cfg: dict[str, Any], day: date) -> dict[str, Any]:
         "lead_title": label.title if label else "",
         "lead_story": lead.id if lead else "",
         "lead_thumb": (lead.thumb_key or "") if lead else "",
+        "top": [web_render.story_summary(window, s, cfg) for s in stories[: cfg["limits"].get("week", 10)]],
     }
 
 
@@ -41,6 +42,8 @@ def update(window: Window, cfg: dict[str, Any], now: datetime, previous: list[di
     for day in web_render.live_dates(window, cfg, now, previous):
         new = _entry(window, cfg, day)
         old = by_date.get(new["date"])
+        if old and old.get("briefing"):
+            new["briefing"] = True
         # Closed stories leave the window, so a recomputed past day may only shrink: keep the fuller entry.
         if day != today and old and old.get("stories", 0) > new["stories"]:
             continue

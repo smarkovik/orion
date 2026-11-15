@@ -5,14 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
 <meta name="color-scheme" content="light dark">
-<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);var z=localStorage.getItem("textsize");if(z==="115"||z==="130")document.documentElement.setAttribute("data-text",z);if(localStorage.getItem("images")==="off")document.documentElement.setAttribute("data-images","off")}catch(e){}</script>
+{% if manifest %}
+<link rel="manifest" href="{{ manifest }}">
+{% endif %}
+<meta name="theme-color" content="{{ theme_light }}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{ theme_dark }}" media="(prefers-color-scheme: dark)">
+{% if touch_icon %}
+<link rel="apple-touch-icon" href="{{ touch_icon }}">
+{% endif %}
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ brand }}">
+{% block head %}{% endblock %}
 <link rel="stylesheet" href="{{ css }}">
 {% if feed %}
 <link rel="alternate" type="application/rss+xml" title="{{ brand }}" href="{{ feed }}">
 {% endif %}
 <script src="{{ js }}" defer></script>
 </head>
-<body>
+<body{% if sw %} data-sw="{{ sw }}"{% endif %}{% if visit %} data-visit="{{ visit }}" data-new="{{ t.new_for_you }}" data-follow="{{ follow }}" data-follow-json="{{ follow_json }}"{% endif %}>
 <a class="skip" href="#main">{{ t.skip }}</a>
 <header class="top">
   <div class="wrap bar">
@@ -25,6 +37,21 @@
         {% endfor %}
       </nav>
       {% endif %}
+      <div class="disp-wrap">
+        <button type="button" class="btn disp" id="disp-toggle" hidden aria-expanded="false" aria-controls="disp-panel" aria-label="{{ t.display }}">{{ t.display_short }}</button>
+        <div class="disp-panel" id="disp-panel" role="group" aria-label="{{ t.display }}" hidden>
+          <h2 id="disp-size">{{ t.text_size }}</h2>
+          <div class="opts" role="group" aria-labelledby="disp-size">
+            {% for v in ["100", "115", "130"] %}
+            <button type="button" class="btn" data-text="{{ v }}" aria-pressed="false">{{ t.text_sizes[loop.index0] }}</button>
+            {% endfor %}
+          </div>
+          <h2 id="disp-img">{{ t.images }}</h2>
+          <div class="opts">
+            <button type="button" class="btn" id="disp-images" role="switch" aria-checked="true" aria-labelledby="disp-img disp-images" data-on="{{ t.images_on }}" data-off="{{ t.images_off }}"></button>
+          </div>
+        </div>
+      </div>
       <button type="button" class="btn theme" id="theme-toggle" hidden data-label="{{ t.theme }}" data-light="{{ t.theme_light }}" data-dark="{{ t.theme_dark }}"><span class="lbl"></span></button>
     </div>
   </div>
@@ -40,6 +67,9 @@
   {% endif %}
 </header>
 <main id="main" class="wrap">
+{% if visit %}
+<div class="notice follow-notice" id="follow-notice" role="status" data-one="{{ t.follow_notice_one }}" data-many="{{ t.follow_notice_many }}" hidden></div>
+{% endif %}
 {% block content %}{% endblock %}
 </main>
 {% if foot_about %}
@@ -47,6 +77,8 @@
   <div class="wrap">
     <nav aria-label="{{ brand }}">
       <a href="{{ foot_archive }}">{{ t.archive }}</a>
+      <a href="{{ foot_week }}">{{ t.this_week }}</a>
+      {% if foot_briefing %}<a href="{{ foot_briefing }}">{{ t.briefing }}</a>{% endif %}
       <a href="{{ foot_calendar }}">{{ t.calendar }}</a>
       <a href="{{ foot_about }}">{{ t.about }}</a>
       <a href="{{ feed }}">{{ t.rss }}</a>

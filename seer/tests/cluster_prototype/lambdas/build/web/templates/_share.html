@@ -1,0 +1,12 @@
+{% macro share(t, targets, title) %}
+<div class="share" data-title="{{ title }}" hidden>
+  <button type="button" class="btn share-btn" aria-expanded="false">{{ t.share }}</button>
+  <ul class="share-links" hidden>
+    {% for x in targets %}
+    <li><a class="btn" data-href="{{ x.url }}" href="#" rel="noopener">{{ x.name }}</a></li>
+    {% endfor %}
+    <li><button type="button" class="btn share-copy" data-done="{{ t.copied }}">{{ t.copy_link }}</button></li>
+  </ul>
+  <p class="share-note" role="status"></p>
+</div>
+{% endmacro %}

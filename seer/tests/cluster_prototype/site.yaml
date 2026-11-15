@@ -2,6 +2,15 @@
 brand:
   name: Seer
   contact_email: contact@example.com  # placeholder until the domain exists
+colors:  # light-theme colours for the app manifest, theme-color meta and icons (match web/static/site.css)
+  accent: "#0a58ad"
+  background: "#f6f5f2"
+  theme_light: "#ffffff"
+  theme_dark: "#1e2024"
+share_targets:  # fallback share links where the browser has no native share sheet; the page URL is appended
+  - {name: Viber, url: "viber://forward?text="}
+  - {name: WhatsApp, url: "https://wa.me/?text="}
+  - {name: Facebook, url: "https://www.facebook.com/sharer/sharer.php?u="}
 base_url: ""  # absolute site URL for feeds and sitemaps, e.g. https://example.com; empty = relative only
 
 # Shared by all editions.
@@ -10,11 +19,30 @@ limits:
   section: 30
   day: 30
   feed: 30
+  week: 10  # stories on a week page
+  briefing: 10  # stories in the morning briefing
   min_sources: 2
 cache_seconds:
   html: 300  # front, section, story pages, today's and yesterday's day pages
   past_day: 86400
   asset: 31536000  # hashed CSS/JS and thumbnails, immutable
+
+admin:  # cost estimates on the back-office page (/admin/); Frankfurt list prices in USD, CloudFront after its permanent free allowance
+  pricing:
+    lambda_gb_s: 0.0000166667
+    lambda_per_million: 0.20  # requests
+    s3_put_per_1k: 0.0054
+    s3_get_per_1k: 0.00043
+    s3_storage_gb_month: 0.0245  # standard
+    s3_deep_gb_month: 0.0018  # deep archive
+    cloudfront: {gb: 0.085, per_10k_https: 0.012, free_gb: 1000, free_requests: 10000000}
+    fixed_monthly: {domain_route53: 1.75, ecr: 0.25, logs: 0.03}
+  memory_mb: {scrape: 512, build: 4096}
+  assumed_views_month: 1000000
+  page_kb: 30
+  images_per_view: 8
+  thumb_kb: 19
+  retention_days: 400
 
 editions:
   mk:
@@ -69,6 +97,32 @@ editions:
       date_long: "{weekday}, {day} {month} {year}"
       date_short: "{day} {month}"
       month_year: "{month} {year}"
+      week_title: "Седмицата во {n} вести"
+      this_week: Оваа седмица
+      last_week: Минатата седмица
+      prev_week: Претходна седмица
+      next_week: Следна седмица
+      new_for_you: Ново за вас
+      new_since_one: "1 нова вест од вашата последна посета"
+      new_since_many: "{n} нови вести од вашата последна посета"
+      share: Сподели
+      copy_link: Копирај линк
+      copied: Линкот е копиран
+      install_tip: "Додајте го {brand} на почетниот екран на телефонот: во прелистувачот отворете „Сподели“ или менито ⋮ и изберете „Додај на почетен екран“."
+      developing: Во тек
+      follow: Следи ја веста
+      following: Ја следите ✓
+      follow_notice_one: "1 вест што ја следите има нови статии"
+      follow_notice_many: "{n} вести што ги следите имаат нови статии"
+      briefing: Утрински преглед
+      briefing_sub: Што се случи од вчера вечер
+      display: Приказ
+      display_short: Аа
+      text_size: Големина на текстот
+      text_sizes: [Нормална, Голема, Најголема]
+      images: Слики
+      images_on: Со слики
+      images_off: Без слики
       about_sources: Медиуми од кои собираме вести
       about_body: |
         {brand} ги собира најновите вести од македонските медиуми и ги групира по настан, за да видите што се случува на едно место. Секоја вест води до оригиналниот текст кај медиумот што ја објавил.
@@ -131,6 +185,32 @@ editions:
       date_long: "{weekday} {day} {month} {year}"
       date_short: "{day} {month}"
       month_year: "{month} {year}"
+      week_title: "La semaine en {n} actualités"
+      this_week: Cette semaine
+      last_week: La semaine dernière
+      prev_week: Semaine précédente
+      next_week: Semaine suivante
+      new_for_you: Nouveau pour vous
+      new_since_one: "1 nouvelle actualité depuis votre dernière visite"
+      new_since_many: "{n} nouvelles actualités depuis votre dernière visite"
+      share: Partager
+      copy_link: Copier le lien
+      copied: Lien copié
+      install_tip: "Ajoutez {brand} à l'écran d'accueil de votre téléphone : dans le navigateur, ouvrez « Partager » ou le menu ⋮, puis choisissez « Sur l'écran d'accueil »."
+      developing: En cours
+      follow: Suivre
+      following: Suivie ✓
+      follow_notice_one: "1 actualité que vous suivez a de nouveaux articles"
+      follow_notice_many: "{n} actualités que vous suivez ont de nouveaux articles"
+      briefing: Le point du matin
+      briefing_sub: Ce qui s'est passé depuis hier soir
+      display: Affichage
+      display_short: Aa
+      text_size: Taille du texte
+      text_sizes: [Normale, Grande, Très grande]
+      images: Images
+      images_on: Avec images
+      images_off: Sans images
       about_sources: Médias dont nous réunissons les actualités
       about_body: |
         {brand} rassemble les dernières actualités des médias français et les regroupe par événement, pour voir l'essentiel en un seul endroit. Chaque article renvoie vers le texte original du média qui l'a publié.

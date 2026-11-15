@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "_cards.html" as k %}
+{% import "_share.html" as sh %}
+{% block content %}
+<h1 class="page-h">{{ heading }}</h1>
+<p class="range">{{ sub }} · {{ date_label }}</p>
+{{ sh.share(t, share_targets, share_title) }}
+{% if empty %}
+<p class="empty">{{ empty }}</p>
+{% endif %}
+{% if lead %}
+{{ k.lead(lead) }}
+{% endif %}
+{% if grid %}
+{{ k.grid(grid) }}
+{% endif %}
+{{ k.more(more, t.more) }}
+<div class="actions"><a class="btn" href="{{ day_href }}">{{ day_label }} →</a></div>
+{% endblock %}

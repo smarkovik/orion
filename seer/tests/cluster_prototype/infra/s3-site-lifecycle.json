@@ -4,6 +4,11 @@
     {"ID": "expire-fr-stories", "Status": "Enabled", "Filter": {"Prefix": "fr/story/"}, "Expiration": {"Days": 1095}},
     {"ID": "expire-mk-days", "Status": "Enabled", "Filter": {"Prefix": "mk/20"}, "Expiration": {"Days": 1095}},
     {"ID": "expire-fr-days", "Status": "Enabled", "Filter": {"Prefix": "fr/20"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-mk-weeks", "Status": "Enabled", "Filter": {"Prefix": "mk/week/"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-fr-weeks", "Status": "Enabled", "Filter": {"Prefix": "fr/week/"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-mk-briefings", "Status": "Enabled", "Filter": {"Prefix": "mk/briefing/"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-fr-briefings", "Status": "Enabled", "Filter": {"Prefix": "fr/briefing/"}, "Expiration": {"Days": 1095}},
+    {"ID": "expire-admin-data", "Status": "Enabled", "Filter": {"Prefix": "admin/data/"}, "Expiration": {"Days": 400}},
     {"ID": "expire-thumbs", "Status": "Enabled", "Filter": {"Prefix": "thumbs/"}, "Expiration": {"Days": 1095}},
     {
       "ID": "abort-incomplete-multipart",

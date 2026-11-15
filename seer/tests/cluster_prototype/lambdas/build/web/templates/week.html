@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "_cards.html" as k %}
+{% import "_share.html" as sh %}
+{% block content %}
+<h1 class="page-h">{{ heading }}</h1>
+<p class="range">{{ range }}</p>
+<nav class="daynav" aria-label="{{ t.this_week }}">
+  {% if prev %}<a class="btn" rel="prev" href="{{ prev.href }}">← {{ prev.label }}</a>{% else %}<span></span>{% endif %}
+  <span></span>
+  {% if next %}<a class="btn" rel="next" href="{{ next.href }}">{{ next.label }} →</a>{% else %}<span></span>{% endif %}
+</nav>
+{{ sh.share(t, share_targets, share_title) }}
+{% if empty %}
+<p class="empty">{{ empty }}</p>
+{% endif %}
+{% if lead %}
+{{ k.lead(lead) }}
+{% endif %}
+{% if grid %}
+{{ k.grid(grid) }}
+{% endif %}
+{{ k.more(more, t.more) }}
+{% if day_cells %}
+<nav class="weekdays" aria-label="{{ t.archive }}">
+  <ul>
+  {% for c in day_cells %}
+    <li><a href="{{ c.href }}"><span class="d">{{ c.weekday }}</span><span class="n">{{ c.date }} · {{ c.count }}</span></a></li>
+  {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

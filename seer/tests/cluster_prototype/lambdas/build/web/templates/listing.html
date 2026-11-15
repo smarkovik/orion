@@ -9,6 +9,9 @@
   {% if next %}<a class="btn" rel="next" href="{{ next.href }}">{{ next.label }} →</a>{% else %}<span></span>{% endif %}
 </nav>
 {% endif %}
+{% if briefing_href %}
+<p class="actions"><a class="btn" href="{{ briefing_href }}">{{ t.briefing }} →</a></p>
+{% endif %}
 {% if empty %}
 <p class="empty">{{ empty }}</p>
 {% endif %}
