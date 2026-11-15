@@ -35,12 +35,14 @@ admin:  # cost estimates on the back-office page (/system/admin/); Frankfurt lis
     s3_get_per_1k: 0.00043
     s3_storage_gb_month: 0.0245  # standard
     s3_deep_gb_month: 0.0018  # deep archive
-    cloudfront: {gb: 0.085, per_10k_https: 0.012, free_gb: 1000, free_requests: 10000000}
+    cloudfront: {gb: 0.085, per_10k_https: 0.012, free_gb: 1000, free_requests: 10000000, log_gb: 0.25}  # log_gb: standard logging v2 to S3, estimate
     fixed_monthly: {domain_route53: 1.75, ecr: 0.25, logs: 0.03}
   memory_mb: {scrape: 512, build: 4096}
   assumed_views_month: 1000000
   page_kb: 30
   images_per_view: 8
+  pings_per_view: 2  # reader statistics: view + leave
+  log_line_bytes: 450
   thumb_kb: 19
   retention_days: 400
 

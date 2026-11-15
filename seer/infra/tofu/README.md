@@ -33,7 +33,7 @@ The deploy role trusts only `repo:smarkovik/orion:environment:<env>`, so a job m
 - **Staging:** every push to `main` that touches `seer/**` (or the deploy workflow files or the composite action) runs `seer-deploy-staging.yml`; it can also be started manually.
 - **Production:** run `seer-deploy-production.yml` manually with `ref` = `main` (default), a commit SHA or a tag. Refs not reachable from `origin/main` and not tags are refused.
 - Both use `.github/actions/seer-deploy` (OpenTofu 1.11.6 in CI; `>= 1.10` required): create the ECR repositories (targeted apply, so the first run works), build and push both images tagged with the full commit SHA, then `tofu plan -out` and `tofu apply`. The summary shows the `site_url` output.
-- Schedule: `cron(0 8-22 * * ? *)` in `Europe/Skopje`, one schedule per edition. Staging can be slowed to every 3 hours with `schedule_expression = "cron(0 8-22/3 * * ? *)"` in its tfvars, to halve the load on publishers.
+- Schedule: `cron(0 8-22 * * ? *)` in `Europe/Skopje`, one schedule per edition. Staging can be slowed to every 3 hours with `schedule_expression = "cron(0 8-22/3 * * ? *)"` in its tfvars, cutting runs from 15 to 5 a day.
 
 ## Notes
 

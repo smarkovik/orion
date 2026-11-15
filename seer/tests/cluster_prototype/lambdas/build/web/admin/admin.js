@@ -453,7 +453,7 @@
     var proj = mtd / frac + fixed + cf, mtdAll = mtd + (fixed + cf) * frac;
     box.appendChild(tile("Estimated cost, month to date", usd(mtdAll), "runs " + usd(mtd) + " · fixed + CloudFront prorated " + usd((fixed + cf) * frac), "", ""));
     var t2 = tile("Projected for the month", usd(proj), "runs " + usd(mtd / frac) + " · fixed " + usd(fixed) + " · CloudFront " + usd(cf) + " at " + num(idx.assumed_views_month) + " views (" + idx.cloudfront_month.gb + " GB)");
-    t2.appendChild(h("div", { class: "s", text: "Estimate at list prices; CloudFront after its permanent free allowance (1 TB, 10M requests a month)" + (idx.cloudfront_month.list_usd != null ? ", " + usd(idx.cloudfront_month.list_usd) + " without it." : ".") }));
+    t2.appendChild(h("div", { class: "s", text: "Estimate at list prices; CloudFront after its permanent free allowance (1 TB, 10M requests a month), including reader pings and " + (idx.cloudfront_month.log_usd != null ? usd(idx.cloudfront_month.log_usd) + " of " : "") + "log delivery" + (idx.cloudfront_month.list_usd != null ? ", " + usd(idx.cloudfront_month.list_usd) + " without it." : ".") }));
     box.appendChild(t2);
   }
 
