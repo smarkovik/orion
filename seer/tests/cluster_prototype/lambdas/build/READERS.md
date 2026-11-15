@@ -11,7 +11,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 
 ## 1. Ping (browser → CloudFront log)
 
-`site.js` requests `system/p.gif` (path relative to the page, like other assets) with a query string, using `new Image()` for views and `fetch(url, {keepalive: true})` for leave events. `system/p.gif` is a 43-byte transparent GIF in the site bucket (`Cache-Control: no-store`). CloudFront logs every request, including its query string, so the ping needs no server code.
+`site.js` requests `system/p.gif` (path relative to the page, like other assets) with a query string, using `new Image()` for views and `fetch(url, {keepalive: true, cache: "no-store"})` for leave, "read on", share and follow events (`new Image()` when `fetch` is missing). `system/p.gif` is a 43-byte transparent GIF in the site bucket (`Cache-Control: no-store`). CloudFront logs every request, including its query string, so the ping needs no server code.
 
 | Param | Meaning |
 | --- | --- |
@@ -29,7 +29,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 | `id` | random token for this page load only (never stored), to join a leave to its view |
 
 - **Storage:** localStorage `{brandslug}:stats` = `{"first": "YYYY-MM-DD", "day": "YYYY-MM-DD", "week": "YYYY-Www", "month": "YYYY-MM"}`, in the browser's local date.
-- **Opt-out:** `{brandslug}:nocount` = `"1"` disables every ping. All storage access is wrapped in try/catch; if storage fails, send nothing.
+- **Opt-out:** `{brandslug}:nocount` = `"1"` disables every ping and clears `{brandslug}:stats`. All storage access is wrapped in try/catch; if storage fails, send nothing.
 - **Leave:** one leave per page load, at the first `visibilitychange` to hidden or `pagehide`. It carries the visible time accumulated so far.
 - **Service worker:** it registers a static route (`addRoutes`, source `network`) for `system/p.gif`, so the leave ping is not lost while the page unloads (Chromium drops such requests when they pass through a service worker).
 - **Page metadata:** every page renders `<meta name="seer:page" content="{key}">`, `seer:kind`, `seer:edition`, `seer:story` and `seer:section` (empty when not applicable).
@@ -40,8 +40,8 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 
 - **Input:** CloudFront standard logs (W3C, tab-separated; `#Fields:` header names the columns; `.gz` or plain), from `LOGS_DIR` when set (local), else S3 `LOGS_BUCKET` (default `RAW_BUCKET`) under `LOGS_PREFIX` (default `logs/cloudfront/`).
 - **Fields used:** `date`, `time`, `cs-uri-stem`, `cs-uri-query`, `sc-status`, `cs(User-Agent)`. `c-ip` is never read.
-- **Filtering:** pings are requests for `/system/p.gif`. Requests for `*.html` with status 200 count as `server_html` (all page requests, including readers without JavaScript). User agents matching `bot|spider|crawl|slurp|preview|monitor` are dropped.
-- **After aggregation:** write the counts, then delete the processed log files, with a cursor (`state/readers_cursor.json`) so a partly failed run doesn't double count.
+- **Filtering:** pings are requests for `/system/p.gif`. Requests for `*.html` with status 200 whose first path segment is an edition code count as `server_html` (all page requests, including readers without JavaScript). Pings with an unknown edition, event, kind or page key, or a bad `t`, are dropped. User agents matching `bot|spider|crawl|slurp|preview|monitor` are dropped.
+- **After aggregation:** write the counts, then delete the processed log files, with a cursor (`state/readers_cursor.json` in the raw bucket, `{"done": [file names]}`) so a partly failed run doesn't double count. A file that can't be read is left for the next run.
 - **Day:** the date in the edition's time zone.
 
 **Output, site bucket** (served with the system page; `Cache-Control: no-cache`):
@@ -63,6 +63,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 - **`first_week`, `first_month`:** views with `fw=1` / `fm=1`. Weekly readers = the sum of `first_week` over the week's days; monthly readers likewise.
 - **Time histogram** upper bounds in seconds: 5, 10, 20, 30, 60, 120, 300, 600, 1800, then above (10 buckets). Medians are read from the histogram.
 - **`pages`:** the top 200 page keys by views.
+- **Merging:** a day file already in S3 is merged with the new counts (numbers and histogram buckets are added), so a day can be built from several runs.
 
 `system/admin/data/readers/stories.json`: a catalog of stories with their own page, for titles and never-read. It's updated by each build from its edition's window and keeps entries whose `first_published` is within 35 days:
 ```json
@@ -82,8 +83,8 @@ Same window selector (14 / 30 / 90) and edition filter as the rest of the page.
   - daily readers (bars) with returning % (line);
   - weekly readers and monthly readers;
   - views per day by page kind and by section.
-- **What readers read:** a sortable table of top stories (title, edition, section, views, returning share, "read on" clicks, median time), with a toggle between all readers and returning readers. Next to it, section shares for new vs returning readers.
-- **Never read:** count and share of stories never opened, by section and by outlet, plus the list of the biggest never-read stories (most outlets).
+- **What readers read:** a sortable table of the top 30 stories (title, edition, section, views, returning share, "read on" clicks, median time), with a toggle between all readers and returning readers. Next to it, section shares for new vs returning readers.
+- **Never read:** count and share of stories never opened, by section and by outlet, plus the list of the top 20 never-read stories (most outlets first).
 - **Time on page:** median and distribution by page kind.
 - **Definitions:** a one-line note under each block.
 
@@ -91,4 +92,4 @@ Same window selector (14 / 30 / 90) and edition filter as the rest of the page.
 
 `make preview` serves the site with `tools/preview_server.py` (standard library). It writes one CloudFront-format log line per request to `data/logs/cloudfront/` (hourly files, same `#Fields:` header). `fn-build` mounts `./data/logs` at `/logs` with `LOGS_DIR=/logs`.
 
-In AWS, CloudFront standard logging writes to `s3://<raw-bucket>/logs/cloudfront/`. If the logging version lets you choose fields, leave out `c-ip`. A lifecycle rule deletes `logs/` after 7 days as a safety net.
+In AWS, CloudFront standard logging (v2, W3C, tab-separated) writes to `s3://<raw-bucket>/logs/cloudfront/`; the OpenTofu stack sets this up and selects the fields. Leave out `c-ip` if you set it up by hand. A lifecycle rule deletes `logs/` after 7 days as a safety net.

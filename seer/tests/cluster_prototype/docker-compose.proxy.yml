@@ -1,5 +1,5 @@
 # Only for sandboxes that reach the internet through a local HTTPS proxy with its own CA
-# (e.g. Claude Code cloud sessions). run.sh adds this file when HTTPS_PROXY is set.
+# (e.g. Claude Code cloud sessions). The Makefile adds this file when HTTPS_PROXY is set.
 x-proxy-build: &proxy-build
   network: host
   args:

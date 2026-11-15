@@ -1,11 +1,12 @@
 # Adding a source or a country
 
-Everything a source or an edition needs lives in two files in `tests/cluster_prototype/`:
+Everything a source or an edition needs lives in three files in `tests/cluster_prototype/`:
 
 - `sources.yaml`: where to read articles from
 - `categories.yaml`: how a site's categories map to ours
+- `site.yaml`: how the edition looks on the public site (`editions.<code>`)
 
-You only touch code to give a new edition a display name in the viewer.
+No code changes are needed. The files are baked into the Lambda images (Compose also mounts them for local runs), so a deployed change needs a new image; the deploy workflows build one on every push.
 
 ## Add a source to an existing edition
 
@@ -37,23 +38,30 @@ Anything else, such as RSS only or homepage links only, isn't supported in this 
 5. **Run and inspect:**
 
 ```bash
-make scrape EDITION=<code>        # the log line shows in_window, fetched, extraction failures
-make cluster EDITION=<code>
-make stats && make open
+make scrape EDITION=<code>        # the log line shows listed, fetched, failures per source
+make site EDITION=<code>          # build from the new manifest; or `make refresh` for both steps
+make preview                      # http://localhost:8090
 ```
+
+Check the outlet on the edition's `about.html`, a story page that includes it, and `/system/admin/` (sources table).
 
 ## Add a country (edition)
 
 An edition is one language plus one market, clustered on its own.
 
-1. **Code.** Use the ISO 639-1 language code, for example `de`. It's stored in `sources.language` and `cluster_runs.edition`.
+1. **Code.** Use the ISO 639-1 language code, for example `de`. It's the key in all three files and in S3 paths (`raw/de/...`).
 2. **Sources.** Find 10 or more outlets that pass the checks above. Clustering needs several outlets covering the same event, so fewer than 10 gives thin stories.
 3. **`sources.yaml`.** Add `editions.<code>` with `language: <code>` and the source list.
 4. **`categories.yaml`.** Add `editions.<code>` with:
     - a `taxonomy` (regions, subjects)
     - `rules`: regexes on lowercased category names or URL sections
-5. **Viewer name.** Add the code to `EDITIONS` in `viewer/app.py`, for example `"de": "Deutschland"`.
-6. **Language check.** e5 covers about 100 languages. For a new script, check the tokenizer the way `docs/tokenizer-research.md` does.
-7. **Threshold.** Run `make cluster EDITION=<code> THRESHOLDS=0.90,0.92,0.94` and compare the runs in the viewer. 0.92 suited both mk and fr.
-8. **Write up the numbers** in `docs/cluster-prototype-findings.md`: articles, stories with 2+ sources, category coverage, and good and bad merges.
-9. **Before anything is public,** get a legal check for that market. France, for example, has a press publishers' right.
+5. **`site.yaml`.** Add `editions.<code>` with:
+    - `name`, `lang`, `timezone` (IANA, for example `Europe/Berlin`) and `tagline`
+    - `section_facet` (`region` or `subject`) and `sections`: `{name, slug}` pairs, where `name` is a category from `categories.yaml`
+    - `months` (12 names) and `weekdays` (7 names, Monday first)
+    - `text`: every interface string. Copy an existing edition's block and translate all keys, including `about_body` and `privacy_body`.
+6. **Infrastructure.** Add the code to `editions` in `infra/tofu/envs/*/terraform.tfvars`; that adds its schedule and site lifecycle rules.
+7. **Language check.** e5 covers about 100 languages. For a new script, check the tokenizer the way `docs/tokenizer-research.md` does.
+8. **Threshold.** The build threshold is `STORY_THRESHOLD` (0.92, suited both mk and fr). To test others, use the legacy batch experiment: `make up-legacy`, then `make cluster EDITION=<code> THRESHOLDS=0.90,0.92,0.94` and compare the runs in the viewer.
+9. **Write up the numbers** in `docs/cluster-prototype-findings.md`: articles, stories with 2+ sources, category coverage, and good and bad merges.
+10. **Before anything is public,** get a legal check for that market. France, for example, has a press publishers' right.

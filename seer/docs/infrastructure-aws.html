@@ -57,13 +57,15 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <h1>Seer infrastructure on AWS — plan and cost</h1>
 <div class="meta">2026-11-15 (database-free revision) · Live version: <a href="https://claude.ai/artifact/CDgvfxgsj3SiQJx4Zwsf66">claude.ai artifact</a></div>
 <h2>At a glance</h2>
-<p><strong>About $2.20–2.55 a month at 1M views, and about $29 for the first year</strong>, in Frankfurt. There's no database, no VPC and no NAT gateway: two Lambdas and S3.</p>
+<p><strong>About $4.70–5.05 a month at 1M views, and about $59 for the first year</strong>, in Frankfurt. There's no database, no VPC and no NAT gateway: two Lambdas and S3.</p>
 <ul>
-<li><strong>Pipeline:</strong> every hour from 08:00 to 22:00, scrape → S3 raw batch → build → static pages on S3 and CloudFront. The new batch in S3 triggers build.</li>
+<li><strong>Pipeline:</strong> every hour from 08:00 to 22:00 (Skopje time), scrape → S3 raw batch and manifest → build → static site on S3 and CloudFront. The manifest's S3 event triggers build.</li>
+<li><strong>Infrastructure as code:</strong> OpenTofu, two AWS accounts (staging and production) from one module, deployed by GitHub Actions.</li>
 <li><strong>No database.</strong> Each edition's working state is one file in S3: the last 48 h of articles with their vectors, plus the open stories. Build loads it, updates it and saves it back.</li>
-<li><strong>The record:</strong> every fetched page stays gzipped in S3, tiered down to Deep Archive and deleted after 2 years. Processed articles and stories go to an archive in S3 for 3 years.</li>
+<li><strong>The record:</strong> every fetched page stays gzipped in S3 (Intelligent-Tiering, archive tiers after 90 and 180 days) and is deleted after 2 years. Processed articles and stories go to an archive in S3 for 3 years.</li>
 <li><strong>Updates are bumped, not reprocessed.</strong> Only new articles are embedded; an edited article just raises its story.</li>
 <li><strong>Same stories as the Postgres version:</strong> identical for mk, and 91.8% pair agreement for fr, with the gap explained by input differences. Tested locally with real Lambda images; prototype in PR #16 and its successor.</li>
+<li><strong>Reader statistics</strong> come from CloudFront logs, with no cookies, IDs or IP addresses; the logs are deleted after processing.</li>
 <li><strong>Ads, best guess:</strong> about $240–1,200 a month at 1M views, depending on the mk/fr mix and AdSense approval.</li>
 </ul>
 <h2>Architecture</h2>
@@ -87,7 +89,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <rect x="24" y="132" width="150" height="72" rx="8" class="box"/>
 <text x="99" y="156" text-anchor="middle" class="name">Scheduler</text>
 <text x="99" y="172" text-anchor="middle" class="small quiet">EventBridge</text>
-<text x="99" y="188" text-anchor="middle" class="small quiet">hourly, per edition</text>
+<text x="99" y="188" text-anchor="middle" class="small quiet">hourly 08–22, per edition</text>
 <rect x="212" y="132" width="150" height="72" rx="8" class="box"/>
 <text x="287" y="156" text-anchor="middle" class="name">Scrape Lambda</text>
 <text x="287" y="172" text-anchor="middle" class="small quiet">new items only</text>
@@ -112,11 +114,13 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <text x="666" y="452" text-anchor="middle" class="name">Readers</text>
 <text x="24" y="404" text-anchor="start" class="small quiet">No VPC, no NAT gateway, no database.</text>
 <text x="24" y="420" text-anchor="start" class="small quiet">Not drawn: ECR, CloudWatch, Route 53.</text>
+<text x="24" y="444" text-anchor="start" class="small quiet">CloudFront also logs to the raw bucket (logs/);</text>
+<text x="24" y="460" text-anchor="start" class="small quiet">build reads the logs for reader statistics.</text>
 </svg></figure>
 
-<p>Scrape is the only part that talks to news sites. Build needs no internet: it reads and writes S3 only. Readers never touch either Lambda; they get static pages from CloudFront.</p>
+<p>Scrape is the only part that talks to news sites. Build reads and writes S3, and goes online only to fetch story thumbnails and outlet logos. Readers never touch either Lambda; they get static pages from CloudFront.</p>
 <h2>How an hourly run works</h2>
-<p>EventBridge Scheduler starts scrape at the top of every hour from 08:00 to 22:00, Skopje time, once per edition. That's 15 runs a day per edition, about 450 a month each.</p>
+<p>EventBridge Scheduler starts scrape at the top of every hour from 08:00 to 22:00, Skopje time, once per edition (<code>cron(0 8-22 * * ? *)</code>, the default in both accounts). That's 15 runs a day per edition, about 450 a month each. Failed starts retry twice.</p>
 <ol>
 <li><strong>Scrape (Lambda 1).</strong> Reads <code>state/{edition}.json.gz</code> to see what's already known, then fetches only what's new:<ul>
 <li><strong>WordPress sites (mk):</strong> posts created or edited since that site's last good run (<code>modified_after</code>, also checked on our side because some sites ignore it).</li>
@@ -128,7 +132,8 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <li><strong>Loads</strong> the edition's window (about 5–7 MB).</li>
 <li><strong>Parses</strong> the raw batch: text, images, categories. A new title, or more than 5% of the text changed, marks an article as updated.</li>
 <li><strong>Embeds new articles only</strong> and adds each to an open story, or starts a new one.</li>
-<li><strong>Renders</strong> Top and Latest pages and uploads them to the site bucket.</li>
+<li><strong>Renders</strong> the public site (front pages, sections, stories, day, week and briefing pages), makes thumbnails and logos, and uploads them to the site bucket.</li>
+<li><strong>Processes reader logs</strong> (see Reader statistics) and refreshes the admin page's data.</li>
 <li><strong>Writes back</strong> the window, the scrape state, an archive file and a build report.</li>
 </ul>
 </li>
@@ -136,21 +141,34 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <p><strong>Updates are bumped, not reprocessed.</strong> An edited article keeps its first embedding and its story. Its story only gets a new activity time, so it rises in Top.</p>
 <p><strong>Replays are exact.</strong> Build uses the scrape's own clock, so replaying the raw batches rebuilds the same window and pages. If extraction or clustering improves, the state can be rebuilt from S3 without scraping again.</p>
 <h2>Public site</h2>
-<p>Build also renders the public site for readers, next to the analysis pages (now under <code>/lab/</code>, hidden from search engines).</p>
+<p>Build renders the public site for readers, next to the analysis pages (under <code>/lab/</code>, hidden from search engines).</p>
 <ul>
 <li><strong>Pages:</strong><ul>
 <li><strong>Front page:</strong> a lead story with a large picture, then cards with a picture, title, number of outlets and time.</li>
 <li><strong>Sections:</strong> mk by region, fr by subject.</li>
 <li><strong>Story pages:</strong> every outlet's article with a "Read on {outlet}" link.</li>
-<li><strong>Archive:</strong> day pages with previous/next and a month calendar.</li>
-<li><strong>Also:</strong> an about page with the outlets, and RSS.</li>
+<li><strong>Archive:</strong> day pages with previous/next and a month calendar, plus a weekly page and a morning briefing.</li>
+<li><strong>Also:</strong> an about page with the outlets, RSS, and a sitemap.</li>
 </ul>
 </li>
+<li><strong>Installable (PWA):</strong> web manifest, icons and a service worker per edition, so the site works offline for pages already seen.</li>
+<li><strong>Follow and share:</strong> readers can follow a story (kept in their browser) and share pages.</li>
 <li><strong>For non-technical readers aged 30–60:</strong> large type, calm colours, light and dark themes, no jargon, no search; history is browsed by day.</li>
 <li><strong>Thumbnails:</strong> one per story, from its lead image, 640×360 WebP (about 19 KB), stored in the site bucket with a 1-year cache. Each image carries a photo credit to the outlet.</li>
+<li><strong>Outlet logos:</strong> a 64×64 icon per outlet, fetched from its homepage and refreshed every 30 days.</li>
 <li><strong>Brand and text:</strong> the name is a codename set only in <code>site.yaml</code>, with all Macedonian and French interface text.</li>
-<li><strong>Kept 3 years:</strong> story pages, day pages and thumbnails, like the archive.</li>
+<li><strong>Kept 3 years:</strong> story, day, week and briefing pages and thumbnails, like the archive.</li>
+<li><strong>Admin page, public for now.</strong> <code>/system/admin/</code> shows health, costs and reader statistics. It has no access control yet (the earlier auth function was removed); that comes later. It is <code>noindex</code> and excluded in <code>robots.txt</code>, but anyone with the link can open it. Its data files expire after 400 days.</li>
 </ul>
+<h2>Reader statistics</h2>
+<p>The contract is <code>seer/tests/cluster_prototype/lambdas/build/READERS.md</code>.</p>
+<ol>
+<li><strong>Ping.</strong> Each page sends a small request to <code>system/p.gif</code> (a 1-pixel GIF in the site bucket) with flags such as page kind, new or returning browser and time on page. The browser keeps a few dates in localStorage. No cookies, IDs or fingerprints. Readers can opt out in the display panel.</li>
+<li><strong>Logs.</strong> CloudFront standard logging v2 (W3C format, without <code>c-ip</code>) writes to the raw bucket under <code>logs/cloudfront/</code>. The log delivery objects live in <code>us-east-1</code>, as CloudFront requires.</li>
+<li><strong>Counts.</strong> Every build reads the new logs, drops bots, writes daily counts to <code>system/admin/data/readers/</code>, then deletes the logs it processed.</li>
+<li><strong>Safety net.</strong> A 7-day lifecycle rule on <code>logs/</code> removes anything build missed.</li>
+</ol>
+<p>Only counts are kept, for 400 days.</p>
 <h2>Storage and retention</h2>
 <p><strong>S3 raw bucket</strong></p>
 <div class="table"><table>
@@ -192,14 +210,26 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <td>What scrape has already seen</td>
 <td>Overwritten every run</td>
 </tr>
+<tr>
+<td><code>state/{edition}/days.json</code>, <code>state/{edition}/summary.json</code>, <code>state/logos.json</code>, <code>state/readers_cursor.json</code></td>
+<td>Day index, edition summary, logo fetch state, log-processing cursor</td>
+<td>Overwritten</td>
+</tr>
+<tr>
+<td><code>logs/cloudfront/…</code></td>
+<td>CloudFront access logs, until build has processed them</td>
+<td>Deleted after processing; 7 days at most</td>
+</tr>
 </tbody>
 </table></div>
 <ul>
 <li><strong>Compressed when written.</strong> Batches are gzipped before upload, so there's no second write and no delete.</li>
-<li><strong>Path to Glacier:</strong> S3 Intelligent-Tiering moves an object to Infrequent Access after 30 days without reads and to Archive Instant Access after 90 [12]. The two optional archive tiers are on: <strong>Archive Access after 90 days and Deep Archive Access after 180 days.</strong> Objects under 128 KB are never moved [12], so one batch per edition per run keeps raw objects large.</li>
-<li><strong>Expiry:</strong> lifecycle rules delete <code>raw/</code>, <code>runs/</code> and <code>builds/</code> after 730 days, and <code>archive/</code> after 1,095 days.</li>
+<li><strong>Path to Glacier:</strong> S3 Intelligent-Tiering moves an object to Infrequent Access after 30 days without reads and to Archive Instant Access after 90 [12]. The two optional archive tiers are on for <code>raw/</code> only: <strong>Archive Access after 90 days and Deep Archive Access after 180 days.</strong> Objects under 128 KB are never moved [12], so one batch per edition per run keeps raw objects large.</li>
+<li><strong>Expiry:</strong> lifecycle rules delete <code>raw/</code>, <code>runs/</code> and <code>builds/</code> after 730 days, <code>archive/</code> after 1,095 days and <code>logs/</code> after 7 days. Versioning is on for the whole bucket; old versions expire after 7 days, so a bad build can be rolled back for a week.</li>
+<li><strong>Site bucket:</strong> <code>thumbs/</code> and the story, day, week and briefing pages expire after 1,095 days; <code>system/admin/data/</code> after 400.</li>
 <li><strong>History queries:</strong> the archive is gzipped JSON lines, queryable with Athena or DuckDB when needed. If queries become regular, compact it into monthly Parquet files.</li>
-<li><strong>Config files:</strong> <code>infra/s3-raw-intelligent-tiering.json</code>, <code>infra/s3-raw-lifecycle.json</code>, <code>infra/s3-raw-notification.json</code>, <code>infra/scheduler.md</code>.</li>
+<li><strong>Config files:</strong> the rules are in <code>seer/infra/tofu/modules/seer/</code> and mirrored in <code>seer/tests/cluster_prototype/infra/*.json</code>.</li>
+<li><strong>Security:</strong> both buckets are private, encrypted (AES256) and refuse non-HTTPS access.</li>
 </ul>
 <h2>Components and settings</h2>
 <p>Everything is in Frankfurt (eu-central-1). No VPC, no NAT, no database, no Step Functions.</p>
@@ -215,17 +245,17 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <tr>
 <td>EventBridge Scheduler</td>
 <td>Starts scrape</td>
-<td>Two schedules (mk, fr), <code>cron(0 8-22 * * ? *)</code> Europe/Skopje</td>
+<td>Two schedules (mk, fr), <code>cron(0 8-22 * * ? *)</code> Europe/Skopje, 2 retries</td>
 </tr>
 <tr>
 <td>Lambda 1: scrape</td>
 <td>Fetches new and changed items; writes the raw batch and manifest</td>
-<td>512 MB, 10 min timeout</td>
+<td>512 MB, 10 min timeout, no VPC</td>
 </tr>
 <tr>
 <td>Lambda 2: build</td>
 <td>Parse, embed, stories, pages, state, archive</td>
-<td>Image of about 4.4 GB with the e5 model baked in. 4 GB, 15 min timeout, <strong>reserved concurrency 1</strong></td>
+<td>Image of about 4.4 GB with the e5 model baked in. 4 GB, 1 GB <code>/tmp</code>, 15 min timeout, no VPC, <strong>reserved concurrency 1</strong>, 2 retries</td>
 </tr>
 <tr>
 <td>S3 event notification</td>
@@ -234,8 +264,8 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </tr>
 <tr>
 <td>S3 raw bucket</td>
-<td>Raw batches, manifests, state, archive, reports</td>
-<td>Private. Intelligent-Tiering with both archive tiers; lifecycle expiry</td>
+<td>Raw batches, manifests, state, archive, reports, CloudFront logs</td>
+<td>Private, versioned. Intelligent-Tiering with both archive tiers on <code>raw/</code>; lifecycle expiry</td>
 </tr>
 <tr>
 <td>S3 site bucket</td>
@@ -244,29 +274,60 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </tr>
 <tr>
 <td>CloudFront</td>
-<td>Serves pages to readers</td>
-<td>Caches per the pages' 5-minute <code>Cache-Control</code>; compression on; HTTPS with a free ACM certificate</td>
+<td>Serves the site to readers</td>
+<td>Follows the origin's <code>Cache-Control</code> (5 minutes for pages); compression on; HTTP/3 and IPv6; price class 100 (US, Canada, Europe); standard logging v2 to the raw bucket; free ACM certificate when a domain is set</td>
 </tr>
 <tr>
 <td>Route 53</td>
-<td>The site's domain</td>
-<td>One hosted zone</td>
+<td>The site's domain (optional)</td>
+<td>An existing hosted zone; alias records and certificate validation</td>
 </tr>
 <tr>
 <td>ECR</td>
 <td>The two Lambda images</td>
-<td>Keep the last 3 versions</td>
+<td>Keep the last 10 images per repository; scan on push</td>
 </tr>
 <tr>
 <td>CloudWatch</td>
 <td>Logs and alarms</td>
-<td>14-day log retention; alarms on build errors and on a site older than 2 hours</td>
+<td>14-day log retention; an alarm per Lambda for any error in an hour, sent to an SNS topic (email optional)</td>
 </tr>
 </tbody>
 </table></div>
 <ul>
 <li><strong>One build at a time.</strong> Reserved concurrency 1 queues builds. The window is also saved with an S3 conditional write, so a stale writer fails instead of overwriting.</li>
-<li><strong>Built and tested locally.</strong> Both functions run as Lambda container images behind AWS's Runtime Interface Emulator, with a folder-backed S3 stand-in. Build runs with no internet access at all.</li>
+<li><strong>Built and tested locally.</strong> Both functions run as Lambda container images behind AWS's Runtime Interface Emulator, with a folder-backed S3 stand-in.</li>
+</ul>
+<h2>Infrastructure as code and deployment</h2>
+<p>The stack is OpenTofu in <code>seer/infra/tofu/</code>; setup steps are in its <code>README.md</code>.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modules/seer/</code></td>
+<td>The whole stack: buckets, ECR, Lambdas, S3 event, schedules, CloudFront, log delivery, alarms</td>
+</tr>
+<tr>
+<td><code>envs/staging/</code>, <code>envs/production/</code></td>
+<td>Thin roots: S3 state backend, provider locked to the account, settings</td>
+</tr>
+<tr>
+<td><code>bootstrap/</code></td>
+<td>Run once per account: state bucket, GitHub OIDC provider, deploy role</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Two AWS accounts</strong>, staging and production, each with its own state. Both use the same module and the same settings; only names and account values differ. Staging can run every 3 hours instead (5 runs a day instead of 15) to ease the load on publishers.</li>
+<li><strong>Staging</strong> deploys on every push to <code>main</code> that touches <code>seer/</code>.</li>
+<li><strong>Production</strong> deploys by manual run on a ref: the tip of <code>main</code> by default, or a commit on <code>main</code> or a tag. Other branches are refused. Rolling back means running it with an earlier tag or commit. Add required reviewers to the GitHub <code>production</code> environment to gate it (a setup step).</li>
+<li><strong>Each deploy</strong> builds both images tagged with the commit, then plans and applies. GitHub assumes an AWS role through OIDC; there are no stored keys.</li>
+<li><strong>Off until ready:</strong> both workflows are skipped until the repository variable <code>SEER_DEPLOY_ENABLED</code> is <code>true</code>.</li>
 </ul>
 <h2>Run budget</h2>
 <p>Measured on the local Lambda simulation: real images, Lambda memory limits, a read-only filesystem [13].</p>
@@ -312,7 +373,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <li><strong>Backfills fit</strong> Lambda's 15-minute limit: a 48 h French backfill builds in about 6 minutes.</li>
 </ul>
 <h2>Cost at 1, 3, 6 and 12 months (1M views a month)</h2>
-<p><strong>About $2.20–2.55 a month, and about $29 for the first year</strong>, at Frankfurt list prices [1]–[6]. Without a domain it's about $0.45–0.80 a month.</p>
+<p><strong>About $4.70–5.05 a month, and about $59 for the first year</strong>, at Frankfurt list prices [1]–[6], plus an estimate for log delivery. Without a domain it's about $2.95–3.30 a month. The run budget above pre-dates the public site and reader statistics, so Lambda and S3 request figures are not re-measured.</p>
 <div class="table"><table>
 <thead>
 <tr>
@@ -324,23 +385,23 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <tbody>
 <tr>
 <td>Month 1</td>
-<td>$2.21</td>
-<td><strong>$2</strong></td>
+<td>$4.71</td>
+<td><strong>$5</strong></td>
 </tr>
 <tr>
 <td>Month 3</td>
-<td>$2.37</td>
-<td><strong>$7</strong></td>
-</tr>
-<tr>
-<td>Month 6</td>
-<td>$2.47</td>
+<td>$4.87</td>
 <td><strong>$14</strong></td>
 </tr>
 <tr>
-<td>Month 12</td>
-<td>$2.55</td>
+<td>Month 6</td>
+<td>$4.97</td>
 <td><strong>$29</strong></td>
+</tr>
+<tr>
+<td>Month 12</td>
+<td>$5.05</td>
+<td><strong>$59</strong></td>
 </tr>
 </tbody>
 </table></div>
@@ -386,9 +447,15 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </tr>
 <tr>
 <td>CloudFront</td>
-<td>$0</td>
-<td>$0</td>
-<td>1M views × about 30 KB = 30 GB and 1M requests; the free tier is 1 TB and 10M</td>
+<td>$1.20</td>
+<td>$1.20</td>
+<td>About 11M requests (1M pages, 8M thumbnails, 2M pings) and 180 GB. After the permanent free allowance of 1 TB and 10M requests, about 1M requests at $0.012 per 10,000</td>
+</tr>
+<tr>
+<td>CloudFront logs</td>
+<td>$1.30</td>
+<td>$1.30</td>
+<td><strong>Estimate.</strong> About 5 GB of logs delivered to S3 at $0.25/GB, plus a few thousand S3 requests</td>
 </tr>
 <tr>
 <td>ECR</td>
@@ -410,18 +477,19 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </tr>
 <tr>
 <td><strong>Total</strong></td>
-<td><strong>$2.21</strong></td>
-<td><strong>$2.55</strong></td>
+<td><strong>$4.71</strong></td>
+<td><strong>$5.05</strong></td>
 <td></td>
 </tr>
 </tbody>
 </table></div>
 <ul>
-<li><strong>The domain is now the biggest line.</strong> Everything else is cents, because Lambda and CloudFront stay inside their free tiers.</li>
+<li><strong>The domain and CloudFront are the biggest lines.</strong> Lambda stays inside its free tier, and CloudFront transfer stays inside its free 1 TB.</li>
 <li><strong>Removing Aurora saved about $5–8.50 a month</strong> (compute, storage, I/O and its password secret), and Step Functions too.</li>
 <li><strong>Not included:</strong> tax, AWS support, and new-account credits.</li>
 </ul>
-<p><strong>Thumbnails add a little at 1M views.</strong> A front page loads about 6–13 pictures as the reader scrolls, so image requests can pass CloudFront's free 10M a month. I estimate <strong>$0–10 extra a month</strong>, depending on how far readers scroll; returning readers hit their browser cache. Transfer stays well inside the free 1 TB. Thumbnail storage adds about 4 GB a year, which is cents.</p>
+<p><strong>Requests are the part that varies.</strong> The CloudFront row assumes 8 thumbnails a view (the admin page's setting) at about 19 KB each. A front page loads about 6–13 pictures as the reader scrolls: at 13, requests reach about 16M and CloudFront costs about $7 a month. Returning readers hit their browser cache. Transfer stays well inside the free 1 TB. Thumbnail storage adds about 4 GB a year, which is cents.</p>
+<p><strong>CloudFront log delivery is an estimate.</strong> I could not confirm a price for standard logging v2 to S3 in the AWS price list. $0.25/GB is the list rate for vended logs delivered to S3 (US East); the figure scales with requests, at about 450 bytes a line. Logs are deleted after processing, so their storage cost is negligible.</p>
 <h2>Revenue with Google ads (best guess)</h2>
 <p>I found no published AdSense rates for news websites in France or North Macedonia; searches only turned up YouTube figures, which don't carry over. The rates below are my estimate from general industry knowledge. Treat them as a range to test with real traffic, not a forecast.</p>
 <div class="table"><table>
@@ -460,7 +528,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </table></div>
 <ul>
 <li><strong>Ads don't change the infrastructure bill.</strong> Google serves the ads and their scripts, not our CloudFront.</li>
-<li><strong>Break-even is tiny.</strong> At about $2.50 a month, a few thousand French views cover the bill.</li>
+<li><strong>Break-even is tiny.</strong> At about $5 a month, a few thousand French views cover the bill.</li>
 <li><strong>Approval is the real risk.</strong> Google's policies bar ads on scraped content [15]. A page of headlines and outbound links can be rejected as "low value content". The pages need value of their own: grouped stories, source counts, timelines, and ideally short original story lines.</li>
 <li><strong>French readers need a consent banner.</strong> Google's own consent tool is free. Readers who refuse get fewer, cheaper ads, which the fr range above assumes.</li>
 <li><strong>In North Macedonia, direct sales probably pay better.</strong> Selling banners to local advertisers likely beats AdSense at Balkan rates.</li>
@@ -468,7 +536,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <h2>Notes and risks</h2>
 <p><strong>Legal and access</strong> (these matter more than cost)</p>
 <ul>
-<li><strong>Images at 1M views.</strong> The pages load photos straight from the outlets' servers. At 10–20 images per view, that's 10–20M image requests a month on 20 outlets, and the <code>no-referrer</code> setting hides that they come from us. Hosting thumbnails ourselves fixes the bandwidth problem but copies licensed photos. Decide before launch.</li>
+<li><strong>Images.</strong> The site serves its own 640×360 thumbnails, credited to the outlet, which spares the outlets' bandwidth but copies their photos. Build also downloads each image once from the outlet. Check the licensing before launch.</li>
 <li><strong>robots.txt must be obeyed</strong> before anything is public. The prototype ignores it for experiments only.</li>
 <li><strong>Ads change the legal picture.</strong> Google's policies bar ads next to scraped content [15]. Commercial use of French headlines and snippets also falls under the French publishers' neighbouring right (droit voisin).</li>
 <li><strong>The raw archive is a copy of publishers' pages</strong>, kept for internal use only and never republished. EU text-and-data-mining rules let publishers opt out, and many French ones do. Check with counsel before launch.</li>
@@ -476,7 +544,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </ul>
 <p><strong>Without a database</strong></p>
 <ul>
-<li><strong>The window file is the single source of truth.</strong> Turn on S3 versioning for <code>state/</code> with a 7-day expiry of old versions, so a bad build can be rolled back. A lost window can also be rebuilt by replaying the raw batches.</li>
+<li><strong>The window file is the single source of truth.</strong> S3 versioning keeps old versions for 7 days, so a bad build can be rolled back. A lost window can also be rebuilt by replaying the raw batches.</li>
 <li><strong>Builds must not overlap.</strong> Reserved concurrency 1 queues them, and the conditional write catches anything else.</li>
 <li><strong>Bring a database back when a live feature needs one:</strong> search over history, related past stories, an API, or user accounts.</li>
 </ul>
@@ -490,7 +558,8 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <p><strong>Operations</strong></p>
 <ul>
 <li><strong>Re-ingesting old runs</strong> after 90 days needs a restore from the archive tiers first, which takes hours.</li>
-<li><strong>Alarms:</strong> build errors, and a site older than 2 hours.</li>
+<li><strong>Alarms:</strong> any error in scrape or build within an hour. There is no alarm yet for a stale site.</li>
+<li><strong>The admin page is public.</strong> Costs and reader counts are visible to anyone with the link until access control is added.</li>
 </ul>
 <h2>Options we rejected</h2>
 <div class="table"><table>
@@ -502,8 +571,8 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </thead>
 <tbody>
 <tr>
-<td>Aurora Serverless v2 (Postgres)</td>
-<td>$5–8.50 a month for a database that only the hourly build touches. It needs a VPC and resumes in about 15 s. The working set is about 6 MB per edition. Add it back when a live feature needs it.</td>
+<td>Aurora Serverless v2 (Postgres), and the earlier four-Lambda split</td>
+<td>$5–8.50 a month for a database that only the hourly build touches. It needs a VPC and resumes in about 15 s. The working set is about 6 MB per edition. Add it back when a live feature needs it. The four-Lambda split existed to feed it.</td>
 </tr>
 <tr>
 <td>NAT gateway for Lambdas in a VPC</td>
@@ -519,18 +588,18 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 </tr>
 <tr>
 <td>One small VM running Docker Compose</td>
-<td>About $10–15 a month and a machine to patch. Now four to six times the serverless bill.</td>
+<td>About $10–15 a month and a machine to patch. Now about two to three times the serverless bill.</td>
 </tr>
 </tbody>
 </table></div>
 <h2>Open decisions</h2>
 <ol>
-<li><strong>Images.</strong> Keep loading them from the outlets' servers, host our own thumbnails, or show none.</li>
-<li><strong>French re-check cap.</strong> Re-check 5 or 20 recent articles per site each hour. It sets scrape time and how quickly French edits show.</li>
+<li><strong>Images.</strong> Keep hosting our own credited thumbnails, or show none. Settle the licensing before launch.</li>
+<li><strong>French re-check cap.</strong> Set to 20 recent articles per site, re-checked every 6 hours. Revisit if scrape time or French edit lag becomes a problem.</li>
 <li><strong>Archive format.</strong> Gzipped JSON lines now; monthly Parquet once history queries are regular.</li>
 <li><strong>Ads.</strong> AdSense, or direct sales to local advertisers. The site needs a consent banner either way for French readers.</li>
-<li><strong>Region.</strong> Frankfurt or Paris. The prices here are Frankfurt.</li>
-<li><strong>Infrastructure as code.</strong> CDK or Terraform.</li>
+<li><strong>Region.</strong> Deployed in Frankfurt. Paris is the alternative; the prices here are Frankfurt.</li>
+<li><strong>Access control for <code>/system/admin/</code>.</strong> Public today.</li>
 <li><strong>Domain.</strong> A <code>.mk</code>, <code>.fr</code> or neutral domain.</li>
 </ol>
 <h2>Sources and assumptions</h2>
@@ -555,7 +624,7 @@ figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
 <p><strong>Assumptions</strong></p>
 <ul>
 <li>Daytime hourly runs bring about 25 new articles per edition plus up to about 150 French re-checks. The measured live run (7.5 h of news in one batch) is an upper bound for a single hour.</li>
-<li>ECR, CloudWatch, Route 53 and domain prices, and the ad revenue rates, are from my own knowledge, not checked against price lists.</li>
+<li>CloudFront log delivery ($0.25/GB, about 450 bytes a request), ECR, CloudWatch, Route 53 and domain prices, and the ad revenue rates, are from my own knowledge, not checked against price lists.</li>
 </ul>
 </main>
 </body>
