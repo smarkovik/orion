@@ -6,7 +6,7 @@ editions       = ["mk", "fr"]
 # Same as production. To halve the load on publishers, staging can be slowed to every 3 hours
 # with "cron(0 8-22/3 * * ? *)".
 schedule_expression = "cron(0 8-22 * * ? *)"
-schedule_enabled    = true
+schedule_enabled    = false # manual fetches only; see seer/README.md
 
 domain          = "" # for example "staging.example.com"; needs route53_zone_id
 route53_zone_id = ""
