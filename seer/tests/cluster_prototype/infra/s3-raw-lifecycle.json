@@ -25,6 +25,12 @@
       "Expiration": {"Days": 1095}
     },
     {
+      "ID": "expire-logs",
+      "Status": "Enabled",
+      "Filter": {"Prefix": "logs/"},
+      "Expiration": {"Days": 7}
+    },
+    {
       "ID": "abort-incomplete-multipart",
       "Status": "Enabled",
       "Filter": {"Prefix": ""},

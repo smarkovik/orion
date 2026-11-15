@@ -49,7 +49,10 @@ services:
       HTTP_PROXY: ${HTTP_PROXY:-}
       NO_PROXY: 127.0.0.1,localhost
       S3_ENDPOINT_URL: http://127.0.0.1:7070
+      LOGS_DIR: /logs
       _HANDLER: handler.handler
+    volumes:
+      - ./data/logs:/logs
 
   clusterer:
     build: *proxy-build

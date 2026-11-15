@@ -12,6 +12,7 @@ import archive
 import days
 import ingest
 import logos
+import readers
 import render
 import state
 import stories
@@ -179,6 +180,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     uploaded = render.upload(lab_pages)
     site_uploaded = _upload_pages(site_pages)
     t = lap("render", t)
+    readers_stats = readers.process(site_cfg, now, {edition: window})
+    t = lap("readers", t)
 
     store.put_json(store.RAW_BUCKET, summary_key(edition), summary)
     arch_stories = [window.stories[i] for i in touched_story_ids if i in window.stories] + list(closed)
@@ -206,6 +209,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "thumbs": thumb_counts,
         "days": {"entries": len(day_index), "bytes": days_bytes},
         "site_pages": site_uploaded,
+        "readers": readers_stats,
         "pages": uploaded,
         "window_bytes": window_bytes,
         "archive_bytes": arch_bytes,
