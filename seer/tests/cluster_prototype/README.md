@@ -18,7 +18,7 @@ There is no database. Two Lambdas and S3 do everything; the contract is in [lamb
 | `refresh` | Scrape, then build from the new manifest, per edition |
 | `scrape` | Scrape to S3 only |
 | `site` | Build from the latest manifest of each edition without scraping; prints `data/s3/seer-site/index.html` |
-| `preview` | Serve `data/s3/seer-site` at http://localhost:8090 (`PREVIEW_PORT`); the analysis pages are under `/lab/`, the back-office page (run history, health, costs) at `/admin/` |
+| `preview` | Serve `data/s3/seer-site` at http://localhost:8090 (`PREVIEW_PORT`); the analysis pages are under `/lab/`, the back-office page (run history, health, costs) at `/system/admin/` |
 | `replay` | `EDITION=mk` (default both): delete the edition's state, then build every manifest in `runs/` in order |
 | `raw` | List `raw/`, `runs/`, `state/`, `archive/` and `builds/` under `data/s3/seer-raw`, with sizes |
 | `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=fn-build`); check the containers |

@@ -554,9 +554,9 @@
     var rt;
     window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { if (state.index) drawCharts(); }, 150); });
     document.addEventListener("scroll", hideTip, { passive: true });
-    if (location.protocol === "file:") { msg("This page reads JSON files, which browsers block when it is opened from disk. Serve the site over http (make preview) and open /admin/."); return; }
+    if (location.protocol === "file:") { msg("This page reads JSON files, which browsers block when it is opened from disk. Serve the site over http (make preview) and open /system/admin/."); return; }
     getJson("data/index.json").then(function (ix) {
-      if (!ix || !ix.editions || !Object.keys(ix.editions).length) { msg("No data yet. The first build writes admin/data/index.json; reload after the next run."); return; }
+      if (!ix || !ix.editions || !Object.keys(ix.editions).length) { msg("No data yet. The first build writes system/admin/data/index.json; reload after the next run."); return; }
       state.index = ix;
       $("title").textContent = "Admin";
       if (ix.brand) $("title").appendChild(h("small", { text: ix.brand }));

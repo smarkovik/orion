@@ -8,7 +8,7 @@
     {"ID": "expire-fr-weeks", "Status": "Enabled", "Filter": {"Prefix": "fr/week/"}, "Expiration": {"Days": 1095}},
     {"ID": "expire-mk-briefings", "Status": "Enabled", "Filter": {"Prefix": "mk/briefing/"}, "Expiration": {"Days": 1095}},
     {"ID": "expire-fr-briefings", "Status": "Enabled", "Filter": {"Prefix": "fr/briefing/"}, "Expiration": {"Days": 1095}},
-    {"ID": "expire-admin-data", "Status": "Enabled", "Filter": {"Prefix": "admin/data/"}, "Expiration": {"Days": 400}},
+    {"ID": "expire-admin-data", "Status": "Enabled", "Filter": {"Prefix": "system/admin/data/"}, "Expiration": {"Days": 400}},
     {"ID": "expire-thumbs", "Status": "Enabled", "Filter": {"Prefix": "thumbs/"}, "Expiration": {"Days": 1095}},
     {
       "ID": "abort-incomplete-multipart",

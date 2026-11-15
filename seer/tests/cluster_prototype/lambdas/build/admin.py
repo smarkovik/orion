@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 from model import Window
 from seer_common import store
 
+PREFIX = "system/admin"  # public URL path of the back-office page
+
 log = logging.getLogger("admin")
 
 HERE = Path(__file__).parent / "web" / "admin"
@@ -160,11 +162,11 @@ def record(edition: str, run: dict[str, Any], cfg: dict[str, Any], now: datetime
     """Append the run to its day file and rewrite the index. Returns the number of PUTs made. Never raises."""
     try:
         day = _day(cfg, edition, now)
-        key = f"admin/data/{edition}/{day}.json"
+        key = f"{PREFIX}/data/{edition}/{day}.json"
         doc = store.get_json(store.SITE_BUCKET, key) or {"edition": edition, "date": day, "runs": []}
         doc["runs"] = [r for r in doc["runs"] if r.get("run_id") != run["run_id"]] + [run]
         store.put_bytes(store.SITE_BUCKET, key, store.dumps(doc).encode(), "application/json", CacheControl="no-cache")
-        index = store.get_json(store.SITE_BUCKET, "admin/data/index.json") or {}
+        index = store.get_json(store.SITE_BUCKET, f"{PREFIX}/data/index.json") or {}
         eds = index.get("editions") or {}
         cutoff = (now - timedelta(days=KEEP_DAYS)).date().isoformat()
         days = sorted({*(eds.get(edition) or {}).get("days", []), day}, reverse=True)
@@ -184,7 +186,7 @@ def record(edition: str, run: dict[str, Any], cfg: dict[str, Any], now: datetime
         }
         store.put_bytes(
             store.SITE_BUCKET,
-            "admin/data/index.json",
+            f"{PREFIX}/data/index.json",
             store.dumps(index).encode(),
             "application/json",
             CacheControl="no-cache",
@@ -202,12 +204,12 @@ def publish_static() -> int:
         try:
             body = (HERE / name).read_bytes()
             try:
-                etag = store.client().head_object(Bucket=store.SITE_BUCKET, Key=f"admin/{name}")["ETag"].strip('"')
+                etag = store.client().head_object(Bucket=store.SITE_BUCKET, Key=f"{PREFIX}/{name}")["ETag"].strip('"')
             except Exception:  # noqa: BLE001
                 etag = ""
             if etag == hashlib.md5(body).hexdigest():  # noqa: S324 - change detection only
                 continue
-            store.put_bytes(store.SITE_BUCKET, f"admin/{name}", body, ctype, CacheControl="no-cache")
+            store.put_bytes(store.SITE_BUCKET, f"{PREFIX}/{name}", body, ctype, CacheControl="no-cache")
             sent += 1
         except Exception:  # noqa: BLE001
             log.exception("admin static %s failed", name)
