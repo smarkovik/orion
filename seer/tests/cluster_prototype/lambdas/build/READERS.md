@@ -31,6 +31,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 - **Storage:** localStorage `{brandslug}:stats` = `{"first": "YYYY-MM-DD", "day": "YYYY-MM-DD", "week": "YYYY-Www", "month": "YYYY-MM"}`, in the browser's local date.
 - **Opt-out:** `{brandslug}:nocount` = `"1"` disables every ping. All storage access is wrapped in try/catch; if storage fails, send nothing.
 - **Leave:** one leave per page load, at the first `visibilitychange` to hidden or `pagehide`. It carries the visible time accumulated so far.
+- **Service worker:** it registers a static route (`addRoutes`, source `network`) for `system/p.gif`, so the leave ping is not lost while the page unloads (Chromium drops such requests when they pass through a service worker).
 - **Page metadata:** every page renders `<meta name="seer:page" content="{key}">`, `seer:kind`, `seer:edition`, `seer:story` and `seer:section` (empty when not applicable).
 
 ## 2. Logs → counts (build Lambda, every run)

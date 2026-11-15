@@ -221,6 +221,8 @@
     var dpath = "", pen = false;
     vals.forEach(function (v, i) { if (v == null) { pen = false; return; } dpath += (pen ? "L" : "M") + xs[i].toFixed(1) + " " + Y(v).toFixed(1); pen = true; });
     s("path", { d: dpath, fill: "none", "stroke-width": 2, "stroke-linejoin": "round", style: "stroke:" + RET_C }, svg);
+    // isolated days have no segment, so mark them
+    vals.forEach(function (v, i) { if (v != null && vals[i - 1] == null && vals[i + 1] == null) s("circle", { cx: xs[i], cy: Y(v), r: 3, style: "fill:" + RET_C }, svg); });
     K.xlabels(svg, g, xs, cats);
     var cross = s("line", { y1: g.m.t, y2: g.m.t + g.ih, style: "stroke:var(--ink2)", "stroke-width": 1, visibility: "hidden" }, svg);
     var dot = s("circle", { r: 4, style: "fill:" + RET_C + ";stroke:var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg);
