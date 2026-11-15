@@ -4,6 +4,20 @@ News clustering site inspired by [TIME.mk](https://time.mk).
 
 Status: research and a working prototype (scrape, cluster, public site, admin, AWS deploy via OpenTofu). v0 plan: https://claude.ai/artifact/R8G6t1iVaTFxkMmi7ZsgwQ
 
+Staging (sandbox account, not indexed by search engines):
+
+- Site: https://dx6a9ps6mjps1.cloudfront.net
+- Admin: https://dx6a9ps6mjps1.cloudfront.net/system/admin/
+
+The hourly schedule is off. Fetch on demand (the build runs by itself when a scrape finishes):
+
+```bash
+for e in mk fr; do
+  aws lambda invoke --function-name seer-staging-scrape --invocation-type Event \
+    --cli-binary-format raw-in-base64-out --payload "{\"edition\":\"$e\"}" /dev/null
+done
+```
+
 Start with [AGENTS.md](AGENTS.md): the project, its layout, conventions and findings in one place.
 
 - `docs/`: research write-ups ([tokenizers](docs/tokenizer-research.md), [TIME.mk sources](docs/timemk-sources.md), [outlet websites and RSS](docs/sources.md), [latest-news scraper](docs/scraper-research.md), [cluster prototype](docs/cluster-prototype-findings.md), [adding a source or a country](docs/adding-sources-and-editions.md))
