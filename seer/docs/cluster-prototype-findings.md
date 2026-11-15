@@ -121,6 +121,7 @@ The pipeline now runs as four Lambda container images (scrape, ingest, stories, 
 | --- | --- | --- | --- | --- | --- |
 | Backfill, 48 h | mk 10 s, 1,157 posts; fr 382 s, 1,182 pages | mk 2 s; fr 54 s | 8.8 s with model load | 0.6 s | mk 2.1 MB; fr 75 MB |
 | Re-run minutes later | mk 6 s, 0 posts; fr 11 s, 2 pages | under 1 s | 0.9 s | 0.2 s | mk 20 B; fr 135 KB |
+| Hourly run (02:31, quiet hour) | mk 5 s, 0 posts; fr 51 s, 5 new + 105 re-checks | fr 5.5 s, 6 meaningful edits | 1.4 s warm | 0.2 s | mk 20 B; fr 7 MB |
 
 - **The memory limit caught a real bug.** At 512 MB, scrape was killed while holding the fr backfill's raw HTML (about 400 KB a page). Records now stream through a gzip writer that spills to `/tmp`, and ingest reads the batch line by line in chunks of 50 per source.
 - **Peak memory**, measured with Docker: scrape 334 MiB, ingest 562 MiB, stories 757 MiB, export 47 MiB. The Lambda sizes in the plan (512 MB, 1 GB, 4 GB, 512 MB) fit, and stories could drop to 2 GB.
