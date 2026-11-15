@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Stories{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<h1>Stories</h1>
+<ul>
+{% for e in editions %}<li><strong>{{ e.code | edition_name }}</strong> · <a href="{{ e.code }}/index.html">Top</a> · <a href="{{ e.code }}/latest.html">Latest</a> <span class="muted">· {{ e.total }} stor{{ "y" if e.total == 1 else "ies" }}</span></li>
+{% endfor %}
+</ul>
+<p class="muted">updated {{ generated_at }}</p>
+{% endblock %}

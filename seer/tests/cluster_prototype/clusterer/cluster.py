@@ -13,8 +13,8 @@ from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import AgglomerativeClustering
 
-DATABASE_URL = os.environ["DATABASE_URL"]
 MODEL = os.environ.get("MODEL", "intfloat/multilingual-e5-base")
+MODEL_PATH = os.environ.get("MODEL_PATH") or None
 THRESHOLDS = [float(t) for t in os.environ.get("THRESHOLDS", "0.82,0.86,0.90").split(",")]
 WINDOW_HOURS = int(os.environ.get("WINDOW_HOURS", "48"))
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "32"))
@@ -34,22 +34,21 @@ SELECT a.id, a.title, a.body, a.content_hash
 FROM articles a
 LEFT JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s
 WHERE a.published_at >= now() - make_interval(hours => %(hours)s)
-  AND (e.article_id IS NULL OR e.content_hash <> a.content_hash)
+  AND e.article_id IS NULL
 ORDER BY a.id
 """
 
 UPSERT_SQL = """
 INSERT INTO embeddings (article_id, model, content_hash, vector)
 VALUES (%s, %s, %s, %s)
-ON CONFLICT (article_id, model) DO UPDATE
-SET content_hash = EXCLUDED.content_hash, vector = EXCLUDED.vector, created_at = now()
+ON CONFLICT (article_id, model) DO NOTHING
 """
 
 WINDOW_SQL = """
 SELECT a.id, a.source_id, a.published_at, a.title, e.vector, s.domain, a.source_categories, s.language
 FROM articles a
 JOIN sources s ON s.id = a.source_id
-JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s AND e.content_hash = a.content_hash
+JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s
 WHERE a.published_at >= now() - make_interval(hours => %(hours)s)
 ORDER BY a.id
 """
@@ -98,12 +97,23 @@ def vote(
     return None, 0
 
 
-def embed_pending(conn: psycopg.Connection) -> None:
+_model: SentenceTransformer | None = None
+
+
+def get_model() -> SentenceTransformer:
+    global _model
+    if _model is None:
+        _model = SentenceTransformer(MODEL_PATH or MODEL, device="cpu")
+    return _model
+
+
+def embed_pending(conn: psycopg.Connection) -> tuple[int, float]:
+    """Embed articles in the window that have no vector yet. Returns (count, seconds)."""
     rows = conn.execute(PENDING_SQL, {"model": MODEL, "hours": WINDOW_HOURS}).fetchall()
     print(f"embedding: {len(rows)} articles to embed")
     if not rows:
-        return
-    model = SentenceTransformer(MODEL, device="cpu")
+        return 0, 0.0
+    model = get_model()
     texts = [f"{PREFIX}{title}. {(body or '')[:MAX_CHARS]}" for _, title, body, _ in rows]
     start = time.perf_counter()
     vectors = model.encode(texts, batch_size=BATCH_SIZE, normalize_embeddings=True, show_progress_bar=False)
@@ -112,6 +122,7 @@ def embed_pending(conn: psycopg.Connection) -> None:
         with conn.cursor() as cur:
             cur.executemany(UPSERT_SQL, [(r[0], MODEL, r[3], v) for r, v in zip(rows, vectors)])
     print(f"embedding time: {elapsed:.1f}s ({len(rows) / elapsed:.1f} articles/s)")
+    return len(rows), elapsed
 
 
 def cluster_labels(vectors: np.ndarray, threshold: float) -> np.ndarray:
@@ -282,7 +293,7 @@ UNASSIGNED_SQL = """
 SELECT 0, a.id, a.source_id, a.published_at, a.content_changed_at, s.domain, a.source_categories, e.vector, a.title
 FROM articles a
 JOIN sources s ON s.id = a.source_id AND s.language = %(edition)s
-JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s AND e.content_hash = a.content_hash
+JOIN embeddings e ON e.article_id = a.id AND e.model = %(model)s
 WHERE a.published_at >= now() - make_interval(hours => %(hours)s)
   AND NOT EXISTS (SELECT 1 FROM story_articles sa WHERE sa.article_id = a.id)
 ORDER BY a.published_at, a.id
@@ -312,7 +323,7 @@ def unit(v: np.ndarray) -> np.ndarray:
     return v / np.linalg.norm(v)
 
 
-def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap) -> None:
+def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap) -> dict[str, int]:
     params = {"edition": edition, "model": MODEL, "tau": STORY_THRESHOLD}
     gap = timedelta(hours=STORY_MAX_GAP_HOURS)
     span = timedelta(hours=STORY_MAX_SPAN_HOURS)
@@ -439,6 +450,15 @@ def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap)
             "AND model = %(model)s AND abs(threshold - %(tau)s) < 1e-6 AND state = 'open'",
             params,
         ).fetchone()
+    result = {
+        "unassigned": len(unassigned),
+        "joined": joined,
+        "new": new_count,
+        "updated": sum(st.updated for st in by_idx),
+        "closed": closed,
+        "open": counts[0],
+        "multi_source": counts[1],
+    }
     flags = {st.id: [f for f, on in (("new", st.is_new), ("updated", st.updated)) if on] for st in by_idx}
     print(
         f"\n[{edition}] tau={STORY_THRESHOLD}: unassigned={len(unassigned)} joined={joined} new={new_count} "
@@ -450,6 +470,7 @@ def run_stories(conn: psycopg.Connection, edition: str, categories: CategoryMap)
             f"  [{size} articles / {sources} sources, {region or '-'} / {subject or '-'}, score {score:.2f}, {tags}] "
             f"{title}"
         )
+    return result
 
 
 def run_batch(conn: psycopg.Connection, cfg: dict) -> None:
@@ -467,7 +488,7 @@ def run_batch(conn: psycopg.Connection, cfg: dict) -> None:
 def main() -> None:
     with open(CATEGORIES_FILE, encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
-    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
+    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as conn:
         register_vector(conn)
         embed_pending(conn)
         if MODE == "stories":

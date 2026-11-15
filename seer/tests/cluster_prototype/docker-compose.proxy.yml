@@ -14,10 +14,32 @@ x-proxy-env: &proxy-env
   NO_PROXY: ${NO_PROXY:-}
 
 services:
-  scraper:
+  # Needs the internet, so it runs on the host network. The host's 8080 is the viewer,
+  # so the emulator listens on 9101. fn-ingest, fn-stories and fn-export get no proxy on purpose.
+  fn-scrape:
     build: *proxy-build
     network_mode: host
-    environment: *proxy-env
+    ports: !reset []
+    entrypoint:
+      - /usr/local/bin/aws-lambda-rie
+      - --runtime-interface-emulator-address
+      - 0.0.0.0:9101
+      - /var/runtime/bootstrap
+    environment:
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: 127.0.0.1,localhost
+      S3_ENDPOINT_URL: http://127.0.0.1:7070
+      _HANDLER: handler.handler
+
+  fn-ingest:
+    build: *proxy-build
+
+  fn-stories:
+    build: *proxy-build
+
+  fn-export:
+    build: *proxy-build
 
   clusterer:
     build: *proxy-build

@@ -1,2 +1,3 @@
 certs/*.crt
 out/
+data/

@@ -1,0 +1,111 @@
+{
+  "Comment": "Hourly Seer pipeline: per edition scrape then ingest, then stories, then export.",
+  "StartAt": "PerEdition",
+  "States": {
+    "PerEdition": {
+      "Type": "Map",
+      "ItemsPath": "$.editions",
+      "ItemSelector": {"edition.$": "$$.Map.Item.Value"},
+      "MaxConcurrency": 0,
+      "ItemProcessor": {
+        "ProcessorConfig": {"Mode": "INLINE"},
+        "StartAt": "Scrape",
+        "States": {
+          "Scrape": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {"FunctionName": "${ScrapeFunctionArn}", "Payload.$": "$"},
+            "ResultSelector": {"result.$": "$.Payload"},
+            "OutputPath": "$.result",
+            "TimeoutSeconds": 900,
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Ingest"
+          },
+          "Ingest": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {"FunctionName": "${IngestFunctionArn}", "Payload.$": "$"},
+            "ResultSelector": {"result.$": "$.Payload"},
+            "OutputPath": "$.result",
+            "TimeoutSeconds": 900,
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              },
+              {"ErrorEquals": ["States.TaskFailed"], "IntervalSeconds": 30, "MaxAttempts": 1, "BackoffRate": 1}
+            ],
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.ingested",
+      "Next": "Stories"
+    },
+    "Stories": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {"FunctionName": "${StoriesFunctionArn}", "Payload": {"editions.$": "$.editions"}},
+      "ResultSelector": {"result.$": "$.Payload"},
+      "ResultPath": "$.stories",
+      "TimeoutSeconds": 900,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        },
+        {"ErrorEquals": ["States.TaskFailed"], "IntervalSeconds": 30, "MaxAttempts": 1, "BackoffRate": 1}
+      ],
+      "Next": "Export"
+    },
+    "Export": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {"FunctionName": "${ExportFunctionArn}", "Payload": {"editions.$": "$.editions"}},
+      "ResultSelector": {"result.$": "$.Payload"},
+      "ResultPath": "$.export",
+      "TimeoutSeconds": 900,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        },
+        {"ErrorEquals": ["States.TaskFailed"], "IntervalSeconds": 30, "MaxAttempts": 1, "BackoffRate": 1}
+      ],
+      "End": true
+    }
+  }
+}

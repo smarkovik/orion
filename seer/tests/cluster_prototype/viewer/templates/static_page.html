@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_cards.html" import story_card %}
+{% block title %}{{ edition | edition_name }} · {{ view | capitalize }}{% endblock %}
+{% block head %}
+<style>
+.chips span.chip { padding:.1rem .55rem; border:1px solid var(--border); border-radius:99px; font-size:.82rem; }
+</style>
+{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<h1>{{ edition | edition_name }} · {{ view | capitalize }}</h1>
+<div class="runs">
+{% for code in editions %}<a href="{{ '' if code == edition else '../' ~ code ~ '/' }}{{ pages[view] }}"{% if code == edition %} class="cur"{% endif %}>{{ code | edition_name }}</a>
+{% endfor %}
+</div>
+<div class="runs">
+{% for v in views %}<a href="{{ pages[v] }}"{% if v == view %} class="cur"{% endif %}>{{ v | capitalize }}</a>
+{% endfor %}
+</div>
+<div class="chips"><span class="label">Subject</span>
+{% for f in subjects %}<span class="chip">{{ "Uncategorized" if f.value == none_value else f.value }} · {{ f.n }}</span>
+{% endfor %}
+</div>
+<div class="chips"><span class="label">Region</span>
+{% for f in regions %}<span class="chip">{{ "No region" if f.value == none_value else f.value }} · {{ f.n }}</span>
+{% endfor %}
+</div>
+<p class="muted">Showing {{ stories | length }} of {{ total }} stor{{ "y" if total == 1 else "ies" }} with at least {{ min_sources }} source{{ "" if min_sources == 1 else "s" }} · updated {{ generated_at }}</p>
+{% for c in stories %}{{ story_card(c, members[c.id]) }}{% endfor %}
+{% endblock %}

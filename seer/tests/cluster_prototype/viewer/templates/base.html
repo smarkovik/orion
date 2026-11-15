@@ -54,7 +54,7 @@ select, button { font:inherit; padding:.2rem .4rem; }
 </head>
 <body>
 <main>
-<p class="muted"><a href="/">All runs</a> · <a href="/stories">Stories</a> · <a href="/editions">Editions</a></p>
+{% block nav %}<p class="muted"><a href="/">All runs</a> · <a href="/stories">Stories</a> · <a href="/editions">Editions</a></p>{% endblock %}
 {% block content %}{% endblock %}
 </main>
 </body>

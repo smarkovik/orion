@@ -3,7 +3,7 @@
 An end-to-end test of Seer in Docker. It scrapes two editions of 10 news sites each, Macedonian (`mk`) and French (`fr`), embeds the articles, and clusters each edition into stories. You can then inspect the stories side by side in a browser. To add a source or a country, see [the guide](../../docs/adding-sources-and-editions.md).
 
 ```bash
-make all          # build, start, scrape the last 48 h, cluster at 3 thresholds, open the viewer
+make all          # build, start, run the Lambda pipeline (scrape, ingest, stories, export), open the viewer
 make down         # stop; data is kept
 ```
 
@@ -11,9 +11,10 @@ make down         # stop; data is kept
 
 | Target | Does |
 | --- | --- |
-| `all` | Build, start, scrape, cluster, then open the viewer |
-| `build`, `up`, `down`, `restart` | Build the images; start the database and viewer; stop everything; restart the viewer |
-| `scrape`, `stories`, `refresh` | Run the scraper; add new articles to stable stories; or both |
+| `all` | Build, start, run the whole pipeline, then open the viewer |
+| `build`, `up`, `down`, `restart` | Build the images; start the database, S3, the four Lambda containers and the viewer; stop everything; restart the viewer |
+| `scrape`, `stories`, `site`, `refresh` | Scrape to S3 and ingest; add new articles to stable stories; export the static site to S3 (prints `data/s3/seer-site/index.html`); or all four steps |
+| `raw` | List raw objects, manifests and state under `data/s3/seer-raw`, with sizes |
 | `cluster` | Batch experiment: re-cluster the whole window at each threshold (`cluster_runs`) |
 | `reset-stories` | Delete all stories so the next `make stories` rebuilds them |
 | `open` | Open http://localhost:8080 in a browser |
@@ -23,18 +24,28 @@ make down         # stop; data is kept
 | `export` | Save a run page as static HTML in `out/` (`RUN=<id>`, `MIN_SOURCES=2`) |
 | `export-editions` | Save the side-by-side stories page, with tabs, to `out/editions.html` (`VIEW=top` or `latest`) |
 | `clear-runs` | Delete cluster runs but keep articles and embeddings |
-| `clean` | Stop and delete all data, including the model cache |
+| `clean` | Stop and delete all data, including the model cache and `data/s3` |
 
-Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `make refresh EDITION=fr` limits a run to one edition. `MAX_ARTICLES` caps articles per source for news-sitemap sites. `WINDOW_HOURS` and `MODEL` work the same way.
+Per-run overrides: `make scrape HOURS=6`, `make cluster THRESHOLDS=0.91,0.92`. `make refresh EDITION=fr` limits a run to one edition (`--editions`). `WINDOW_HOURS` and `MODEL` apply to `make cluster`; scrape knobs such as `MAX_ARTICLES_PER_SOURCE` live in the `fn-scrape` environment in `docker-compose.yml`.
 
 ## Services
 
 | Service | Does | Runs |
 | --- | --- | --- |
 | `db` | Postgres 16 + pgvector 0.8.7; schema in `db/schema.sql` | Always; host port 5433 |
-| `scraper` | Reads `sources.yaml` and pulls the last `HOURS` from each source, then upserts `articles` by canonical URL. `wp_api` sources (mk) come from the WordPress posts API. `news_sitemap` sources (fr) come from the news sitemap, with each article page fetched and its text extracted by trafilatura. | One-shot job |
-| `clusterer` | Embeds new articles with `intfloat/multilingual-e5-base` (CPU). Then clusters each edition on its own, with average-link clustering at each threshold in `THRESHOLDS`. Writes one `cluster_runs` row per edition and threshold. | One-shot job |
+| `s3` | versitygw, a local S3 stand-in; objects are plain files under `data/s3/` | Always; port 7070 |
+| `fn-scrape` | Lambda: fetches each source into one raw object per edition per run. No database. | Invoked on port 9101 |
+| `fn-ingest` | Lambda: parses the raw object, upserts `articles` by canonical URL, rebuilds `state/` | Invoked on port 9102 |
+| `fn-stories` | Lambda: embeds new articles with `intfloat/multilingual-e5-base` (CPU) and joins stable stories | Invoked on port 9103 |
+| `fn-export` | Lambda: renders the static site into the site bucket | Invoked on port 9104 |
+| `clusterer` | Batch experiments (`make cluster`). Embeds new articles with `intfloat/multilingual-e5-base` (CPU), then clusters each edition on its own, with average-link clustering at each threshold in `THRESHOLDS`. Writes one `cluster_runs` row per edition and threshold. | One-shot job |
 | `viewer` | Read-only web pages: runs, the clusters in each run, and the articles in each cluster. `/editions` shows every edition in CSS tabs. | Always; port 8080 |
+
+## Lambda pipeline
+
+The hourly pipeline runs as four Lambda container images behind AWS's Runtime Interface Emulator. `pipeline/run_pipeline.py` (standard library only) stands in for Step Functions: scrape then ingest per edition, then stories, then export. It writes every step's output to `out/pipeline-<timestamp>.json`. The emulator handles one call at a time, so calls to the same function run one after another. `infra/` holds the matching Step Functions definition and S3 lifecycle files. Contract and S3 layout: [lambdas/README.md](lambdas/README.md).
+
+Only `fn-scrape` has internet access (host network behind the proxy). The other three run on the default network without a proxy, which shows they need none.
 
 ## Categories
 
