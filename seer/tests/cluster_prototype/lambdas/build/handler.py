@@ -30,7 +30,6 @@ def _manifest_key(event: dict[str, Any]) -> str:
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     t_start = time.perf_counter()
-    now = parse_utc(event.get("now")) or datetime.now(timezone.utc)
     ratio = float(os.environ.get("CHANGE_MIN_RATIO", "0.05"))
     timings: dict[str, float] = {}
 
@@ -46,6 +45,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     edition, run_id = manifest["edition"], manifest["run_id"]
     started = parse_utc(manifest["started_at"])
     assert started is not None
+    # The scrape's own clock, so a replayed run builds exactly what the live run built.
+    now = parse_utc(event.get("now")) or parse_utc(manifest.get("finished_at")) or started
     with open(os.environ.get("SOURCES_FILE", "/var/task/sources.yaml"), encoding="utf-8") as f:
         editions = yaml.safe_load(f)["editions"]
     if edition not in editions:
