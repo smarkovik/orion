@@ -100,6 +100,9 @@ class Story:
     subject: str | None = None
     subject_votes: int = 0
     score: float = 0.0
+    thumb_key: str | None = None  # site bucket key; None = not tried, "" = no usable image
+    thumb_src: str | None = None  # image URL the thumbnail came from
+    thumb_source: str | None = None  # domain credited for the photo
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -118,6 +121,9 @@ class Story:
             "subject": self.subject,
             "subject_votes": self.subject_votes,
             "score": self.score,
+            "thumb_key": self.thumb_key,
+            "thumb_src": self.thumb_src,
+            "thumb_source": self.thumb_source,
         }
 
     @classmethod
@@ -138,6 +144,9 @@ class Story:
             subject=d.get("subject"),
             subject_votes=d.get("subject_votes", 0),
             score=d.get("score", 0.0),
+            thumb_key=d.get("thumb_key"),
+            thumb_src=d.get("thumb_src"),
+            thumb_source=d.get("thumb_source"),
         )
 
 
@@ -199,3 +208,7 @@ def build_report_key(edition: str, run_id: str) -> str:
 
 def archive_key(edition: str, started: datetime, run_id: str) -> str:
     return f"archive/{edition}/{started:%Y/%m/%d}/{run_id}.jsonl.gz"
+
+
+def days_key(edition: str) -> str:
+    return f"state/{edition}/days.json"

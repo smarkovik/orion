@@ -1,0 +1,110 @@
+# Public site settings. The brand is a codename: change it here and every page follows.
+brand:
+  name: Seer
+  contact_email: contact@example.com  # placeholder until the domain exists
+base_url: ""  # absolute site URL for feeds and sitemaps, e.g. https://example.com; empty = relative only
+
+# Shared by all editions.
+limits:
+  front: 30  # stories on an edition's front page (at least min_sources sources)
+  section: 30
+  day: 30
+  feed: 30
+  min_sources: 2
+cache_seconds:
+  html: 300  # front, section, story pages, today's and yesterday's day pages
+  past_day: 86400
+  asset: 31536000  # hashed CSS/JS and thumbnails, immutable
+
+editions:
+  mk:
+    name: Македонија
+    lang: mk
+    timezone: Europe/Skopje
+    tagline: Најважните вести од македонските медиуми, на едно место
+    section_facet: region  # mk sources file by place
+    sections:  # name = the category from categories.yaml; slug = file name
+      - {name: Македонија, slug: makedonija}
+      - {name: Скопје, slug: skopje}
+      - {name: Балкан, slug: balkan}
+      - {name: Свет, slug: svet}
+    months: [јануари, февруари, март, април, мај, јуни, јули, август, септември, октомври, ноември, декември]
+    weekdays: [понеделник, вторник, среда, четврток, петок, сабота, недела]
+    text:
+      top: Најважни вести
+      more: Други вести
+      sections: Рубрики
+      all: Сите
+      source_one: "{n} извор"
+      source_many: "{n} извори"
+      read_on: "Прочитај на {source}"
+      first_by: "Прво објави {source} во {time}"
+      coverage: Како известуваа медиумите
+      updated: Ажурирано
+      new: Ново
+      photo: "Фото: {source}"
+      archive: Архива
+      day_title: "Вести од {date}"
+      prev_day: Претходен ден
+      next_day: Следен ден
+      today: Денес
+      calendar: Календар
+      about: За нас
+      sources_title: Медиуми
+      theme: Тема
+      theme_light: Светла
+      theme_dark: Темна
+      updated_at: "Ажурирано во {time}"
+      no_stories: Сè уште нема вести за овој ден.
+      about_body: |
+        {brand} ги собира најновите вести од македонските медиуми и ги групира по настан, за да видите што се случува на едно место. Секоја вест води до оригиналниот текст кај медиумот што ја објавил.
+        Изборот е автоматски: колку повеќе медиуми известуваат за еден настан, толку е тој повисоко.
+      contact: "Контакт: {email}. Медиумите што не сакаат да бидат вклучени можат да ни пишат."
+  fr:
+    name: France
+    lang: fr
+    timezone: Europe/Paris
+    tagline: L'essentiel de l'actualité française, réuni en un seul endroit
+    section_facet: subject  # fr sources file by subject
+    sections:
+      - {name: Politique, slug: politique}
+      - {name: Économie, slug: economie}
+      - {name: Société, slug: societe}
+      - {name: Faits divers, slug: faits-divers}
+      - {name: Sport, slug: sport}
+      - {name: Culture, slug: culture}
+      - {name: Tech, slug: tech}
+      - {name: Santé, slug: sante}
+      - {name: Environnement, slug: environnement}
+    months: [janvier, février, mars, avril, mai, juin, juillet, août, septembre, octobre, novembre, décembre]
+    weekdays: [lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche]
+    text:
+      top: À la une
+      more: Autres actualités
+      sections: Rubriques
+      all: Tout
+      source_one: "{n} source"
+      source_many: "{n} sources"
+      read_on: "Lire sur {source}"
+      first_by: "Publié d'abord par {source} à {time}"
+      coverage: La couverture des médias
+      updated: Mis à jour
+      new: Nouveau
+      photo: "Photo : {source}"
+      archive: Archives
+      day_title: "L'actualité du {date}"
+      prev_day: Jour précédent
+      next_day: Jour suivant
+      today: Aujourd'hui
+      calendar: Calendrier
+      about: À propos
+      sources_title: Médias
+      theme: Thème
+      theme_light: Clair
+      theme_dark: Sombre
+      updated_at: "Mis à jour à {time}"
+      no_stories: Pas encore d'actualités pour ce jour.
+      about_body: |
+        {brand} rassemble les dernières actualités des médias français et les regroupe par événement, pour voir l'essentiel en un seul endroit. Chaque article renvoie vers le texte original du média qui l'a publié.
+        La sélection est automatique : plus il y a de médias qui couvrent un événement, plus il remonte.
+      contact: "Contact : {email}. Les médias qui ne souhaitent pas figurer ici peuvent nous écrire."
