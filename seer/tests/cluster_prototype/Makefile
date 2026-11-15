@@ -37,7 +37,7 @@ JOB_ENV := $(if $(HOURS),-e HOURS=$(HOURS)) $(if $(THRESHOLDS),-e THRESHOLDS=$(T
 help: ## Show this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
 	@echo "  Variables: HOURS, EDITION, SERVICE, PREVIEW_PORT; legacy: THRESHOLDS, WINDOW_HOURS, MODEL, MAX_ARTICLES, SQL, RUN,"
-	@echo "             THRESHOLD, VIEW, MIN_SOURCES, VIEWER_URL"
+	@echo "             VIEW, MIN_SOURCES, VIEWER_URL"
 
 all: build up refresh site ## Build, start, scrape and build the editions, then print the site path
 
@@ -51,12 +51,12 @@ site: docker ## Build from the latest manifest of each edition, no scraping; pri
 	$(PIPELINE) --steps build $(if $(EDITION),--editions $(EDITION))
 	@echo "Site: $(CURDIR)/$(S3_DIR)/seer-site/index.html (make preview serves it)"
 
-preview: ## Serve the public site from data/s3/seer-site at http://localhost:8090 (PREVIEW_PORT), logging requests to data/logs; Ctrl-C to stop
+preview: ## Serve the site from data/s3/seer-site at http://localhost:8090 (PREVIEW_PORT; /lab/, /system/admin/), logging requests to data/logs; Ctrl-C to stop
 	@echo "Site: http://localhost:$(PREVIEW_PORT)/index.html (analysis pages under /lab/)"
 	@mkdir -p data/logs/cloudfront
 	@python3 tools/preview_server.py --port $(PREVIEW_PORT) --directory $(S3_DIR)/seer-site --logs data/logs/cloudfront
 
-replay: docker ## Rebuild editions from scratch: delete their state, apply every manifest in order; EDITION=mk
+replay: docker ## Rebuild editions: delete their window, summary and scrape state, apply every manifest in order; EDITION=mk (default both)
 	$(PIPELINE) --replay $(EDITION)
 
 docker: ## Start the Docker daemon if it isn't running (cloud sandboxes)

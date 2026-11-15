@@ -102,12 +102,12 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 ## Gotchas in cloud sandboxes
 
 - **`dockerd` isn't running at the start of a session.** Every Docker-using `make` target starts it.
-- **Containers reach the internet only through the HTTPS proxy.** `docker-compose.proxy.yml` adds host networking, proxy variables and the CA. `run.sh` and the Makefile use it when `HTTPS_PROXY` is set.
+- **Containers reach the internet only through the HTTPS proxy.** `docker-compose.proxy.yml` adds host networking, proxy variables and the CA. The Makefile uses it when `HTTPS_PROXY` is set.
 - **Compose v5 builds through bake,** which needs `--allow=network.host`. `make build` handles that.
 - **Docker Hub can rate-limit base-image lookups (429).** Retry later or log in.
 - **Disk fills up.** The build image is about 4.4 GB; `docker builder prune -f` and removing old images frees space.
-- **Only `fn-scrape` gets the proxy.** It runs on the host network with the emulator moved to port 9101; `fn-build` sits on the default network with no proxy, so it provably needs no internet.
-- **The Lambda emulator takes one call at a time** and crashes on concurrent calls to the same container. The runner serializes calls per function; real Lambda scales out. Two host-network emulators also clash on the runtime API port 9001.
+- **Both Lambdas get the proxy.** Scrape fetches news; build fetches only thumbnails and logos. Both run on the host network: scrape's emulator on port 9101, build's on 9102 with its runtime API moved to 9003, because two host-network emulators clash on the default 9001.
+- **The Lambda emulator takes one call at a time** and crashes on concurrent calls to the same container. The runner serializes calls per function; real Lambda scales out.
 
 ## Open questions
 

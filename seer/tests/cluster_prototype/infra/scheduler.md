@@ -1,5 +1,7 @@
 # Scheduler
 
+Reference for the schedule that `seer/infra/tofu/modules/seer/schedule.tf` creates (tofu is the source of truth; there the names carry the `name_prefix`, for example `seer-production-scrape-mk`, and `schedule_enabled=false` pauses scraping).
+
 One EventBridge Scheduler schedule per edition invokes `scrape`. Scrape's manifest in `runs/` triggers `build` through the S3 notification (`s3-raw-notification.json`); there is nothing else to schedule.
 
 | Schedule | Expression | Time zone | Target | Input |
@@ -26,7 +28,11 @@ Reserve concurrency 1 on `build` so two manifests never run at once (the window 
 aws lambda put-function-concurrency --function-name seer-build --reserved-concurrent-executions 1
 ```
 
-S3 invokes asynchronously and retries a throttled event for up to 6 hours, so manifests queue instead of being lost. Build skips a manifest that is not newer than the window.
+S3 invokes asynchronously and retries a throttled event for up to 6 hours (`MaximumEventAgeInSeconds` 21600, `MaximumRetryAttempts` 2, as set in tofu), so manifests queue instead of being lost. Build skips a manifest that is not newer than the window.
+
+```bash
+aws lambda put-function-event-invoke-config --function-name seer-build --maximum-retry-attempts 2 --maximum-event-age-in-seconds 21600
+```
 
 ## Wiring the S3 event
 

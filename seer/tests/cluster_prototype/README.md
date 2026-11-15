@@ -15,13 +15,14 @@ There is no database. Two Lambdas and S3 do everything; the contract is in [lamb
 | --- | --- |
 | `all` | Build, start, run the pipeline, print the site path |
 | `build`, `up`, `down`, `restart` | Build the two Lambda images; start S3 and the two Lambdas; stop everything (all profiles); restart the Lambdas |
+| `docker` | Start the Docker daemon if it isn't running (cloud sandboxes); the other targets call it |
 | `refresh` | Scrape, then build from the new manifest, per edition |
 | `scrape` | Scrape to S3 only |
 | `site` | Build from the latest manifest of each edition without scraping; prints `data/s3/seer-site/index.html` |
 | `preview` | Serve `data/s3/seer-site` at http://localhost:8090 (`PREVIEW_PORT`) with `tools/preview_server.py`, which also logs each request to `data/logs/cloudfront/` for the reader statistics (`lambdas/build/READERS.md`); the analysis pages are under `/lab/`, the back-office page (run history, health, costs) at `/system/admin/` |
-| `replay` | `EDITION=mk` (default both): delete the edition's state, then build every manifest in `runs/` in order |
+| `replay` | `EDITION=mk` (default both): delete the edition's window, summary and scrape state (not `days.json`), then build every manifest in `runs/` in order |
 | `raw` | List `raw/`, `runs/`, `state/`, `archive/` and `builds/` under `data/s3/seer-raw`, with sizes |
-| `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=fn-build`); check the containers |
+| `ps`, `logs`, `health` | Container status; follow logs (`SERVICE=fn-build`); check the containers (and the viewer and database if up) |
 | `clean` | Stop and delete all data, including `data/s3` |
 
 Per-run overrides: `make refresh HOURS=6 EDITION=fr` (`--hours`, `--editions`). Scrape knobs such as `MAX_ARTICLES_PER_SOURCE` live in the `fn-scrape` environment and build knobs such as `STORY_THRESHOLD` in the `fn-build` environment in `docker-compose.yml`.
@@ -32,13 +33,13 @@ Per-run overrides: `make refresh HOURS=6 EDITION=fr` (`--hours`, `--editions`). 
 | --- | --- | --- |
 | `s3` | versitygw, a local S3 stand-in; objects are plain files under `data/s3/` | Always; port 7070 |
 | `fn-scrape` | Lambda: fetches each source into one raw object per edition per run, plus a manifest. Internet access only. | Invoked on port 9101 |
-| `fn-build` | Lambda: ingests the raw object, embeds new articles with `intfloat/multilingual-e5-base` (CPU), joins stable stories, downloads story thumbnails, renders the public site and `/lab/` pages, writes the window and state. Needs internet for thumbnails. | Invoked on port 9102 |
+| `fn-build` | Lambda: ingests the raw object, embeds new articles with `intfloat/multilingual-e5-base` (CPU), joins stable stories, downloads story thumbnails and outlet logos, renders the public site and `/lab/` pages, writes the window, state, archive, back-office data and reader counts. Needs internet for thumbnails and logos. | Invoked on port 9102 |
 
 ## Lambda pipeline
 
-Each hour, per edition: scrape writes a raw object and a manifest to S3, the S3 event for the manifest invokes build, and build reads the edition's 48 h window from S3, updates it and writes the site, the window, the scrape state, an archive and a report. `pipeline/run_pipeline.py` (standard library only) stands in for the scheduler and the S3 event: it invokes scrape, then build with an S3-event payload for the new manifest. It writes every step's output to `out/pipeline-<timestamp>.json`. The emulator handles one call at a time, so calls to the same function run one after another. `--replay` (`make replay`) rebuilds an edition from its manifests. `S3_DIR` or `--s3-dir` points the runner at another S3 folder. `infra/` holds the S3 notification, lifecycle and scheduler definitions.
+Each hour from 08:00 to 22:00 (Europe/Skopje), per edition: scrape writes a raw object and a manifest to S3, the S3 event for the manifest invokes build, and build reads the edition's 48 h window from S3, updates it and writes the site, the window, the scrape state, an archive, a report, the back-office run summary and the reader counts. `pipeline/run_pipeline.py` (standard library only) stands in for the scheduler and the S3 event: it invokes scrape, then build with an S3-event payload for the new manifest. It writes every step's output to `out/pipeline-<timestamp>.json`. The emulator handles one call at a time, so calls to the same function run one after another. `--replay` (`make replay`) rebuilds an edition from its manifests. `S3_DIR` or `--s3-dir` points the runner at another S3 folder. The real AWS stack is OpenTofu in `seer/infra/tofu/`; `infra/` here keeps the earlier JSON and CLI definitions as reference ([infra/README.md](infra/README.md)).
 
-`fn-scrape` and `fn-build` need internet access (scrape for the news sites, build for thumbnails); behind the proxy both run on the host network, on emulator ports 9101 and 9102 with runtime APIs on 9001 and 9003. Without internet the build still succeeds: stories just get a placeholder instead of a picture. Settings and interface text of the public site are in `site.yaml`.
+`fn-scrape` and `fn-build` need internet access (scrape for the news sites, build for thumbnails); behind the proxy both run on the host network, on emulator ports 9101 and 9102 with runtime APIs on 9001 and 9003. Without internet the build still succeeds: stories get a placeholder instead of a picture and outlets a round initial instead of a logo. Settings and interface text of the public site are in `site.yaml`.
 
 ## Legacy (Postgres)
 
@@ -60,7 +61,7 @@ The legacy Lambdas (`fn-ingest`, `fn-stories`, `fn-export`) are gone; the legacy
 
 ## Choices
 
-- **10 sources, one language.** Clustering needs several outlets covering the same event, so all 10 are Macedonian. All expose the WordPress posts API with full text, so no article pages are fetched.
+- **10 sources per edition.** Clustering needs several outlets covering the same event, so each edition has 10 outlets in one language. The 10 Macedonian ones expose the WordPress posts API with full text, so no article pages are fetched. The 10 French ones are read from their news sitemaps and each article page is fetched.
 - **Several thresholds per run (legacy).** The right cosine threshold for e5 is unknown, so each batch run stores one result per threshold and the viewer lets you compare them.
 - **robots.txt is ignored** (`IGNORE_ROBOTS=true`) for experiments only. Requests stay at 1 per 2 s per host and the bot identifies itself.
 - **Proxy sandboxes.** `docker-compose.proxy.yml` adds host networking, proxy variables and an extra CA for environments behind an HTTPS proxy. The Makefile uses it when `HTTPS_PROXY` is set, and builds images with `docker buildx bake --allow=network.host`, because Compose's builder won't run a host-network build without that grant.
