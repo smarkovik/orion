@@ -71,7 +71,7 @@ resource "aws_lambda_function" "build" {
   architectures                  = ["x86_64"]
   memory_size                    = 4096
   timeout                        = 900
-  reserved_concurrent_executions = 1
+  reserved_concurrent_executions = var.build_reserved_concurrency
 
   ephemeral_storage {
     size = 1024

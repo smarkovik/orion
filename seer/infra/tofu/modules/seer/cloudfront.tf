@@ -84,6 +84,20 @@ resource "aws_acm_certificate_validation" "site" {
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
+resource "aws_cloudfront_response_headers_policy" "noindex" {
+  count = var.block_indexing ? 1 : 0
+
+  name = "${var.name_prefix}-noindex"
+
+  custom_headers_config {
+    items {
+      header   = "X-Robots-Tag"
+      value    = "noindex, nofollow"
+      override = true
+    }
+  }
+}
+
 # ---------- Distribution ----------
 
 resource "aws_cloudfront_distribution" "site" {
@@ -108,6 +122,8 @@ resource "aws_cloudfront_distribution" "site" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
     cache_policy_id        = data.aws_cloudfront_cache_policy.origin_headers.id
+
+    response_headers_policy_id = var.block_indexing ? aws_cloudfront_response_headers_policy.noindex[0].id : null
   }
 
   restrictions {

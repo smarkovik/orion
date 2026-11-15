@@ -35,3 +35,13 @@ variable "route53_zone_id" {
 variable "alarm_email" {
   type = string
 }
+
+variable "block_indexing" {
+  type    = bool
+  default = false
+}
+
+variable "build_reserved_concurrency" {
+  type    = number
+  default = 1
+}
