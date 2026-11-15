@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote_plus
 from zoneinfo import ZoneInfo
 
 from seer_common import store
+from ua import classify
 from web import render as web
 
 PREFIX = "system/admin/data/readers"
@@ -58,6 +59,7 @@ def _empty(edition: str, day: str) -> dict[str, Any]:
         "outlets": {},
         "pages": {},
         "events": {"share": 0, "follow": 0},
+        "devices": {},
     }
 
 
@@ -80,9 +82,39 @@ def _add_time(row: dict[str, Any], ms: int) -> None:
     t["hist"][_hist(ms)] += 1
 
 
+def _device(doc: dict[str, Any], ev: dict[str, Any], ret: bool) -> None:
+    dev, os_, browser = classify(ev["ua"], ev["tm"])
+    d = doc["devices"].setdefault(
+        dev,
+        {
+            "views": 0,
+            "views_returning": 0,
+            "readers_day": 0,
+            "returning_day": 0,
+            "story_time": {"n": 0, "sum_ms": 0, "hist": [0] * (len(HIST_MS) + 1)},
+            "os": {},
+            "browsers": {},
+        },
+    )
+    if ev["e"] == "l":
+        if ev["k"] == "story":
+            _add_time({"time": d["story_time"]}, ev["t"])
+        return
+    d["views"] += 1
+    d["views_returning"] += int(ret)
+    d["readers_day"] += int(ev["fd"])
+    d["returning_day"] += int(ev["fd"] and ret)
+    for key, name in (("os", os_), ("browsers", browser)):
+        row = d[key].setdefault(name, {"views": 0, "readers_day": 0})
+        row["views"] += 1
+        row["readers_day"] += int(ev["fd"])
+
+
 def _apply(doc: dict[str, Any], ev: dict[str, Any]) -> None:
     kind, ret, st = ev["k"], ev["n"] == "1", ev["st"]
     e = ev["e"]
+    if e in ("v", "l"):
+        _device(doc, ev, ret)
     if e == "v":
         doc["views"] += 1
         doc["views_returning"] += int(ret)
@@ -142,6 +174,8 @@ def _event(q: dict[str, list[str]], editions: Mapping[str, Any]) -> dict[str, An
         "fd": one("fd") == "1",
         "fw": one("fw") == "1",
         "fm": one("fm") == "1",
+        "tm": one("tm") == "1",
+        "ua": "",
         "t": ms,
         "o": outlet if HOST_RE.match(outlet) else "",
     }
@@ -184,6 +218,7 @@ def _aggregate(text: str, cfg: dict[str, Any], counts: Counts, stats: dict[str, 
             if ev is None:
                 stats["bad"] += 1
                 continue
+            ev["ua"] = row["cs(User-Agent)"]
             edition = ev["ed"]
         else:
             edition = path.lstrip("/").split("/", 1)[0]
@@ -278,16 +313,23 @@ def _write_days(counts: Counts, now: datetime) -> dict[str, set[str]]:
     return touched
 
 
-def _write_index(touched: dict[str, set[str]], now: datetime) -> None:
-    key = f"{PREFIX}/index.json"
-    index = store.get_json(store.SITE_BUCKET, key) or {}
-    eds = index.get("editions") or {}
+def _write_index(editions: Mapping[str, Any], now: datetime) -> None:
+    """Rebuilt from a listing of the day files, so a lost or broken index heals on the next run."""
     cutoff = (now - timedelta(days=KEEP_DAYS)).date().isoformat()
-    for edition, days in touched.items():
-        have = set((eds.get(edition) or {}).get("days", [])) | days
-        eds[edition] = {"days": sorted((d for d in have if d >= cutoff), reverse=True)}
+    pager = store.client().get_paginator("list_objects_v2")
+    eds: dict[str, Any] = {}
+    for edition in editions:
+        days = {
+            o["Key"].rsplit("/", 1)[1].removesuffix(".json")
+            for page in pager.paginate(Bucket=store.SITE_BUCKET, Prefix=f"{PREFIX}/{edition}/")
+            for o in page.get("Contents", [])
+            if o["Key"].endswith(".json")
+        }
+        if days:
+            eds[edition] = {"days": sorted((d for d in days if d >= cutoff), reverse=True)}
     stamp = now.astimezone(timezone.utc).isoformat(timespec="seconds")
     body = store.dumps({"updated": stamp, "editions": eds}).encode()
+    key = f"{PREFIX}/index.json"
     store.put_bytes(store.SITE_BUCKET, key, body, "application/json", CacheControl="no-cache")
 
 
@@ -344,7 +386,7 @@ def process(cfg: dict[str, Any], now: datetime, windows: Mapping[str, Any]) -> d
                 stats["unreadable"] = stats.get("unreadable", 0) + 1
         stats["files"] = len(read)
         if counts:
-            _write_index(_write_days(counts, now), now)
+            _write_days(counts, now)
             stats["days"] = len(counts)
         if read:
             done |= set(read)
@@ -361,4 +403,10 @@ def process(cfg: dict[str, Any], now: datetime, windows: Mapping[str, Any]) -> d
     except Exception as e:  # noqa: BLE001
         log.exception("readers failed")
         stats["error"] = repr(e)
+    if stats.get("days"):
+        try:
+            _write_index(cfg["editions"], now)
+        except Exception as e:  # noqa: BLE001
+            log.exception("readers index failed")
+            stats["index_error"] = repr(e)
     return stats

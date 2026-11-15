@@ -134,7 +134,7 @@ editions:
       contact: "Контакт: {email}. Медиумите што не сакаат да бидат вклучени можат да ни пишат."
       privacy_title: Приватност
       privacy_body: |
-        Броиме само колку страници се отворени, колку време се задржувате на нив и дали сте нè посетиле и порано. Без лични податоци, без колачиња, без број за препознавање и без IP адреса. Вашиот прелистувач чува само неколку датуми, за да знаеме дали се враќате.
+        Броиме само колку страници се отворени, колку време се задржувате на нив и дали сте нè посетиле и порано. Го броиме и видот на уредот (телефон, таблет или компјутер), неговиот систем и прелистувачот. Без лични податоци, без колачиња, без број за препознавање и без IP адреса. Вашиот прелистувач чува само неколку датуми, за да знаеме дали се враќате.
         Ништо не се поврзува со вас: чуваме само вкупни бројки. Ако не сакате да бидете броени, отворете го менито „Аа“ и изберете „Не ја бројте мојата посета“.
   fr:
     name: France
@@ -228,5 +228,5 @@ editions:
       contact: "Contact : {email}. Les médias qui ne souhaitent pas figurer ici peuvent nous écrire."
       privacy_title: Vie privée
       privacy_body: |
-        Nous comptons seulement les pages ouvertes, le temps passé dessus et si vous êtes déjà venu. Aucune donnée personnelle, aucun cookie, aucun identifiant, aucune adresse IP. Votre navigateur ne garde que quelques dates, pour savoir si vous revenez.
+        Nous comptons seulement les pages ouvertes, le temps passé dessus et si vous êtes déjà venu. Nous comptons aussi le type d'appareil (téléphone, tablette ou ordinateur), son système et son navigateur. Aucune donnée personnelle, aucun cookie, aucun identifiant, aucune adresse IP. Votre navigateur ne garde que quelques dates, pour savoir si vous revenez.
         Rien n'est relié à vous : nous ne gardons que des totaux. Pour ne pas être compté, ouvrez le menu « Aa » et choisissez « Ne pas compter ma visite ».

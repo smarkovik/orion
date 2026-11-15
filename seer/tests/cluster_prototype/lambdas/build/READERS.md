@@ -1,6 +1,6 @@
 # Reader statistics: contract
 
-Answers six questions on the system page (`/system/admin/`): returning-reader %, what returning readers read, what everyone reads, trends (daily, weekly, monthly), what's never read, and time on page.
+Answers seven questions on the system page (`/system/admin/`): returning-reader %, what returning readers read, what everyone reads, trends (daily, weekly, monthly), what's never read, time on page, and devices.
 
 **Privacy shape:**
 - **No identifiers of any kind:** no ID, no fingerprint, no cookies, no IP use.
@@ -25,6 +25,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 | `n` | `1` = returning browser (first visit was on an earlier day), `0` = new |
 | `fd`, `fw`, `fm` | `1` on this browser's first view today / this ISO week / this month (views only) |
 | `t` | visible milliseconds on the page, capped at 1,800,000 (leave only) |
+| `tm` | `1` when the user agent contains `Macintosh` and `navigator.maxTouchPoints > 1` (an iPad reporting a Mac); sent on view and leave pings only |
 | `o` | outlet domain (`o` events) |
 | `id` | random token for this page load only (never stored), to join a leave to its view |
 
@@ -41,7 +42,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
 - **Input:** CloudFront standard logs (W3C, tab-separated; `#Fields:` header names the columns; `.gz` or plain), from `LOGS_DIR` when set (local), else S3 `LOGS_BUCKET` (default `RAW_BUCKET`) under `LOGS_PREFIX` (default `logs/cloudfront/`).
 - **Fields used:** `date`, `time`, `cs-uri-stem`, `cs-uri-query`, `sc-status`, `cs(User-Agent)`. `c-ip` is never read.
 - **Filtering:** pings are requests for `/system/p.gif`. Requests for `*.html` with status 200 whose first path segment is an edition code count as `server_html` (all page requests, including readers without JavaScript). Pings with an unknown edition, event, kind or page key, or a bad `t`, are dropped. User agents matching `bot|spider|crawl|slurp|preview|monitor` are dropped.
-- **After aggregation:** write the counts, then delete the processed log files, with a cursor (`state/readers_cursor.json` in the raw bucket, `{"done": [file names]}`) so a partly failed run doesn't double count. A file that can't be read is left for the next run.
+- **After aggregation:** write the day files, then the cursor (`state/readers_cursor.json` in the raw bucket, `{"done": [file names]}`), then delete the processed log files, then the index. A run that fails after the day files can at worst count those files again; a file that can't be read is left for the next run.
 - **Day:** the date in the edition's time zone.
 
 **Output, site bucket** (served with the system page; `Cache-Control: no-cache`):
@@ -56,11 +57,19 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
  "stories": {"mk-123": {"views": 0, "views_returning": 0, "out": 0, "time_n": 0, "time_sum_ms": 0}},
  "outlets": {"nezavisen.mk": {"out": 0}},
  "pages": {"mk/index.html": 0},
- "events": {"share": 0, "follow": 0}}
+ "events": {"share": 0, "follow": 0},
+ "devices": {"phone": {"views": 0, "views_returning": 0, "readers_day": 0, "returning_day": 0,
+                       "story_time": {"n": 0, "sum_ms": 0, "hist": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+                       "os": {"Android": {"views": 0, "readers_day": 0}},
+                       "browsers": {"Chrome": {"views": 0, "readers_day": 0}}},
+             "tablet": {}, "desktop": {}}}
 ```
+
+**Device classification** (`ua.py`, `classify(ua, touch_mac) -> (device, os, browser)`): the raw `cs(User-Agent)` is URL-decoded (twice if still encoded). Device: iPhone/iPod, Android with `Mobile`, other `Mobile` / `Windows Phone` = phone; iPad, Android without `Mobile`, `Tablet`, Mac with `tm=1` = tablet; else desktop. OS: iOS, iPadOS (iPad, or Mac with `tm=1`), Android, Windows, macOS, ChromeOS, Linux, Other. Browser, first match: Facebook app, Instagram app, Edge, Opera, Samsung Internet, Firefox, Chrome, Safari (`Safari/` with `Version/`, or iOS WebKit), Other. Nothing is stored in the browser; bot filtering is unchanged.
 
 - **`readers_day`:** views with `fd=1`. **`returning_day`:** those with `fd=1` and `n=1`. Returning % for a day = `returning_day / readers_day`.
 - **`first_week`, `first_month`:** views with `fw=1` / `fm=1`. Weekly readers = the sum of `first_week` over the week's days; monthly readers likewise.
+- **`devices`:** per device kind (`phone`, `tablet`, `desktop`; rows created on first use), from ping events only. Views (`e=v`) add to `views`, `views_returning`, `readers_day` (`fd=1`), `returning_day` (`fd=1` and `n=1`) and the `os` / `browsers` rows (`views`, `readers_day`); leaves on story pages add to `story_time` (same histogram as `time`). Classification is in `ua.py`, see "Device classification". Day files without `devices` still load.
 - **Time histogram** upper bounds in seconds: 5, 10, 20, 30, 60, 120, 300, 600, 1800, then above (10 buckets). Medians are read from the histogram.
 - **`pages`:** the top 200 page keys by views.
 - **Merging:** a day file already in S3 is merged with the new counts (numbers and histogram buckets are added), so a day can be built from several runs.
@@ -71,7 +80,7 @@ Answers six questions on the system page (`/system/admin/`): returning-reader %,
   "outlets": ["nezavisen.mk", "..."], "first_published": "<iso>", "page": "mk/story/123.html"}}}
 ```
 
-`system/admin/data/readers/index.json`: `{"updated", "editions": {code: {"days": [dates newest first]}}}`.
+`system/admin/data/readers/index.json`: `{"updated", "editions": {code: {"days": [dates newest first]}}}`, rebuilt each run from a listing of the day files, so a lost or broken index heals itself.
 
 **Never read** = catalog stories older than 24 h with 0 views and 0 `out` across all day files since their `first_published`.
 
@@ -85,6 +94,7 @@ Same window selector (14 / 30 / 90) and edition filter as the rest of the page.
   - views per day by page kind and by section.
 - **What readers read:** a sortable table of the top 30 stories (title, edition, section, views, returning share, "read on" clicks, median time), with a toggle between all readers and returning readers. Next to it, section shares for new vs returning readers.
 - **Never read:** count and share of stories never opened, by section and by outlet, plus the list of the top 20 never-read stories (most outlets first).
+- **Devices (after Trends):** readers per day stacked by device kind (with table view); table "By device" (readers, share, views, returning %, median time on story pages); "Which kind": OS and browser shares of readers per device kind as horizontal bars. One-line definition under the block.
 - **Time on page:** median and distribution by page kind.
 - **Definitions:** a one-line note under each block.
 
