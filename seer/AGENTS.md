@@ -60,6 +60,8 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 
 - `make` lists the targets. `make build up` builds and starts S3 and the two Lambdas.
 - `make refresh` scrapes both editions and builds them; `make scrape` only scrapes; `make site` rebuilds from the latest manifests. `EDITION=fr` limits a run to one edition; `HOURS` widens scrape's window (backfills).
+- **Reader features** (all browser-only, no accounts): week pages, morning briefing, since-your-last-visit marks, follow a story, outlet logos, "developing" marker, share, text size and pictures-off, installable app with offline reading.
+- **Admin** at `/admin/` (private: CloudFront basic auth in AWS, `infra/cloudfront-admin-auth.js`): a static page reading per-run JSON summaries from `admin/data/` (scrape, stories, sizes, timings, thumbnails, cost estimate); 14/30/90-day windows; kept 400 days.
 - `make preview` serves the site at http://localhost:8090. Public pages: `index.html`, `{edition}/index.html`, sections `{edition}/s/`, story pages `{edition}/story/`, days `{edition}/YYYY/MM/DD.html`, calendar `{edition}/YYYY/MM/index.html`; the site contract is `lambdas/build/SITE.md`. The brand is a codename set only in `site.yaml`.
 - `make replay` rebuilds the windows and site from all raw batches. `make raw` lists the S3 objects with sizes. The static site is at `data/s3/seer-site/index.html`.
 - Legacy: `make build-legacy up-legacy`, then `make cluster` (threshold experiments) or `make compare` (database-free stories against the Postgres ones).

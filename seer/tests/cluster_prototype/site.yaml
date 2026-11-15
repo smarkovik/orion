@@ -27,7 +27,7 @@ cache_seconds:
   past_day: 86400
   asset: 31536000  # hashed CSS/JS and thumbnails, immutable
 
-admin:  # cost estimates on the back-office page (/admin/); Frankfurt list prices in USD, before any free tier
+admin:  # cost estimates on the back-office page (/admin/); Frankfurt list prices in USD, CloudFront after its permanent free allowance
   pricing:
     lambda_gb_s: 0.0000166667
     lambda_per_million: 0.20  # requests

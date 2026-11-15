@@ -147,8 +147,13 @@ def cloudfront_month(cfg: dict[str, Any]) -> dict[str, float]:
     views = a["assumed_views_month"]
     gb = views * (a["page_kb"] + a["images_per_view"] * a["thumb_kb"]) / 1e6
     reqs = views * (1 + a["images_per_view"])
-    usd = gb * p["gb"] + reqs / 10_000 * p["per_10k_https"]
-    return {"gb": round(gb, 1), "requests": reqs, "usd": round(usd, 2)}
+    list_usd = gb * p["gb"] + reqs / 10_000 * p["per_10k_https"]
+    # CloudFront's free allowance is permanent, not a 12-month trial.
+    usd = (
+        max(0.0, gb - p.get("free_gb", 0)) * p["gb"]
+        + max(0, reqs - p.get("free_requests", 0)) / 10_000 * p["per_10k_https"]
+    )
+    return {"gb": round(gb, 1), "requests": reqs, "usd": round(usd, 2), "list_usd": round(list_usd, 2)}
 
 
 def record(edition: str, run: dict[str, Any], cfg: dict[str, Any], now: datetime) -> int:
