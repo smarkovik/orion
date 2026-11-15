@@ -123,11 +123,17 @@ editions:
       images: Слики
       images_on: Со слики
       images_off: Без слики
+      count_me: Бројте ја мојата посета
+      count_off: Не ја бројте мојата посета
       about_sources: Медиуми од кои собираме вести
       about_body: |
         {brand} ги собира најновите вести од македонските медиуми и ги групира по настан, за да видите што се случува на едно место. Секоја вест води до оригиналниот текст кај медиумот што ја објавил.
         Изборот е автоматски: колку повеќе медиуми известуваат за еден настан, толку е тој повисоко.
       contact: "Контакт: {email}. Медиумите што не сакаат да бидат вклучени можат да ни пишат."
+      privacy_title: Приватност
+      privacy_body: |
+        Броиме само колку страници се отворени, колку време се задржувате на нив и дали сте нè посетиле и порано. Без лични податоци, без колачиња, без број за препознавање и без IP адреса. Вашиот прелистувач чува само неколку датуми, за да знаеме дали се враќате.
+        Ништо не се поврзува со вас: чуваме само вкупни бројки. Ако не сакате да бидете броени, отворете го менито „Аа“ и изберете „Не ја бројте мојата посета“.
   fr:
     name: France
     lang: fr
@@ -211,8 +217,14 @@ editions:
       images: Images
       images_on: Avec images
       images_off: Sans images
+      count_me: Compter ma visite
+      count_off: Ne pas compter ma visite
       about_sources: Médias dont nous réunissons les actualités
       about_body: |
         {brand} rassemble les dernières actualités des médias français et les regroupe par événement, pour voir l'essentiel en un seul endroit. Chaque article renvoie vers le texte original du média qui l'a publié.
         La sélection est automatique : plus il y a de médias qui couvrent un événement, plus il remonte.
       contact: "Contact : {email}. Les médias qui ne souhaitent pas figurer ici peuvent nous écrire."
+      privacy_title: Vie privée
+      privacy_body: |
+        Nous comptons seulement les pages ouvertes, le temps passé dessus et si vous êtes déjà venu. Aucune donnée personnelle, aucun cookie, aucun identifiant, aucune adresse IP. Votre navigateur ne garde que quelques dates, pour savoir si vous revenez.
+        Rien n'est relié à vous : nous ne gardons que des totaux. Pour ne pas être compté, ouvrez le menu « Aa » et choisissez « Ne pas compter ma visite ».

@@ -535,6 +535,10 @@
   function refresh() { return load().then(draw); }
   function msg(t) { var m = $("msg"); m.textContent = t; m.hidden = !t; }
 
+  // helpers shared with readers.js
+  window.AdminKit = { $: $, h: h, s: s, num: num, pad: pad, slot: slot, sum: sum, getJson: getJson, showTip: showTip, hideTip: hideTip, niceMax: niceMax,
+    frame: frame, geometry: geometry, axes: axes, attach: attach, xlabels: xlabels, bars: bars, tableFor: tableFor };
+
   function init() {
     buildCards();
     $("win").addEventListener("click", function (e) {

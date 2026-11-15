@@ -9,6 +9,7 @@
 <script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <link rel="stylesheet" href="admin.css">
 <script src="admin.js" defer></script>
+<script src="readers.js" defer></script>
 </head>
 <body>
 <header class="top">
@@ -29,6 +30,11 @@
 </header>
 <main class="wrap">
   <p id="msg" class="msg" role="status" hidden></p>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" id="tab-ops" aria-controls="view-ops" aria-selected="true">Operations</button>
+    <button type="button" role="tab" id="tab-readers" aria-controls="view-readers" aria-selected="false" tabindex="-1">Readers</button>
+  </nav>
+  <div id="view-ops" role="tabpanel" aria-labelledby="tab-ops">
   <p id="stamp" class="stamp"></p>
   <section id="tiles" class="tiles" aria-label="Health"></section>
   <section id="charts" class="charts" aria-label="Charts"></section>
@@ -42,6 +48,8 @@
     <p class="sub">The last 50 runs. Open a row to see its raw summary.</p>
     <div class="scroll"><table id="runs"></table></div>
   </section>
+  </div>
+  <div id="view-readers" role="tabpanel" aria-labelledby="tab-readers" hidden></div>
 </main>
 <div id="tip" class="tip" role="tooltip" hidden></div>
 </body>

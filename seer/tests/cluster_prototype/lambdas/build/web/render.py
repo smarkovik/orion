@@ -29,6 +29,20 @@ BRIEFING_AT = time(8, 0)
 BRIEFING_ENTRY_UNTIL = 12
 HTML = "text/html; charset=utf-8"
 ASSET_CACHE = "public, max-age=31536000, immutable"
+PING_KEY = "system/p.gif"
+PING_GIF = (
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
+    b"\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+)
+KINDS = {
+    "front.html": "front",
+    "story.html": "story",
+    "week.html": "week",
+    "briefing.html": "briefing",
+    "calendar.html": "calendar",
+    "about.html": "about",
+    "chooser.html": "chooser",
+}
 
 
 class Page(NamedTuple):
@@ -128,6 +142,7 @@ def render_assets(cfg: dict[str, Any] | None = None) -> tuple[list[Page], str, s
     pages = [Page(key, body, ctype, ASSET_CACHE) for key, body, ctype in (a["css"], a["js"])]
     pages += [Page(key, body, "image/png", ASSET_CACHE) for key, body in _icons(brand, _colors(cfg)["accent"]).values()]
     pages.append(_sw_page(brand))
+    pages.append(Page(PING_KEY, PING_GIF, "image/gif", "no-store"))
     return pages, a["css"][0], a["js"][0]
 
 
@@ -401,6 +416,8 @@ class _Site:
         arts = sorted((self.arts[u] for u in s.members if u in self.arts), key=lambda a: a.published_at)
         doms = list(dict.fromkeys(a.source for a in arts))
         return {
+            "sid": s.id,
+            "outlet": label.source,
             "title": self.title(s),
             "href": href,
             "ext": ext,
@@ -417,6 +434,8 @@ class _Site:
     def summary_card(self, x: dict[str, Any], rel: Callable[[str], str]) -> dict[str, Any]:
         href, ext = (rel(x["page"]), False) if x.get("page") else (x.get("url") or "#", True)
         return {
+            "sid": x.get("id"),
+            "outlet": None,
             "title": x["title"],
             "href": href,
             "ext": ext,
@@ -474,6 +493,8 @@ class _Site:
             "theme_light": self.colors["theme_light"],
             "theme_dark": self.colors["theme_dark"],
             "sw": rel("sw.js"),
+            "ping": rel(PING_KEY),
+            "stats": _slug(self.brand),
             "visit": f"{_slug(self.brand)}:visit:{self.code}",
             "follow": f"{_slug(self.brand)}:follow:{self.code}",
             "follow_json": here("follow.json"),
@@ -483,6 +504,14 @@ class _Site:
         }
 
     def render(self, template: str, key: str, ctx: dict[str, Any], cache: str) -> Page:
+        kind = KINDS.get(template) or ("day" if ctx.get("is_day") else "section")
+        ctx["seer"] = {
+            "page": key,
+            "kind": kind,
+            "edition": self.code,
+            "story": ctx.get("story_id") or "",
+            "section": ctx.get("section") or (ctx.get("heading") if kind == "section" else "") or "",
+        }
         body = _env().get_template(template).render(**ctx)
         return Page(key, body.encode(), HTML, cache)
 
@@ -540,6 +569,7 @@ def _story(site: _Site, s: Story, cache: str) -> Page:
     rows = [
         {
             "outlet": site.source(a.source),
+            "domain": a.source,
             "title": html.unescape(a.title),
             "time": site.when(a.published_at),
             "url": a.url if a.url.lower().startswith(("http://", "https://")) else "#",
@@ -806,6 +836,8 @@ def _about(site: _Site, window: Window, cache: str) -> Page:
             "outlets": outlets,
             "outlets_title": site.t["about_sources"],
             "install_tip": site.t["install_tip"].format(brand=site.brand),
+            "privacy_title": site.t["privacy_title"],
+            "privacy_paras": site.t["privacy_body"].strip().splitlines(),
         }
     )
     return site.render("about.html", key, ctx, cache)
@@ -944,6 +976,9 @@ def render_root(cfg: dict[str, Any], summaries: list[dict[str, Any]], now: datet
         "theme_light": colors["theme_light"],
         "theme_dark": colors["theme_dark"],
         "sw": "sw.js",
+        "ping": PING_KEY,
+        "stats": _slug(cfg["brand"]["name"]),
+        "seer": {"page": "index.html", "kind": "chooser", "edition": "", "story": "", "section": ""},
     }
     cache = f"public, max-age={cfg['cache_seconds']['html']}"
     body = _env().get_template("chooser.html").render(**ctx)

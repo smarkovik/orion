@@ -88,14 +88,23 @@
     });
     btn.addEventListener("click", function () {
       if (navigator.share) {
-        navigator.share({ title: box.getAttribute("data-title"), url: url }).catch(function () {});
+        navigator
+          .share({ title: box.getAttribute("data-title"), url: url })
+          .then(function () {
+            ping("s");
+          })
+          .catch(function () {});
         return;
       }
       links.hidden = !links.hidden;
       btn.setAttribute("aria-expanded", String(!links.hidden));
     });
+    links.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("a[data-href]")) ping("s");
+    });
     copy.addEventListener("click", function () {
       var done = function () {
+        ping("s");
         note.textContent = copy.getAttribute("data-done");
         setTimeout(function () {
           note.textContent = "";
@@ -150,6 +159,131 @@
     } catch (e) {}
   }
 
+  function meta(name) {
+    var m = document.querySelector('meta[name="seer:' + name + '"]');
+    return m ? m.getAttribute("content") || "" : "";
+  }
+
+  var statsKey = (body.getAttribute("data-stats") || "") + ":";
+
+  function counting() {
+    try {
+      return localStorage.getItem(statsKey + "nocount") !== "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function two(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+
+  function isoWeek(d) {
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    var w = Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
+    return t.getUTCFullYear() + "-W" + two(w);
+  }
+
+  var ping = function () {};
+
+  function stats() {
+    var page = meta("page");
+    var kind = meta("kind");
+    var base = body.getAttribute("data-ping");
+    if (!page || !kind || !base || !counting()) return;
+    var d = new Date();
+    var today = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+    var week = isoWeek(d);
+    var month = today.slice(0, 7);
+    var st = {};
+    try {
+      st = JSON.parse(localStorage.getItem(statsKey + "stats")) || {};
+    } catch (e) {}
+    var fresh = {
+      fd: st.day !== today ? 1 : 0,
+      fw: st.week !== week ? 1 : 0,
+      fm: st.month !== month ? 1 : 0,
+    };
+    var first = typeof st.first === "string" && /^\d{4}-\d\d-\d\d$/.test(st.first) ? st.first : today;
+    try {
+      localStorage.setItem(
+        statsKey + "stats",
+        JSON.stringify({ first: first, day: today, week: week, month: month })
+      );
+    } catch (e) {
+      return;
+    }
+    var id = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+    var common = {
+      v: 1,
+      ed: meta("edition"),
+      k: kind,
+      p: page,
+      st: meta("story"),
+      sec: meta("section"),
+      n: first < today ? 1 : 0,
+      id: id,
+    };
+
+    function url(extra) {
+      var parts = [];
+      [common, extra].forEach(function (o) {
+        Object.keys(o).forEach(function (k) {
+          if (o[k] !== "" && o[k] != null) parts.push(k + "=" + encodeURIComponent(o[k]));
+        });
+      });
+      return base + "?" + parts.join("&");
+    }
+
+    function send(extra) {
+      if (!counting()) return;
+      var u = url(extra);
+      if (window.fetch) fetch(u, { keepalive: true, cache: "no-store" }).catch(function () {});
+      else new Image().src = u;
+    }
+
+    ping = function (e, extra) {
+      var o = { e: e };
+      Object.keys(extra || {}).forEach(function (k) {
+        o[k] = extra[k];
+      });
+      send(o);
+    };
+
+    var view = { e: "v" };
+    if (fresh.fd) view.fd = 1;
+    if (fresh.fw) view.fw = 1;
+    if (fresh.fm) view.fm = 1;
+    new Image().src = url(view);
+
+    var shown = 0;
+    var since = document.visibilityState === "visible" ? Date.now() : 0;
+    var left = false;
+    function leave() {
+      if (left) return;
+      left = true;
+      if (since) shown += Date.now() - since;
+      since = 0;
+      send({ e: "l", t: Math.min(shown, 1800000) });
+    }
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") leave();
+      else if (!left) since = Date.now();
+    });
+    window.addEventListener("pagehide", leave);
+
+    function out(ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest("a[data-story]") : null;
+      if (!a) return;
+      var outlet = a.getAttribute("data-outlet") || a.hostname.replace(/^www\./, "");
+      ping("o", { st: a.getAttribute("data-story"), o: outlet });
+    }
+    document.addEventListener("click", out);
+    document.addEventListener("auxclick", out);
+  }
+
   function display() {
     var tg = document.getElementById("disp-toggle");
     var panel = document.getElementById("disp-panel");
@@ -157,6 +291,7 @@
     tg.hidden = false;
     var sizes = panel.querySelectorAll("[data-text]");
     var img = document.getElementById("disp-images");
+    var cnt = document.getElementById("disp-count");
     function paint() {
       var z = root.getAttribute("data-text") || "100";
       Array.prototype.forEach.call(sizes, function (b) {
@@ -165,6 +300,9 @@
       var on = root.getAttribute("data-images") !== "off";
       img.setAttribute("aria-checked", String(on));
       img.textContent = img.getAttribute(on ? "data-on" : "data-off");
+      var c = counting();
+      cnt.setAttribute("aria-checked", String(c));
+      cnt.textContent = cnt.getAttribute(c ? "data-on" : "data-off");
     }
     function open(v) {
       panel.hidden = !v;
@@ -188,6 +326,12 @@
       if (off) root.setAttribute("data-images", "off");
       else root.removeAttribute("data-images");
       store("images", off ? "off" : null);
+      paint();
+    });
+    cnt.addEventListener("click", function () {
+      var off = counting();
+      store(statsKey + "nocount", off ? "1" : null);
+      if (off) store(statsKey + "stats", null);
       paint();
     });
     tg.addEventListener("click", function () {
@@ -240,7 +384,10 @@
       paint();
       btn.addEventListener("click", function () {
         if (f[id]) delete f[id];
-        else f[id] = { at: Date.now(), n: size };
+        else {
+          f[id] = { at: Date.now(), n: size };
+          ping("f");
+        }
         save();
         paint();
       });
@@ -289,6 +436,7 @@
   }
 
   visits();
+  stats();
   display();
   follows();
   share();

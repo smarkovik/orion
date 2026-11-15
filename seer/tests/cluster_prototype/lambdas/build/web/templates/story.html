@@ -33,7 +33,7 @@
     <li>
       <p class="outlet">{{ k.chip(r.chip, true) }}{{ r.outlet }} <span class="meta">· {{ r.time }}</span></p>
       <p class="atitle">{{ r.title }}</p>
-      <a class="btn read" href="{{ r.url }}" rel="noopener">{{ r.read }} →</a>
+      <a class="btn read" href="{{ r.url }}" rel="noopener" data-story="{{ story_id }}" data-outlet="{{ r.domain }}">{{ r.read }} →</a>
     </li>
   {% endfor %}
   </ol>
