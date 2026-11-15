@@ -23,7 +23,7 @@ The rules encoded here are the ones in `tests/cluster_prototype/infra/` (lifecyc
 3. Copy the outputs into the env root:
    - `account_id` into `aws_account_id` in `envs/<env>/terraform.tfvars`;
    - `backend_bucket` into the `bucket` of `envs/<env>/backend.tf` (the bucket name is `<name_prefix>-tfstate-<account id>`).
-4. In GitHub, create the environments `staging` and `production` (Settings, Environments). On each, add the variable `AWS_ROLE_ARN` = the `deploy_role_arn` output of that account. On `production`, add required reviewers.
+4. In GitHub, create the environments `staging` and `production` (Settings, Environments; GitHub also creates them on the first run). Staging has its `deploy_role_arn` in the workflow file. For `production`, add the variable `AWS_ROLE_ARN` = the `deploy_role_arn` output of that account, and required reviewers.
 5. Commit the filled tfvars and backend. Optional: set `domain` and `route53_zone_id` (the hosted zone must already exist), and `alarm_email` (confirm the SNS email once).
 
 The deploy role trusts only `repo:smarkovik/orion:environment:<env>`, so a job must run in that GitHub environment to assume it.
@@ -48,4 +48,4 @@ The deploy role trusts only `repo:smarkovik/orion:environment:<env>`, so a job m
 
 ## Turning deploys on
 
-Both workflows skip until the repository variable `SEER_DEPLOY_ENABLED` is `true` (Settings → Secrets and variables → Actions → Variables). Set it after the bootstrap and GitHub environment steps above, so `main` doesn't collect failed runs before AWS is ready.
+Staging deploys on every push to `main` that touches `seer/**`; the role ARN is set in `.github/workflows/seer-deploy-staging.yml` (`env.AWS_ROLE_ARN`), not as a GitHub variable. The production workflow skips until the repository variable `SEER_DEPLOY_ENABLED` is `true` (Settings → Secrets and variables → Actions → Variables). Set it after the bootstrap and GitHub environment steps above, so `main` doesn't collect failed runs before AWS is ready.

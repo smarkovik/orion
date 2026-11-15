@@ -4,7 +4,7 @@
 
 Seer is a news aggregator, inspired by [TIME.mk](https://time.mk) but built our own way. It collects articles from a list of news sites, groups articles about the same event into stories, ranks them, and shows them per edition. An edition is one language plus one market: today `mk` (Macedonian) and `fr` (French).
 
-**Status:** research and a working prototype. Deploy is set up (OpenTofu, GitHub workflows) but off until `SEER_DEPLOY_ENABLED` is `true`, so nothing is in production yet.
+**Status:** research and a working prototype. Staging runs in the sandbox AWS account and deploys from CI; production is set up but off until `SEER_DEPLOY_ENABLED` is `true`, so nothing is in production yet.
 
 **The plan has three stages:**
 
@@ -63,7 +63,7 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 - `make refresh` scrapes both editions and builds them; `make scrape` only scrapes; `make site` rebuilds from the latest manifests. `EDITION=fr` limits a run to one edition; `HOURS` widens scrape's window (backfills).
 - **Reader features** (all browser-only, no accounts): week pages, morning briefing, since-your-last-visit marks, follow a story, outlet logos, "developing" marker, share, text size and pictures-off, installable app with offline reading.
 - **Admin** at `/system/admin/` (public in the prototype, `noindex`; access control comes later): a static page reading per-run JSON summaries from `system/admin/data/` (scrape, stories, sizes, timings, thumbnails, cost estimate); 14/30/90-day windows; kept 400 days. Its Readers tab shows reader statistics (contract: `lambdas/build/READERS.md`): pages send a small first-party ping with no ID or fingerprint, and build counts it from CloudFront logs, then deletes the logs. `make preview` writes logs in the same format locally.
-- **Deploy:** OpenTofu in `seer/infra/tofu/` (staging and production accounts). Staging deploys on push to `main`; production deploys by a manual run on a ref (default: tip of `main`). Both are off until the repository variable `SEER_DEPLOY_ENABLED` is `true`.
+- **Deploy:** OpenTofu in `seer/infra/tofu/` (staging and production accounts). Staging deploys on push to `main`; production deploys by a manual run on a ref (default: tip of `main`). The staging role ARN is in the workflow file; production is off until the repository variable `SEER_DEPLOY_ENABLED` is `true`.
 - `make preview` serves the site at http://localhost:8090. Public pages: `index.html`, `{edition}/index.html`, sections `{edition}/s/`, story pages `{edition}/story/`, days `{edition}/YYYY/MM/DD.html`, calendar `{edition}/YYYY/MM/index.html`, weeks `{edition}/week/`, briefings `{edition}/briefing/`, `{edition}/feed.xml` (RSS), `{edition}/about.html`; the site contract is `lambdas/build/SITE.md`. The brand is a codename set only in `site.yaml`.
 - `make replay` rebuilds the windows and site from all raw batches. `make raw` lists the S3 objects with sizes. The static site is at `data/s3/seer-site/index.html`.
 - Legacy: `make build-legacy up-legacy`, then `make cluster` (threshold experiments) or `make compare` (database-free stories against the Postgres ones).

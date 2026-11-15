@@ -16,11 +16,14 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Output deploy_role_arn of bootstrap/ in the sandbox account. Not a secret: the role trusts only
+  # repo:smarkovik/orion:environment:staging.
+  AWS_ROLE_ARN: arn:aws:iam::160224865114:role/seer-staging-deploy
+
 jobs:
   deploy:
     name: Deploy to staging
-    # Off until the AWS accounts are bootstrapped: set the repository variable SEER_DEPLOY_ENABLED=true.
-    if: vars.SEER_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: staging
@@ -37,7 +40,7 @@ jobs:
         with:
           env-dir: staging
           image-tag: ${{ github.sha }}
-          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          role-arn: ${{ env.AWS_ROLE_ARN }}
 
       - name: Summary
         env:
