@@ -4,7 +4,7 @@
 
 Seer is a news aggregator, inspired by [TIME.mk](https://time.mk) but built our own way. It collects articles from a list of news sites, groups articles about the same event into stories, ranks them, and shows them per edition. An edition is one language plus one market: today `mk` (Macedonian) and `fr` (French).
 
-**Status:** research and prototypes. Nothing is in production.
+**Status:** research and a working prototype. Deploy is set up (OpenTofu, GitHub workflows) but off until `SEER_DEPLOY_ENABLED` is `true`, so nothing is in production yet.
 
 **The plan has three stages:**
 
@@ -22,12 +22,13 @@ The plan doc is at https://claude.ai/artifact/R8G6t1iVaTFxkMmi7ZsgwQ.
 | --- | --- |
 | `docs/` | Research write-ups. Start with `cluster-prototype-findings.md` and `adding-sources-and-editions.md`. |
 | `docs/sources.md`, `sources.csv` | The 113 Macedonian outlets from TIME.mk, with verified websites and RSS feeds |
+| `infra/tofu/` | OpenTofu for the AWS staging and production accounts (see its README) |
 | `tests/` | Prototypes behind the research. They aren't unit tests and CI doesn't run them. |
-| `tests/cluster_prototype/` | The working end-to-end prototype, in Docker |
+| `tests/cluster_prototype/` | The working end-to-end prototype: two Lambda images and S3, run in Docker |
 | `tests/scraper/` | Latest-news scraper for any site: RSS, then homepage links, then Lightpanda |
 | `tests/sources/` | Resolver from outlet names to verified domains and feeds |
 | `tests/tokenizers/` | Macedonian tokenizer comparison |
-| `tests/postgres/` | Standalone Postgres + pgvector setup and smoke test |
+| `tests/postgres/` | Standalone Postgres + pgvector smoke test, unrelated to the prototype's storage |
 
 ## Cluster prototype (`tests/cluster_prototype/`)
 
@@ -63,7 +64,7 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 - **Reader features** (all browser-only, no accounts): week pages, morning briefing, since-your-last-visit marks, follow a story, outlet logos, "developing" marker, share, text size and pictures-off, installable app with offline reading.
 - **Admin** at `/system/admin/` (public in the prototype, `noindex`; access control comes later): a static page reading per-run JSON summaries from `system/admin/data/` (scrape, stories, sizes, timings, thumbnails, cost estimate); 14/30/90-day windows; kept 400 days. Its Readers tab shows reader statistics (contract: `lambdas/build/READERS.md`): pages send a small first-party ping with no ID or fingerprint, and build counts it from CloudFront logs, then deletes the logs. `make preview` writes logs in the same format locally.
 - **Deploy:** OpenTofu in `seer/infra/tofu/` (staging and production accounts). Staging deploys on push to `main`; production deploys by a manual run on a ref (default: tip of `main`). Both are off until the repository variable `SEER_DEPLOY_ENABLED` is `true`.
-- `make preview` serves the site at http://localhost:8090. Public pages: `index.html`, `{edition}/index.html`, sections `{edition}/s/`, story pages `{edition}/story/`, days `{edition}/YYYY/MM/DD.html`, calendar `{edition}/YYYY/MM/index.html`; the site contract is `lambdas/build/SITE.md`. The brand is a codename set only in `site.yaml`.
+- `make preview` serves the site at http://localhost:8090. Public pages: `index.html`, `{edition}/index.html`, sections `{edition}/s/`, story pages `{edition}/story/`, days `{edition}/YYYY/MM/DD.html`, calendar `{edition}/YYYY/MM/index.html`, weeks `{edition}/week/`, briefings `{edition}/briefing/`, `{edition}/feed.xml` (RSS), `{edition}/about.html`; the site contract is `lambdas/build/SITE.md`. The brand is a codename set only in `site.yaml`.
 - `make replay` rebuilds the windows and site from all raw batches. `make raw` lists the S3 objects with sizes. The static site is at `data/s3/seer-site/index.html`.
 - Legacy: `make build-legacy up-legacy`, then `make cluster` (threshold experiments) or `make compare` (database-free stories against the Postgres ones).
 - Each run's step outputs and timings land in `out/pipeline-<UTC>.json`.
@@ -80,7 +81,7 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 
 ## Scraping rules
 
-- **Honest user agent:** `SeerBot/0.1`. Rate limit: 1 request per 2 s per host.
+- **Honest user agent:** `SeerBot/0.1`. Rate limit: 1 request per 2 s (`REQUEST_DELAY_S`).
 - **robots.txt.** It's ignored only in experiments (`IGNORE_ROBOTS=true` in Compose). A product must obey it.
 - **Never bypass bot protection** (Cloudflare, DataDome) and never scrape TIME.mk.
 - **Store, don't republish.** Full text is kept internally, for clustering only.

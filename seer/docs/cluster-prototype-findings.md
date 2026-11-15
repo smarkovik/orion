@@ -12,11 +12,11 @@ The full pipeline works on 10 Macedonian sites: scrape, embed, cluster and view,
 | Window | The last 48 h: 1,240 articles scraped, 1,217 inside the clustering window |
 | Embeddings | `intfloat/multilingual-e5-base` on CPU, `query: ` prefix (from the model card), title plus the first 1,200 characters of text |
 | Clustering | scikit-learn average-link hierarchical clustering on cosine distance, run once per threshold |
-| Storage | Postgres 16 with pgvector 0.8.7; vectors are cached per model and content hash |
+| Storage | Postgres 16 with pgvector 0.8.7; vectors are cached per model and content hash. *(Later replaced by S3, see "Database-free build".)* |
 
 ## What we learned
 
-1. **The WordPress API is enough for Macedonian sites.** It returns full text, so no article pages were fetched. All 10 sites took 6 s in total, at 1 request per 2 s per host, and re-runs are idempotent.
+1. **The WordPress API is enough for Macedonian sites.** It returns full text, so no article pages were fetched. All 10 sites took 6 s in total, at 1 request per 2 s, and re-runs are idempotent.
 2. **CPU embedding is fast enough for a prototype.** It runs at about 3.9 articles per second, so a day of articles from 10 sites (about 600) takes under 3 minutes. Cached vectors make every later run take seconds.
 3. **e5's similarity scores sit in a narrow, high band.** Thresholds that look strict aren't:
 
@@ -89,7 +89,7 @@ These are 10 French sources read from news sitemaps, with article text extracted
 
 ## Stable stories, images and updates
 
-The live pipeline now adds only new articles to stable stories (`make stories`), instead of re-clustering 48 hours every run.
+The live pipeline now adds only new articles to stable stories (this was a `make stories` target in the Postgres version; it is now the `build` Lambda), instead of re-clustering 48 hours every run.
 
 - **First design: compare each article to the story's mean vector.** It joined if that cosine was 0.92 or more, and articles had to be within 18 h of the story's newest article. This drifted. One mk story absorbed 96 articles across Mickoski, SDSM and Alta Banka, and daily weather forecasts still chained across days.
 - **The fix has three parts:**
@@ -106,14 +106,16 @@ The live pipeline now adds only new articles to stable stories (`make stories`),
 
 - **Weather now splits by day:** one story covers 13 November and another 14 November. The former mega-story became six stories of 7–13 articles each.
 - **Idempotent:** a second run with no new articles changes nothing. Removing 50 articles' assignments and re-running put 32 into existing stories and 18 into new ones.
-- **Images.** mk featured images cover 100% of recent articles. fr images, from sitemap `image:loc` or the page's `og:image`, cover 56–100% per site. The viewer links to the outlet's image URL with `referrerpolicy="no-referrer"` and removes broken images.
+- **Images.** mk featured images cover 100% of recent articles. fr images, from sitemap `image:loc` or the page's `og:image`, cover 56–100% per site. The viewer links to the outlet's image URL with `referrerpolicy="no-referrer"` and removes broken images. *(2026-11-15: the public site now serves its own 640×360 WebP thumbnails, see "Public site".)*
 - **Updates.**
     - A change is meaningful if the title changed or the text similarity (difflib) dropped below 0.95. A halved body was flagged; one appended word was not.
     - fr articles from the last 6 h are re-fetched, at most 20 per source per run.
     - Le Figaro's extraction varies between fetches (ratio 0.93), so it produces false "updated" flags. A 48 h re-fetch flagged 17 of 111 Figaro articles against 2 of 863 for the other sites, enough to float the French top stories. Fix: a stricter ratio for that site, or normalizing the text before comparing.
-- **"New" after a rebuild.** A story's creation time is when we formed it, so after `make reset-stories` every story shows "new" for 3 h. That's harmless for incremental runs, but a "new" badge could instead use the story's first article time.
+- **"New" after a rebuild.** A story's creation time is when we formed it, so after `make reset-stories` (legacy target) every story shows "new" for 3 h. That's harmless for incremental runs, but a "new" badge could instead use the story's first article time.
 
 ## Lambda split and the S3 raw record
+
+*(2026-11-15: this four-Lambda split was merged into two, scrape and build, see "Database-free build". The numbers below are the four-Lambda measurements.)*
 
 The pipeline now runs as four Lambda container images (scrape, ingest, stories, export) behind AWS's Runtime Interface Emulator, with a folder-backed S3 stand-in. The contract is in [`lambdas/README.md`](../tests/cluster_prototype/lambdas/README.md), and the AWS plan and cost are in the infrastructure doc (https://claude.ai/artifact/CDgvfxgsj3SiQJx4Zwsf66).
 
@@ -128,13 +130,13 @@ The pipeline now runs as four Lambda container images (scrape, ingest, stories, 
 - **Raw HTML is heavy and compresses about 6×**: about 64 KB gzipped per French page, against about 1.8 KB per WordPress post.
 - **One WordPress site ignores `modified_after`.** novamakedonija.com.mk returned its last 86 posts every hour. Scrape now also drops posts whose `modified_gmt` is older than the cutoff.
 - **Ingest is idempotent.** The backfill of articles already in the database inserted 1 of 1,157 mk posts. French pages that came back with edits were flagged (59 updated, 33 meaningful).
-- **No internet needed in the VPC.** fn-ingest, fn-stories and fn-export ran with no network route out at all.
+- **No internet needed in the VPC.** fn-ingest, fn-stories and fn-export ran with no network route out at all. *(2026-11-15: there is no VPC now. Build needs the internet only for thumbnails and logos.)*
 - **The static pages** are about 170–215 KB each, or 28–39 KB gzipped, with 60 stories per page.
 - **Database growth:** about 14 KB per article across all tables, so about 6 GB a year.
 
 ## Database-free build
 
-Postgres is gone from the live pipeline. Two Lambdas remain: `scrape` writes the raw batch, and `build` turns it into pages. Build keeps each edition's hot state in S3 as one gzipped JSON window (the last 48 h of articles with their vectors, and the open stories). The clustering is ported from `cluster.py` unchanged. The old Postgres stack stays under a Compose profile, `legacy`, for comparisons and threshold experiments.
+Postgres is gone from the live pipeline (2026-11-15: the stack now deploys to AWS with OpenTofu, `infra/tofu/`). Two Lambdas remain: `scrape` writes the raw batch, and `build` turns it into pages. Build keeps each edition's hot state in S3 as one gzipped JSON window (the last 48 h of articles with their vectors, and the open stories). The clustering is ported from `cluster.py` unchanged. The old Postgres stack stays under a Compose profile, `legacy`, for comparisons and threshold experiments.
 
 **Same stories as Postgres.** Replaying every raw batch through `build` and comparing with the Postgres stories built from the same scrapes (`make compare`):
 
@@ -174,8 +176,8 @@ The build Lambda now also renders a public site for non-technical readers: front
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.
 - **Compose v5 builds through bake**, which refuses host-network builds unless granted. `run.sh` uses `docker compose build --print` piped into `docker buildx bake --allow=network.host`.
-- **The model downloads into a named volume** at first use. It's about 1 GB and isn't baked into the image.
+- **The model downloads into a named volume** at first use. It's about 1 GB and isn't baked into the image. *(2026-11-15: this holds for the legacy clusterer only; the build image has e5 baked in.)*
 
 ## How it was built
 
-Three Sonnet agents wrote the scraper, clusterer and viewer in parallel, against a contract fixed in advance: the schema, Compose services and env variables. The orchestrator then built the containers, ran everything end to end, and checked the results. Each component was linted with black and flake8 at line length 120.
+The scraper, clusterer and viewer were written in parallel, against a contract fixed in advance: the schema, Compose services and env variables. The containers were then built, run end to end and checked. Each component was linted with black and flake8 at line length 120.
