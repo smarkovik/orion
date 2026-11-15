@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "_cards.html" as k %}
+{% block content %}
+<h1 class="sr">{{ brand }} · {{ t.top }}</h1>
+{% if lead %}
+{{ k.lead(lead) }}
+{% endif %}
+{% if grid %}
+{{ k.grid(grid) }}
+{% endif %}
+{{ k.more(more, t.more) }}
+<p class="updated">{{ updated }}</p>
+<div class="actions">
+  <a class="btn" href="{{ today_href }}">{{ t.archive }} →</a>
+  <a class="btn" href="{{ foot_calendar }}">{{ t.calendar }} →</a>
+</div>
+{% endblock %}

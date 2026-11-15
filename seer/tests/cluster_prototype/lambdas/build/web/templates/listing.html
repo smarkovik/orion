@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "_cards.html" as k %}
+{% block content %}
+<h1 class="page-h">{{ heading }}</h1>
+{% if is_day %}
+<nav class="daynav" aria-label="{{ t.archive }}">
+  {% if prev %}<a class="btn" rel="prev" href="{{ prev.href }}">← {{ prev.label }}</a>{% else %}<span></span>{% endif %}
+  <a class="btn plain" href="{{ cal_href }}">{{ cal_label }}</a>
+  {% if next %}<a class="btn" rel="next" href="{{ next.href }}">{{ next.label }} →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{% if empty %}
+<p class="empty">{{ empty }}</p>
+{% endif %}
+{% if grid %}
+{{ k.grid(grid) }}
+{% endif %}
+{{ k.more(more, t.more) }}
+{% endblock %}

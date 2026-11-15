@@ -1,0 +1,44 @@
+{% macro thumb(c, lead=false) %}
+<span class="pic">
+{% if c.img %}
+  <img src="{{ c.img }}" alt="{{ c.title }}" width="640" height="360"{% if not lead %} loading="lazy"{% endif %} decoding="async" referrerpolicy="no-referrer">
+{% else %}
+  <span class="ph">{{ c.section }}</span>
+{% endif %}
+</span>
+{% endmacro %}
+
+{% macro meta(c) %}
+<span class="meta">{{ c.sources }} · {{ c.time }}{% if c.mark %} · <span class="mark mark-{{ c.mark[0] }}">{{ c.mark[1] }}</span>{% endif %}</span>
+{% endmacro %}
+
+{% macro lead(c) %}
+<a class="lead" href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}>
+  {{ thumb(c, true) }}
+  <span class="body"><h2 class="ttl">{{ c.title }}</h2>{{ meta(c) }}</span>
+</a>
+{% endmacro %}
+
+{% macro grid(cards) %}
+<div class="grid">
+{% for c in cards %}
+  <a class="card" href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}>
+    {{ thumb(c) }}
+    <span class="body"><h3 class="ttl">{{ c.title }}</h3>{{ meta(c) }}</span>
+  </a>
+{% endfor %}
+</div>
+{% endmacro %}
+
+{% macro more(cards, title) %}
+{% if cards %}
+<section class="more" aria-labelledby="more-h">
+  <h2 id="more-h">{{ title }}</h2>
+  <ul>
+  {% for c in cards %}
+    <li><a href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}><span class="t">{{ c.title }}</span> {{ meta(c) }}</a></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endmacro %}
