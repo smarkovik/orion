@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seer infrastructure on AWS</title>
+<style>
+:root {
+  --bg: #fbfaf8; --surface: #ffffff; --ink: #1f1e1c; --quiet: #6b675f; --line: #dedbd4; --edge: #a8a497;
+  --tint: #f1efea; --accent: #2f6fdb; --accent-tint: rgba(47, 111, 219, 0.12); --code: #f1efea;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1a18; --surface: #232220; --ink: #ecebe7; --quiet: #a7a399; --line: #3a3834; --edge: #7d7a71;
+    --tint: #2a2926; --accent: #7aa7ff; --accent-tint: rgba(122, 167, 255, 0.16); --code: #2d2c29;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1a18; --surface: #232220; --ink: #ecebe7; --quiet: #a7a399; --line: #3a3834; --edge: #7d7a71;
+  --tint: #2a2926; --accent: #7aa7ff; --accent-tint: rgba(122, 167, 255, 0.16); --code: #2d2c29;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+h1 { font-size: 30px; line-height: 1.25; margin: 0 0 6px; }
+h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.meta { color: var(--quiet); font-size: 14px; margin-bottom: 28px; }
+a { color: var(--accent); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 0.88em; word-break: break-word; }
+li { margin: 4px 0; }
+p, li { overflow-wrap: anywhere; }
+li > ul { margin-top: 4px; }
+.table { overflow-x: auto; margin: 14px 0 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { background: var(--tint); font-weight: 600; }
+figure { margin: 18px 0; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+figcaption { color: var(--quiet); font-size: 13px; margin-top: 6px; }
+.diagram { width: 100%; height: auto; display: block; font-size: 13px; }
+.diagram .title { font-size: 15px; font-weight: 600; fill: var(--ink); }
+.diagram .name { font-weight: 600; fill: var(--ink); }
+.diagram .small { font-size: 11.5px; }
+.diagram .strong { font-weight: 600; }
+.diagram .ink { fill: var(--ink); }
+.diagram .quiet { fill: var(--quiet); }
+.diagram .box { fill: none; stroke: var(--edge); stroke-width: 1.25; }
+.diagram .box.hot { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 2; }
+.diagram .vpc { fill: var(--tint); stroke: var(--edge); stroke-width: 1; stroke-dasharray: 4 4; }
+.diagram .conn { fill: none; stroke: var(--edge); stroke-width: 1.25; }
+.diagram .head { fill: var(--edge); }
+</style>
+</head>
+<body>
+<main>
+<h1>Seer infrastructure on AWS — plan and cost</h1>
+<div class="meta">2026-11-15 · Live version: <a href="https://claude.ai/artifact/CDgvfxgsj3SiQJx4Zwsf66">claude.ai artifact</a></div>
+<h2>At a glance</h2>
+<p><strong>About $7–11 a month at 1M views, and about $87–127 for the first year</strong>, in Frankfurt with no NAT gateway.</p>
+<ul>
+<li><strong>Pipeline:</strong> every hour from 08:00 to 22:00, scrape → S3 raw batch → ingest → Postgres → stories → static pages on S3 and CloudFront.</li>
+<li><strong>Network:</strong> only scrape needs the internet, and it runs outside the VPC. The three VPC Lambdas need only S3 (through a free gateway endpoint) and Aurora.</li>
+<li><strong>The record:</strong> every fetched page is kept gzipped in S3 and tiered down to Deep Archive. It's deleted after 2 years. Postgres keeps 3 years of history.</li>
+<li><strong>Updates are bumped, not reprocessed.</strong> Only new articles are embedded; an edited article just raises its story.</li>
+<li><strong>Tested locally:</strong> all four Lambdas run as real container images. The prototype is merged in PR #16.</li>
+<li><strong>Ads, best guess:</strong> about $240–1,200 a month at 1M views, depending on the mk/fr mix and AdSense approval.</li>
+</ul>
+<h2>Architecture</h2>
+<figure><svg viewBox="0 0 760 684" role="img" aria-label="Scrape writes raw files to S3; nothing in the VPC needs the internet" class="diagram">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="head"/></marker></defs>
+<text x="24" y="30" text-anchor="start" class="title">Scrape writes raw files to S3; nothing in the VPC needs the internet</text>
+<rect x="196" y="228" width="376" height="320" rx="8" class="vpc"/>
+<text x="212" y="252" text-anchor="start" class="small strong quiet">VPC · private subnets, no NAT</text>
+<path d="M99 204V268" class="conn" marker-end="url(#arrow)"/>
+<path d="M188 304V168H212" class="conn" marker-end="url(#arrow)"/>
+<path d="M188 304H212" class="conn" marker-end="url(#arrow)"/>
+<path d="M188 304V400H212" class="conn" marker-end="url(#arrow)"/>
+<path d="M188 304V496H212" class="conn" marker-end="url(#arrow)"/>
+<path d="M287 132V108" class="conn" marker-end="url(#arrow)"/>
+<path d="M362 168H390" class="conn" marker-end="url(#arrow)"/>
+<path d="M473 204V288H362" class="conn" marker-end="url(#arrow)"/>
+<path d="M362 400H390" class="conn" marker-end="url(#arrow)"/>
+<path d="M362 508H596" class="conn" marker-end="url(#arrow)"/>
+<path d="M666 516V540" class="conn" marker-end="url(#arrow)"/>
+<path d="M666 596V620" class="conn" marker-end="url(#arrow)"/>
+<path d="M174 304H188" class="conn"/>
+<path d="M362 320H376V476H362" class="conn"/>
+<text x="295" y="124" text-anchor="start" class="small quiet">direct internet, no NAT</text>
+<text x="481" y="220" text-anchor="start" class="small quiet">via S3 gateway endpoint</text>
+<text x="470" y="500" text-anchor="middle" class="small quiet">via S3 gateway endpoint</text>
+<rect x="212" y="52" width="150" height="56" rx="8" class="box"/>
+<text x="287" y="76" text-anchor="middle" class="name">News sites</text>
+<text x="287" y="92" text-anchor="middle" class="small quiet">10 mk + 10 fr</text>
+<rect x="24" y="132" width="150" height="72" rx="8" class="box"/>
+<text x="99" y="156" text-anchor="middle" class="name">Scheduler</text>
+<text x="99" y="172" text-anchor="middle" class="small quiet">EventBridge</text>
+<text x="99" y="188" text-anchor="middle" class="small quiet">hourly 08:00–22:00</text>
+<rect x="24" y="268" width="150" height="72" rx="8" class="box"/>
+<text x="99" y="292" text-anchor="middle" class="name">Step Functions</text>
+<text x="99" y="308" text-anchor="middle" class="small quiet">scrape → ingest</text>
+<text x="99" y="324" text-anchor="middle" class="small quiet">→ stories → export</text>
+<rect x="212" y="132" width="150" height="72" rx="8" class="box hot"/>
+<text x="287" y="156" text-anchor="middle" class="name">Scrape Lambda</text>
+<text x="287" y="172" text-anchor="middle" class="small ink">outside the VPC</text>
+<text x="287" y="188" text-anchor="middle" class="small quiet">new items only</text>
+<rect x="390" y="132" width="166" height="72" rx="8" class="box"/>
+<text x="473" y="156" text-anchor="middle" class="name">S3 raw bucket</text>
+<text x="473" y="172" text-anchor="middle" class="small quiet">gzipped batch per run</text>
+<text x="473" y="188" text-anchor="middle" class="small quiet">archived · 2-year TTL</text>
+<rect x="212" y="268" width="150" height="72" rx="8" class="box"/>
+<text x="287" y="292" text-anchor="middle" class="name">Ingest Lambda</text>
+<text x="287" y="308" text-anchor="middle" class="small quiet">parse · upsert</text>
+<text x="287" y="324" text-anchor="middle" class="small quiet">flag updates</text>
+<rect x="212" y="364" width="150" height="72" rx="8" class="box"/>
+<text x="287" y="388" text-anchor="middle" class="name">Stories Lambda</text>
+<text x="287" y="404" text-anchor="middle" class="small quiet">embed new only</text>
+<text x="287" y="420" text-anchor="middle" class="small quiet">e5 in the image</text>
+<rect x="212" y="460" width="150" height="72" rx="8" class="box"/>
+<text x="287" y="484" text-anchor="middle" class="name">Export Lambda</text>
+<text x="287" y="500" text-anchor="middle" class="small quiet">Top + Latest</text>
+<text x="287" y="516" text-anchor="middle" class="small quiet">HTML pages</text>
+<rect x="390" y="364" width="166" height="72" rx="8" class="box"/>
+<text x="473" y="388" text-anchor="middle" class="name">Aurora Serverless</text>
+<text x="473" y="404" text-anchor="middle" class="small quiet">pgvector · 3 years</text>
+<text x="473" y="420" text-anchor="middle" class="small quiet">pauses when idle</text>
+<rect x="596" y="460" width="140" height="56" rx="8" class="box"/>
+<text x="666" y="484" text-anchor="middle" class="name">S3 site bucket</text>
+<text x="666" y="500" text-anchor="middle" class="small quiet">static HTML</text>
+<rect x="596" y="540" width="140" height="56" rx="8" class="box"/>
+<text x="666" y="564" text-anchor="middle" class="name">CloudFront</text>
+<text x="666" y="580" text-anchor="middle" class="small quiet">1M views/month</text>
+<rect x="596" y="620" width="140" height="40" rx="8" class="box"/>
+<text x="666" y="644" text-anchor="middle" class="name">Readers</text>
+<text x="24" y="600" text-anchor="start" class="small quiet">Not drawn: ECR (images), CloudWatch (logs, alarms), Route 53 (domain)</text>
+</svg></figure>
+
+<p>Only the scrape Lambda talks to news sites, and it runs outside the VPC, so it needs no NAT. Everything inside the VPC reaches S3 through a free gateway endpoint and Aurora directly. Readers never touch the database; they get static pages from CloudFront.</p>
+<h2>How an hourly run works</h2>
+<p>EventBridge Scheduler starts one Step Functions run at the top of every hour from 08:00 to 22:00, Skopje time. That's 15 runs a day, about 450 a month. Scrape and ingest run per edition, in parallel; stories and export run once both editions are in.</p>
+<ol>
+<li><strong>Scrape (Lambda 1, outside the VPC).</strong> One invocation per edition. It reads <code>state/{edition}.json.gz</code> to see what's already stored, then fetches only what's new:<ul>
+<li><strong>WordPress sites (mk):</strong> posts created or edited since that site's last good run (<code>modified_after</code>). An hour usually brings a few posts per site.</li>
+<li><strong>News-sitemap sites (fr):</strong> article pages it hasn't seen, plus a capped re-check of recent articles to catch edits.</li>
+<li>Everything fetched, raw API JSON and raw HTML, goes to S3 as <strong>one gzipped file per edition per run</strong>, with a small manifest of counts and errors. Scrape never touches the database.</li>
+</ul>
+</li>
+<li><strong>Ingest (Lambda 2, in the VPC).</strong> Reads that file, extracts text, images and categories, and upserts articles into Postgres. Each re-fetched article is compared with the stored copy: a new title, or more than 5% of the text changed, marks it as updated. Ingest then rewrites the state file for the next scrape. Ingesting the same file twice changes nothing.</li>
+<li><strong>Stories (Lambda 3, in the VPC, model in the image).</strong> Embeds <strong>new articles only</strong> and adds each to an open story, or starts a new one.</li>
+<li><strong>Export (Lambda 4, in the VPC).</strong> Renders Top and Latest pages per edition and uploads them to the site bucket. CloudFront serves them with a 5-minute cache.</li>
+</ol>
+<p><strong>Updates are bumped, not reprocessed.</strong> An edited article keeps its first embedding and its story. Its story only gets a new activity time, so it rises in Top. Nothing is re-embedded or re-clustered.</p>
+<p><strong>The raw files are the record.</strong> If extraction or clustering improves, past runs can be re-ingested from S3 without scraping the sites again.</p>
+<h2>Storage and retention</h2>
+<p><strong>S3 raw bucket: the record, kept 2 years</strong></p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Holds</th>
+<th>Retention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>raw/{edition}/{YYYY}/{MM}/{DD}/{HH}/{run}.jsonl.gz</code></td>
+<td>Everything fetched in one run: raw WordPress JSON or raw HTML, one record per line, gzipped</td>
+<td>Deleted after 730 days</td>
+</tr>
+<tr>
+<td><code>runs/{edition}/{run}.json</code></td>
+<td>Manifest: counts, sizes, errors, and the ingest result</td>
+<td>Deleted after 730 days</td>
+</tr>
+<tr>
+<td><code>state/{edition}.json.gz</code></td>
+<td>What scrape has already seen in the last 48 h</td>
+<td>Overwritten every run</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Compressed when written.</strong> Scrape gzips the batch before uploading. Compressing after processing would cost a second write and a delete per object, and S3 charges per request. Ingest reads the gzipped file directly.</li>
+<li><strong>One object per edition per run, about 900 a month.</strong> Intelligent-Tiering never moves objects under 128 KB; they stay in the most expensive tier [12]. Batching keeps objects above that size and requests low.</li>
+<li><strong>Path to Glacier:</strong> S3 Intelligent-Tiering moves an object to Infrequent Access after 30 days without reads and to Archive Instant Access after 90 [12]. We turn on the two optional archive tiers: <strong>Archive Access after 90 days and Deep Archive Access after 180 days.</strong> These are priced like Glacier Flexible Retrieval and Glacier Deep Archive.</li>
+<li><strong>Reading archived files</strong> needs a restore first, which takes hours. That's fine for a record, but re-ingests should happen within 90 days.</li>
+<li><strong>Expiry:</strong> a lifecycle rule deletes <code>raw/</code> and <code>runs/</code> after 730 days.</li>
+<li><strong>Config files:</strong> <code>infra/s3-raw-intelligent-tiering.json</code> and <code>infra/s3-raw-lifecycle.json</code> in the prototype.</li>
+</ul>
+<p><strong>Postgres (Aurora): 3 years of history</strong></p>
+<ul>
+<li><strong>Kept 3 years:</strong> articles (title, text, image link, categories, update history), embeddings, stories and their members. A monthly job deletes anything older.</li>
+<li><strong>Growth:</strong> about 14 KB per article across all tables, measured on 2,389 articles. That's about 1,180 articles a day, or <strong>about 6 GB a year and about 18 GB after 3 years</strong>.</li>
+<li><strong>Embeddings are about a third of that.</strong> They're only needed while a story is open (48 h). Dropping them after 30 days would keep 3 years at about 12 GB. It's an open decision, because old vectors would allow "related past stories" later.</li>
+<li><strong>Backups:</strong> Aurora's automated backups. The raw bucket is the deeper record: the database can be rebuilt from it.</li>
+</ul>
+<h2>Components and settings</h2>
+<p>Everything is in Frankfurt (eu-central-1). There's no NAT gateway, no interface endpoint and no public IPv4 address.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+<th>Settings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EventBridge Scheduler</td>
+<td>Starts the pipeline</td>
+<td><code>cron(0 8-22 * * ? *)</code>, Europe/Skopje: 15 runs a day</td>
+</tr>
+<tr>
+<td>Step Functions (Standard)</td>
+<td>Map over editions: scrape → ingest; then stories → export</td>
+<td>Retries Lambda errors 3 times; one extra retry for the database steps while Aurora resumes. Definition in <code>infra/state_machine.asl.json</code></td>
+</tr>
+<tr>
+<td>Lambda 1: scrape</td>
+<td>Fetches new and changed items; writes the raw batch to S3</td>
+<td><strong>Outside the VPC</strong>, so internet access is free. 512 MB, 10 min timeout</td>
+</tr>
+<tr>
+<td>Lambda 2: ingest</td>
+<td>Parses, upserts, flags updates, writes the state file</td>
+<td>In the VPC's private subnets. 1 GB, 5 min</td>
+</tr>
+<tr>
+<td>Lambda 3: stories</td>
+<td>Embeds new articles, joins stories, rescores</td>
+<td>In the VPC. Image of about 3 GB with the e5 model baked in. 4 GB, 10 min</td>
+</tr>
+<tr>
+<td>Lambda 4: export</td>
+<td>Renders and uploads the static pages</td>
+<td>In the VPC. 512 MB, 2 min</td>
+</tr>
+<tr>
+<td>S3 gateway endpoint</td>
+<td>Lets the VPC Lambdas reach S3 without internet access</td>
+<td>Free</td>
+</tr>
+<tr>
+<td>S3 raw bucket</td>
+<td>The record: raw batches, manifests, state</td>
+<td>Private. Intelligent-Tiering with both archive tiers; 2-year expiry</td>
+</tr>
+<tr>
+<td>S3 site bucket</td>
+<td>Static pages</td>
+<td>Private; read only by CloudFront (origin access control)</td>
+</tr>
+<tr>
+<td>Aurora Serverless v2</td>
+<td>PostgreSQL 16 with pgvector; 3 years of history</td>
+<td>0–2 ACU, pauses after 5 idle minutes. IAM database login, so the VPC Lambdas need no Secrets Manager endpoint</td>
+</tr>
+<tr>
+<td>CloudFront</td>
+<td>Serves pages to readers</td>
+<td>Caches per the pages' 5-minute <code>Cache-Control</code>; compression on; HTTPS with a free ACM certificate</td>
+</tr>
+<tr>
+<td>Route 53</td>
+<td>The site's domain</td>
+<td>One hosted zone</td>
+</tr>
+<tr>
+<td>ECR</td>
+<td>The four Lambda images</td>
+<td>Keep the last 3 versions</td>
+</tr>
+<tr>
+<td>CloudWatch</td>
+<td>Logs and alarms</td>
+<td>14-day log retention; alarms on a failed run and on a site older than 2 hours</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Why it needs no NAT:</strong> only scrape needs the internet, and it runs outside the VPC. The three Lambdas inside the VPC need only S3 (gateway endpoint) and Aurora. Step Functions invokes them from the AWS side, and their logs leave through the Lambda service.</li>
+<li><strong>Built and tested locally.</strong> The prototype runs all four as Lambda container images behind AWS's Runtime Interface Emulator. A local S3 stand-in keeps every object as a plain file in a folder. The three VPC functions run with no internet access at all.</li>
+</ul>
+<h2>Run budget</h2>
+<p>Measured on the local Lambda simulation: real container images with Lambda memory limits, a read-only filesystem, and no internet for the VPC functions [13]. The hourly column is estimated from the measured runs (about 25 new articles per edition per hour, plus about 150 French re-checks).</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Memory</th>
+<th>Measured</th>
+<th>Hourly estimate</th>
+<th>GB-s per run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scrape mk</td>
+<td>512 MB</td>
+<td>48 h backfill: 10 s, 1,157 posts. Re-run: 6 s</td>
+<td>about 3 s</td>
+<td>about 1.5</td>
+</tr>
+<tr>
+<td>Scrape fr</td>
+<td>512 MB</td>
+<td>48 h backfill: 382 s, 1,182 pages. Re-run: 11 s</td>
+<td>about 45 s</td>
+<td>about 23</td>
+</tr>
+<tr>
+<td>Ingest mk</td>
+<td>1 GB</td>
+<td>Backfill 2 s</td>
+<td>about 1 s</td>
+<td>about 1</td>
+</tr>
+<tr>
+<td>Ingest fr</td>
+<td>1 GB</td>
+<td>Backfill 54 s for 1,182 pages</td>
+<td>about 8 s</td>
+<td>about 8</td>
+</tr>
+<tr>
+<td>Stories</td>
+<td>4 GB</td>
+<td>8.8 s with model load (12 new); 18.5 s for 50 new</td>
+<td>about 20 s</td>
+<td>about 80</td>
+</tr>
+<tr>
+<td>Export</td>
+<td>512 MB</td>
+<td>0.6 s for 5 pages</td>
+<td>about 1 s</td>
+<td>about 0.5</td>
+</tr>
+<tr>
+<td><strong>Per run</strong></td>
+<td></td>
+<td></td>
+<td><strong>about 1.3 min</strong> (editions in parallel)</td>
+<td><strong>about 114</strong></td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>About 52,000 GB-s a month</strong>, 13% of Lambda's free 400,000.</li>
+<li><strong>Peak memory:</strong> scrape 334 MiB, ingest 562 MiB, stories 757 MiB, export 47 MiB. The memory limit caught a real bug: scrape held a whole backfill in RAM, and both scrape and ingest now stream.</li>
+<li><strong>Raw batch per run:</strong> about 11 MB gzipped for fr (about 64 KB per page) and under 0.1 MB for mk. That's <strong>about 5 GB a month</strong> into the raw bucket.</li>
+<li><strong>Static pages:</strong> 28–39 KB gzipped each, 60 stories per page.</li>
+<li><strong>Backfills are the long runs.</strong> A 48 h French backfill takes 6–7 minutes, still under Lambda's 15-minute limit.</li>
+</ul>
+<h2>Cost at 1, 3, 6 and 12 months (1M views a month)</h2>
+<p><strong>About $7–11 a month, and about $87–127 for the first year</strong>, at Frankfurt list prices [1]–[6]. The range is Aurora at 0.5 or 1 ACU while it's awake.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Period</th>
+<th>Per month</th>
+<th>Cumulative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Month 1</td>
+<td>$6.70–10.00</td>
+<td><strong>$7–10</strong></td>
+</tr>
+<tr>
+<td>Month 3</td>
+<td>$7.00–10.30</td>
+<td><strong>$20–30</strong></td>
+</tr>
+<tr>
+<td>Month 6</td>
+<td>$7.20–10.60</td>
+<td><strong>$42–62</strong></td>
+</tr>
+<tr>
+<td>Month 12</td>
+<td>$7.70–11.00</td>
+<td><strong>$87–127</strong></td>
+</tr>
+</tbody>
+</table></div>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Month 1</th>
+<th>Month 12</th>
+<th>Basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Aurora compute</td>
+<td>$3.33–6.65</td>
+<td>$3.33–6.65</td>
+<td>About 48 h awake a month: 1 min of work plus 5 min before pausing, per run. 0.5–1 ACU × $0.14</td>
+</tr>
+<tr>
+<td>Aurora storage</td>
+<td>$0.03</td>
+<td>$0.68</td>
+<td>Grows 0.5 GB a month × $0.119</td>
+</tr>
+<tr>
+<td>Aurora I/O</td>
+<td>about $0.66</td>
+<td>about $0.66</td>
+<td>About 3M requests × $0.22 per million (estimate)</td>
+</tr>
+<tr>
+<td>Lambda</td>
+<td>$0</td>
+<td>$0</td>
+<td>About 52,000 GB-s, inside the free tier ($0.87 without it)</td>
+</tr>
+<tr>
+<td>S3 raw bucket</td>
+<td>$0.08</td>
+<td>$0.41</td>
+<td>About 5 GB a month, tiered down to Deep Archive; monitoring and requests</td>
+</tr>
+<tr>
+<td>S3 site bucket</td>
+<td>$0.06</td>
+<td>$0.06</td>
+<td>About 2,300 uploads a month</td>
+</tr>
+<tr>
+<td>CloudFront</td>
+<td>$0</td>
+<td>$0</td>
+<td>1M views × 36 KB = 34 GB and 1M requests; the free tier is 1 TB and 10M</td>
+</tr>
+<tr>
+<td>ECR</td>
+<td>$0.30</td>
+<td>$0.30</td>
+<td>About 3 GB of images</td>
+</tr>
+<tr>
+<td>Secrets Manager</td>
+<td>$0.40</td>
+<td>$0.40</td>
+<td>Aurora's master password</td>
+</tr>
+<tr>
+<td>CloudWatch Logs</td>
+<td>$0.03</td>
+<td>$0.03</td>
+<td>About 50 MB</td>
+</tr>
+<tr>
+<td>Step Functions</td>
+<td>$0.04</td>
+<td>$0.04</td>
+<td>About 5,500 transitions; 4,000 free</td>
+</tr>
+<tr>
+<td>Route 53 and domain</td>
+<td>$1.75</td>
+<td>$1.75</td>
+<td>Hosted zone $0.50 plus a .com at about $15 a year</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>$6.70–10.00</strong></td>
+<td><strong>$7.70–11.00</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Removing the NAT gateway saved about $44 a month.</strong> Aurora is now 50–65% of the bill.</li>
+<li><strong>Storage barely moves the bill.</strong> A year of growth (6 GB in Postgres, 59 GB of raw files, most of it archived) adds about $1 a month.</li>
+<li><strong>Views are close to free.</strong> 10M views a month would still fit CloudFront's free tier. Hosting our own thumbnails at 1M views would add about $1–2 a month.</li>
+<li><strong>Not included:</strong> tax, AWS support, and new-account credits, which would cover the first months.</li>
+</ul>
+<h2>Revenue with Google ads (best guess)</h2>
+<p>I found no published AdSense rates for news websites in France or North Macedonia; searches only turned up YouTube figures, which don't carry over. The rates below are my estimate from general industry knowledge. Treat them as a range to test with real traffic, not a forecast.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Readers</th>
+<th>Revenue per 1,000 page views (after consent refusals and ad blockers)</th>
+<th>500k views</th>
+<th>800k views</th>
+<th>200k views</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>France (fr)</td>
+<td>$0.80–2.00</td>
+<td>$400–1,000</td>
+<td>—</td>
+<td>$160–400</td>
+</tr>
+<tr>
+<td>North Macedonia (mk)</td>
+<td>$0.10–0.40</td>
+<td>$50–200</td>
+<td>$80–320</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Total per month</strong></td>
+<td></td>
+<td><strong>50/50 split: about $450–1,200</strong></td>
+<td><strong>80% mk, 20% fr: about $240–720</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Ads don't change the infrastructure bill.</strong> Google serves the ads and their scripts, not our CloudFront.</li>
+<li><strong>Break-even is small.</strong> At about $10–15 a month, roughly 10–40k French views or 40–150k Macedonian views cover the bill.</li>
+<li><strong>Approval is the real risk.</strong> Google's policies bar ads on scraped content [15]. A page of headlines and outbound links can be rejected as "low value content". The pages need value of their own: grouped stories, source counts, timelines, edition pages, and ideally short original story lines.</li>
+<li><strong>French readers need a consent banner.</strong> Google's own consent tool is free. Readers who refuse get fewer, cheaper ads, which the fr range above assumes.</li>
+<li><strong>In North Macedonia, direct sales probably pay better.</strong> Selling banners to local advertisers, as established local portals do, likely beats AdSense at Balkan rates.</li>
+</ul>
+<h2>Notes and risks</h2>
+<p><strong>Legal and access</strong> (these matter more than cost)</p>
+<ul>
+<li><strong>Images at 1M views.</strong> The pages load photos straight from the outlets' servers. At 10–20 images per view, that's 10–20M image requests a month on 20 outlets, and the <code>no-referrer</code> setting hides that they come from us. That isn't acceptable at this scale. Hosting thumbnails ourselves fixes the bandwidth problem but copies licensed photos. Decide before launch.</li>
+<li><strong>robots.txt must be obeyed</strong> before anything is public. The prototype ignores it for experiments only.</li>
+<li><strong>Ads change the legal picture.</strong> Google's policies bar ads next to scraped content [15], and an aggregator is exposed to that. Commercial use of French headlines and snippets also falls under the French publishers' neighbouring right (droit voisin).</li>
+<li><strong>The raw archive is a copy of publishers' pages</strong>, kept for 2 years for internal use only and never republished. EU text-and-data-mining rules let publishers opt out, and many French ones do. Check with counsel before launch.</li>
+<li><strong>No fixed outbound IP address.</strong> Without a NAT, scrape uses AWS's shared addresses. Sites that block AWS ranges will block us, and we can't ask an outlet to allowlist one IP.</li>
+</ul>
+<p><strong>Data quality</strong></p>
+<ul>
+<li><strong>Edited articles are never re-embedded.</strong> That's cheap and stable. But a live blog that drifts to a new topic stays in its first story.</li>
+<li><strong>Le Figaro raises false "updated" flags</strong> (17 of 111 in testing). With update bumps, its stories would float to the top every hour. Normalize its text before comparing, or use a stricter ratio for that site.</li>
+</ul>
+<p><strong>Runtime</strong></p>
+<ul>
+<li><strong>Overnight catch-up is automatic.</strong> Scrape asks each site for everything since its last good run, so the 08:00 run picks up the night with no special setting.</li>
+<li><strong>Backfills don't fit one Lambda.</strong> Embedding a 48 h backfill takes about 10 minutes, close to the 15-minute limit. Run backfills in batches.</li>
+<li><strong>Aurora resumes in about 15 s</strong> on each run. Connections retry for up to about a minute.</li>
+<li><strong>Local emulator limit:</strong> each local function container takes one call at a time, so the local runner queues them. Real Lambda scales out.</li>
+</ul>
+<p><strong>Operations</strong></p>
+<ul>
+<li><strong>Re-ingesting old runs</strong> after 90 days needs a restore from the archive tiers first, which takes hours.</li>
+<li><strong>Alarms:</strong> a failed Step Functions run, and a site older than 2 hours.</li>
+<li><strong>Retention jobs:</strong> a monthly SQL delete for anything over 3 years old. S3 expiry is automatic.</li>
+</ul>
+<h2>Options we rejected</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Why not</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NAT gateway for Lambdas in the VPC</td>
+<td>About $44 a month in Frankfurt (hours, data and IPv4 [1][6]), just so two scrapers can reach the internet. It was 80% of the earlier design's bill.</td>
+</tr>
+<tr>
+<td>NAT instance (a small EC2 instance)</td>
+<td>About $7–8 a month plus a server to patch. The same workaround, only smaller.</td>
+</tr>
+<tr>
+<td>RDS Data API for the scrapers</td>
+<td>It would mean rewriting the database layer. Not needed once scrape only writes to S3.</td>
+</tr>
+<tr>
+<td>Aurora with a public endpoint</td>
+<td>Lambda's addresses change, so the database would have to be open to the whole internet. It also brings back the $3.65 IPv4 charge.</td>
+</tr>
+<tr>
+<td>IPv6-only outbound traffic (free)</td>
+<td>Only 10 of our 20 sources have IPv6 addresses [11].</td>
+</tr>
+<tr>
+<td>One small VM running Docker Compose</td>
+<td>Still a fair choice: about $10–15 a month and closest to the prototype. But it never scales to zero, and it's a machine to patch and monitor.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Open decisions</h2>
+<ol>
+<li><strong>Images.</strong> Keep loading them from the outlets' servers, host our own thumbnails, or show none. At 1M views this is a bandwidth and legal question, not a cost question (see Notes and risks).</li>
+<li><strong>Embedding retention.</strong> Keep vectors 3 years, about 18 GB, or drop them after 30 days, about 12 GB.</li>
+<li><strong>French re-check cap.</strong> Re-check 5 or 20 recent articles per site each hour. It sets scrape time and how quickly French edits show.</li>
+<li><strong>Ads.</strong> AdSense, or direct sales to local advertisers. The site needs a consent banner either way for French readers.</li>
+<li><strong>Region.</strong> Frankfurt or Paris. The prices here are Frankfurt.</li>
+<li><strong>Infrastructure as code.</strong> CDK or Terraform.</li>
+<li><strong>Domain.</strong> A <code>.mk</code>, <code>.fr</code> or neutral domain.</li>
+</ol>
+<h2>Sources and assumptions</h2>
+<p><strong>Sources</strong></p>
+<ol>
+<li>AWS Price List, EC2 in eu-central-1 (NAT gateway $0.052/h and $0.052/GB): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/eu-central-1/index.csv">https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/eu-central-1/index.csv</a></li>
+<li>AWS Price List, RDS in eu-central-1 (Aurora Serverless v2 $0.14 per ACU-h, storage $0.119/GB-month, I/O $0.22 per million): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/eu-central-1/index.csv">https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/eu-central-1/index.csv</a></li>
+<li>AWS Price List, S3 in eu-central-1 (Intelligent-Tiering $0.0245 / $0.0135 / $0.00405 / $0.0018 per GB-month): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-central-1/index.csv">https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-central-1/index.csv</a></li>
+<li>AWS Price List, Lambda in eu-central-1 ($0.0000166667 per GB-s; free tier): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSLambda/current/eu-central-1/index.csv">https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSLambda/current/eu-central-1/index.csv</a></li>
+<li>AWS Price List, CloudFront (Europe $0.085/GB; free 1 TB and 10M requests): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudFront/current/index.csv">https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudFront/current/index.csv</a></li>
+<li>AWS Price List, VPC in eu-central-1 (public IPv4 $0.005/h): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonVPC/current/eu-central-1/index.csv">https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonVPC/current/eu-central-1/index.csv</a></li>
+<li>AWS docs: <a href="https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html">Lambda quotas</a> (15 min, 10 GB memory, 10 GB images).</li>
+<li>AWS: <a href="https://aws.amazon.com/about-aws/whats-new/2024/11/amazon-aurora-serverless-v2-scaling-zero-capacity">Aurora Serverless v2 scales to zero</a>.</li>
+<li>Neon blog: <a href="https://neon.tech/blog/aurora-serverless-v2-scales-to-zero-now-what">Aurora Serverless v2 scales to zero, now what?</a> (about 15 s resume).</li>
+<li>AWS: <a href="https://aws.amazon.com/about-aws/whats-new/2025/04/pgvector-0-8-0-aurora-postgresql">pgvector 0.8.0 on Aurora PostgreSQL</a>.</li>
+<li>Google Public DNS: IPv6 (AAAA) lookups of the 20 sources, for example <a href="https://dns.google/resolve?name=lefigaro.fr&amp;type=AAAA">https://dns.google/resolve?name=lefigaro.fr&amp;type=AAAA</a></li>
+<li>AWS docs: <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html">S3 Intelligent-Tiering</a> (128 KB minimum; tier timings).</li>
+<li>Code: measurements in <code>seer/docs/cluster-prototype-findings.md</code>, section "Lambda split and the S3 raw record".</li>
+<li>Code: the Lambda contract, <code>seer/tests/cluster_prototype/lambdas/README.md</code>.</li>
+<li>Google AdSense Help: <a href="https://support.google.com/adsense/answer/10015918">scraped content policy</a>.</li>
+</ol>
+<p><strong>Assumptions</strong></p>
+<ul>
+<li>Hourly run figures are estimated from the measured backfill and re-run, at about 25 new articles per edition and about 150 French re-checks an hour.</li>
+<li>Aurora is busy about 1 minute per run and pauses 5 minutes later, at 0.5–1 ACU and about 3M I/O requests a month.</li>
+<li>The ECR, Secrets Manager, CloudWatch, Route 53, Step Functions and domain prices, and the ad revenue rates, are from my own knowledge, not checked against price lists.</li>
+</ul>
+</main>
+</body>
+</html>
