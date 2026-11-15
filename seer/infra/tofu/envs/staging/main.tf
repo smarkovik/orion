@@ -37,4 +37,5 @@ module "seer" {
 
   block_indexing             = var.block_indexing
   build_reserved_concurrency = var.build_reserved_concurrency
+  build_memory_mb            = var.build_memory_mb
 }

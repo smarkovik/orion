@@ -67,3 +67,9 @@ variable "build_reserved_concurrency" {
   type        = number
   default     = 1
 }
+
+variable "build_memory_mb" {
+  description = "Memory of the build Lambda. New accounts are capped at 3008 until AWS raises the limit."
+  type        = number
+  default     = 4096
+}

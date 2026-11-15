@@ -69,7 +69,7 @@ resource "aws_lambda_function" "build" {
   package_type                   = "Image"
   image_uri                      = "${aws_ecr_repository.fn["build"].repository_url}:${var.image_tag}"
   architectures                  = ["x86_64"]
-  memory_size                    = 4096
+  memory_size                    = var.build_memory_mb
   timeout                        = 900
   reserved_concurrent_executions = var.build_reserved_concurrency
 

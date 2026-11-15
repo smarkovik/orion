@@ -41,6 +41,11 @@ variable "block_indexing" {
   default = false
 }
 
+variable "build_memory_mb" {
+  type    = number
+  default = 4096
+}
+
 variable "build_reserved_concurrency" {
   type    = number
   default = 1

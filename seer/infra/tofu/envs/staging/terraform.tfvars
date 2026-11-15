@@ -17,3 +17,6 @@ block_indexing = true
 
 # The account's Lambda concurrency quota is 10, which AWS needs fully unreserved. Set back to 1 after a quota increase.
 build_reserved_concurrency = -1
+
+# New-account Lambda memory cap. Remove after the limit is raised.
+build_memory_mb = 3008

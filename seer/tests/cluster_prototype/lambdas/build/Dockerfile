@@ -9,6 +9,7 @@ COPY lambdas/build/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # Bake the model; the HF cache is throwaway.
 RUN HF_HOME=/tmp/hf-build python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base', device='cpu').save('/opt/model/e5-base')" \
+    && chmod -R a+rX /opt/model \
     && rm -rf /tmp/hf-build /root/.cache
 ENV MODEL_PATH=/opt/model/e5-base HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HOME=/tmp/hf TORCH_HOME=/tmp/torch
 COPY lambdas/common/seer_common/ ${LAMBDA_TASK_ROOT}/seer_common/

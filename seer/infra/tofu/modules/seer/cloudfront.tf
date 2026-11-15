@@ -185,6 +185,7 @@ resource "aws_cloudwatch_log_delivery" "cloudfront" {
 
   s3_delivery_configuration {
     enable_hive_compatible_path = false
+    suffix_path                 = "" # explicit: the provider returns "" and fails on null
   }
 
   depends_on = [aws_s3_bucket_policy.raw]
