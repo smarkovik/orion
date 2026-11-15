@@ -8,6 +8,7 @@
   var BOUNDS = [5, 10, 20, 30, 60, 120, 300, 600, 1800];
   var BLABEL = ["up to 5 s", "5–10 s", "10–20 s", "20–30 s", "30–60 s", "1–2 min", "2–5 min", "5–10 min", "10–30 min", "over 30 min"];
   var GROUPS = [["under 10 s", 0, 1], ["10–30 s", 2, 3], ["30 s – 2 min", 4, 5], ["2–10 min", 6, 7], ["over 10 min", 8, 9]];
+  var DEVS = ["phone", "tablet", "desktop"];
   var KINDS = ["story", "front", "section", "day", "week", "briefing", "calendar", "about", "chooser"];
   var NEW_C = "var(--s1)", RET_C = "var(--s2)", OTHER_C = "var(--muted)";
   var R = { open: false, ix: null, cache: {}, files: [], end: null, from: null, win: 14, catalog: undefined, mode: "all", sortKey: "views", sortDir: -1, gen: 0, built: false };
@@ -95,7 +96,7 @@
 
   // ---- aggregation (scoped by edition filter)
   function scopeFiles() { var eds = edList(); return R.files.filter(function (f) { return eds.indexOf(f.edition) >= 0; }); }
-  function emptyDay() { return { readers: 0, returning: 0, views: 0, vret: 0, fw: 0, fm: 0, kinds: {}, sections: {}, hist: [] }; }
+  function emptyDay() { return { readers: 0, returning: 0, views: 0, vret: 0, fw: 0, fm: 0, kinds: {}, sections: {}, hist: [], dev: {} }; }
   function byDay(files) {
     var m = {};
     files.forEach(function (f) {
@@ -104,6 +105,7 @@
       o.fw += f.first_week || 0; o.fm += f.first_month || 0;
       Object.keys(f.kinds || {}).forEach(function (k) { o.kinds[k] = (o.kinds[k] || 0) + (f.kinds[k].views || 0); });
       Object.keys(f.sections || {}).forEach(function (k) { o.sections[k] = (o.sections[k] || 0) + (f.sections[k].views || 0); });
+      Object.keys(f.devices || {}).forEach(function (k) { o.dev[k] = (o.dev[k] || 0) + (f.devices[k].readers_day || 0); });
       var t = f.kinds && f.kinds.story && f.kinds.story.time;
       if (t) addHist(o.hist, t.hist);
     });
@@ -154,6 +156,9 @@
     g.appendChild(card("rd-kind", "Views per day by page kind", "All page views, stacked by kind of page."));
     g.appendChild(card("rd-sect", "Views per day by section", "All page views, stacked by the section of the page or story."));
     b1.appendChild(g);
+    var b1d = block("rd-devices", "Devices", "From the browser's user agent, read on the server when the logs are processed (nothing is stored in the browser). iPads that report a Mac are detected with a touch flag. Readers are counted once per browser per day; returning % is returning readers over readers; time is the median on story pages.");
+    b1d.appendChild(h("div", { class: "charts" }, [card("rd-devday", "Readers per day by device", "Readers per day, stacked by phone, tablet and desktop.")]));
+    b1d.appendChild(h("div", { id: "rd-dev-box" }));
     var b2 = block("rd-read", "What readers read", "Views, returning share and read-on clicks of stories over the selected window. Time is the average visible time on the story page (time sum / leave events). Returning mode shows views from returning browsers only.");
     var tg = h("div", { class: "seg", id: "rd-mode", role: "group", "aria-label": "Readers" }, [
       h("button", { type: "button", "data-m": "all", "aria-pressed": "true", text: "All readers" }),
@@ -167,7 +172,7 @@
     var b4 = block("rd-time", "Time on page", "Visible time per page load, from leave events. The median is read from the histogram (linear within a bucket), so it is approximate.");
     b4.appendChild(h("div", { class: "card", id: "rd-timecard" }, [h("div", { class: "legend" }), h("div", { class: "hbox" })]));
     var empty = h("p", { id: "rd-empty", class: "msg", hidden: "" });
-    var body = h("div", { id: "rd-body" }, [b0, b1, b2, b3, b4]);
+    var body = h("div", { id: "rd-body" }, [b0, b1, b1d, b2, b3, b4]);
     root.appendChild(empty); root.appendChild(body);
     tg.addEventListener("click", function (e) {
       var b = e.target.closest("button[data-m]");
@@ -261,6 +266,69 @@
     periodCard("rd-monthly", "Monthly readers", mn, mn.map(function (k) { return mo[k]; }));
     stackCard("rd-kind", "Views per day by page kind", days, stackSpec(rankOrder("kinds"), days, dm, "kinds"));
     stackCard("rd-sect", "Views per day by section", days, stackSpec(rankOrder("sections"), days, dm, "sections"));
+  }
+
+  // ---- devices
+  var DEVNAME = { phone: "Phone", tablet: "Tablet", desktop: "Desktop" };
+  function devColor(k) { return K.slot(DEVS.indexOf(k)); }
+  function shareCard(dev, d, tot) {
+    var c = h("div", { class: "card", "data-dev": dev }, [h("h3", { text: DEVNAME[dev] + " · " + num(tot) + " readers" })]);
+    [["os", "System"], ["browsers", "Browser"]].forEach(function (g) {
+      var rows = Object.keys(d[g[0]]).map(function (k) { return [k, d[g[0]][k].readers_day || 0]; }).filter(function (r) { return r[1] > 0; });
+      rows.sort(function (a, b) { return b[1] - a[1] || a[0].localeCompare(b[0]); });
+      c.appendChild(h("h4", { class: "h3s", text: g[1] }));
+      var grid = h("div", { class: "hb", role: "list" });
+      rows.forEach(function (r) {
+        var v = r[1] / tot;
+        var row = h("div", { class: "row", tabindex: 0, role: "listitem", "aria-label": DEVNAME[dev] + " " + g[1].toLowerCase() + " " + r[0] + ": " + pct(v, 1) + " of readers" }, [
+          h("div", { class: "nm", text: r[0], title: r[0] }),
+          h("div", { class: "bars" }, [h("div", { class: "bl" }, [h("i", { style: "background:" + devColor(dev) + ";width:" + v * 70 + "%" }), document.createTextNode(pct(v, 1))])])]);
+        hover(row, DEVNAME[dev] + " · " + r[0], function () { return [{ color: devColor(dev), name: "of " + DEVNAME[dev].toLowerCase() + " readers · " + num(r[1]), value: pct(v, 1) }]; });
+        grid.appendChild(row);
+      });
+      c.appendChild(grid);
+    });
+    return c;
+  }
+  function drawDevices(dm) {
+    var days = [], d, box = $("rd-dev-box"), agg = {};
+    for (d = R.ws; d <= R.end; d = addDays(d, 1)) days.push(d);
+    scopeFiles().forEach(function (f) {
+      if (f.date < R.ws) return;
+      Object.keys(f.devices || {}).forEach(function (k) {
+        var x = f.devices[k], o = agg[k] = agg[k] || { readers: 0, ret: 0, views: 0, hist: [], os: {}, browsers: {} };
+        o.readers += x.readers_day || 0; o.ret += x.returning_day || 0; o.views += x.views || 0;
+        if (x.story_time) addHist(o.hist, x.story_time.hist);
+        ["os", "browsers"].forEach(function (g) {
+          Object.keys(x[g] || {}).forEach(function (n) {
+            var r = o[g][n] = o[g][n] || { views: 0, readers_day: 0 };
+            r.views += x[g][n].views || 0; r.readers_day += x[g][n].readers_day || 0;
+          });
+        });
+      });
+    });
+    var kinds = DEVS.filter(function (k) { return agg[k] && (agg[k].readers || agg[k].views); });
+    box.textContent = "";
+    var plot = $("rd-devday");
+    if (!kinds.length) {
+      plot.hidden = true;
+      box.appendChild(h("p", { class: "empty", text: "No device data in this window yet. Day files written before this feature have none." }));
+      return;
+    }
+    plot.hidden = false;
+    var series = kinds.map(function (k) { return { name: DEVNAME[k], color: devColor(k), vals: days.map(function (x) { return dm[x] ? dm[x].dev[k] || 0 : 0; }) }; });
+    stackCard("rd-devday", "Readers per day by device", days, series);
+    var total = sum(kinds, function (k) { return agg[k].readers; });
+    var rows = kinds.map(function (k) {
+      var a = agg[k];
+      return [DEVNAME[k], num(a.readers), total ? pct(a.readers / total, 1) : "–", num(a.views), a.readers ? pct(a.ret / a.readers, 1) : "–", dur(median(a.hist))];
+    });
+    box.appendChild(h("h3", { class: "h3s", text: "By device" }));
+    box.appendChild(miniTable(["Device", "Readers", "Share of readers", "Views", "Returning", "Median time on story pages"], rows));
+    box.appendChild(h("h3", { class: "h3s", text: "Which kind" }));
+    var grid = h("div", { class: "charts", id: "rd-dev-kind" });
+    kinds.forEach(function (k) { if (agg[k].readers) grid.appendChild(shareCard(k, agg[k], agg[k].readers)); });
+    box.appendChild(grid);
   }
 
   // ---- what readers read
@@ -457,7 +525,7 @@
     }
     empty.hidden = true; body.hidden = false;
     var dm = byDay(scopeFiles());
-    drawTiles(dm); drawTrends(dm);
+    drawTiles(dm); drawTrends(dm); drawDevices(dm);
     drawTop(); drawShares(); drawNever(); drawTime();
   }
   function show(name) {

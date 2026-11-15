@@ -226,6 +226,8 @@
       n: first < today ? 1 : 0,
       id: id,
     };
+    // iPadOS Safari reports a Mac user agent
+    if (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) common.tm = 1;
 
     function url(extra) {
       var parts = [];
