@@ -41,6 +41,16 @@ variable "block_indexing" {
   default = false
 }
 
+variable "control_token_sha256" {
+  type    = string
+  default = ""
+}
+
+variable "control_cooldown_seconds" {
+  type    = number
+  default = 900
+}
+
 variable "build_memory_mb" {
   type    = number
   default = 4096

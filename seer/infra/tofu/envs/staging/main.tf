@@ -38,4 +38,7 @@ module "seer" {
   block_indexing             = var.block_indexing
   build_reserved_concurrency = var.build_reserved_concurrency
   build_memory_mb            = var.build_memory_mb
+
+  control_token_sha256     = var.control_token_sha256
+  control_cooldown_seconds = var.control_cooldown_seconds
 }

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="admin.css">
 <script src="admin.js" defer></script>
 <script src="readers.js" defer></script>
+<script src="control.js" defer></script>
 </head>
 <body>
 <header class="top">
@@ -38,6 +39,17 @@
   <p id="stamp" class="stamp"></p>
   <section id="tiles" class="tiles" aria-label="Health"></section>
   <section id="charts" class="charts" aria-label="Charts"></section>
+  <section class="block" id="control">
+    <h2>Sync and Lambda cost</h2>
+    <p class="sub">Sync starts a scrape of every edition; the build follows by itself. Cost is read from the Lambda logs (billed time × memory), so failed, timed-out and retried invocations are included. The logs are kept 14 days.</p>
+    <div class="ctl">
+      <button type="button" id="sync" class="btn">Sync now</button>
+      <button type="button" id="tok" class="btn">Token</button>
+      <span id="ctlmsg" class="ctlmsg" role="status"></span>
+    </div>
+    <section id="logcost" class="tiles" aria-label="Lambda cost from the logs"></section>
+    <div class="scroll"><table id="invocations"></table></div>
+  </section>
   <section class="block">
     <h2>Sources</h2>
     <p class="sub">Per outlet over the selected window. Highlighted: errors in the last 24 h, or no new articles in the last 24 h. Click a header to sort.</p>

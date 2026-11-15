@@ -54,6 +54,17 @@ resource "aws_cloudfront_cache_policy" "origin_ttl" {
   }
 }
 
+data "aws_cloudfront_cache_policy" "disabled" {
+  count = local.control_enabled ? 1 : 0
+  name  = "Managed-CachingDisabled"
+}
+
+# Everything but Host: Host must stay the function URL's own.
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  count = local.control_enabled ? 1 : 0
+  name  = "Managed-AllViewerExceptHostHeader"
+}
+
 resource "aws_cloudfront_origin_access_control" "site" {
   name                              = "${var.name_prefix}-site"
   description                       = "Site bucket"
@@ -151,6 +162,37 @@ resource "aws_cloudfront_distribution" "site" {
     origin_id                = "site"
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+  }
+
+  dynamic "origin" {
+    for_each = local.control_enabled ? [1] : []
+    content {
+      origin_id                = "control"
+      domain_name              = trimsuffix(trimprefix(aws_lambda_function_url.control[0].function_url, "https://"), "/")
+      origin_access_control_id = aws_cloudfront_origin_access_control.control[0].id
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = local.control_enabled ? [1] : []
+    content {
+      path_pattern             = "/system/control/*"
+      target_origin_id         = "control"
+      viewer_protocol_policy   = "https-only"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods           = ["GET", "HEAD"]
+      cache_policy_id          = data.aws_cloudfront_cache_policy.disabled[0].id
+      origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host[0].id
+
+      response_headers_policy_id = var.block_indexing ? aws_cloudfront_response_headers_policy.noindex[0].id : null
+    }
   }
 
   default_cache_behavior {

@@ -73,3 +73,21 @@ variable "build_memory_mb" {
   type        = number
   default     = 4096
 }
+
+variable "control_token_sha256" {
+  description = "SHA-256 (hex) of the token that guards /system/control/ (sync button and Lambda cost in the admin). Empty turns the control function off."
+  type        = string
+  default     = ""
+}
+
+variable "control_cooldown_seconds" {
+  description = "Minimum time between two scrape starts that the sync button accepts."
+  type        = number
+  default     = 900
+}
+
+variable "control_max_starts_per_day" {
+  description = "Most scrape invocations in 24 hours that the sync button accepts; one sync starts one per edition."
+  type        = number
+  default     = 48
+}
