@@ -1,4 +1,4 @@
-"""Per-edition day index (state/{edition}/days.json): one entry per day with its lead story, newest first."""
+"""Per-edition day index (state/{edition}/days.json): per day the lead story and top list, newest first."""
 
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -31,6 +31,7 @@ def _entry(window: Window, cfg: dict[str, Any], day: date) -> dict[str, Any]:
         "lead_title": label.title if label else "",
         "lead_story": lead.id if lead else "",
         "lead_thumb": (lead.thumb_key or "") if lead else "",
+        "top": [web_render.story_summary(window, s, cfg) for s in stories[: cfg["limits"].get("week", 10)]],
     }
 
 

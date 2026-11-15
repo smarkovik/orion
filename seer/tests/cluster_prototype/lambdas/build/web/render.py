@@ -3,7 +3,10 @@
 import calendar
 import hashlib
 import html
+import io
+import json
 import posixpath
+import re
 from datetime import date, datetime, timedelta
 from email.utils import format_datetime
 from functools import lru_cache
@@ -47,9 +50,80 @@ def _assets() -> dict[str, tuple[str, bytes, str]]:
     return out
 
 
-def render_assets() -> tuple[list[Page], str, str]:
+def _colors(cfg: dict[str, Any] | None) -> dict[str, str]:
+    base = {"accent": "#0a58ad", "background": "#f6f5f2", "theme_light": "#ffffff", "theme_dark": "#1e2024"}
+    return {**base, **((cfg or {}).get("colors") or {})}
+
+
+def _slug(brand: str) -> str:
+    return re.sub(r"\W+", "-", brand.lower()).strip("-") or "site"
+
+
+def _font(px: int) -> tuple[Any, int]:
+    """A bold font if one is installed, else Pillow's built-in one with a faux-bold stroke."""
+    from PIL import ImageFont
+
+    for name in ("DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf", "Arial Bold.ttf", "Roboto-Bold.ttf"):
+        try:
+            return ImageFont.truetype(name, px), 0
+        except OSError:
+            continue
+    try:
+        return ImageFont.load_default(px), max(1, px // 22)
+    except TypeError:
+        return ImageFont.load_default(), 0
+
+
+def _icon_png(letter: str, size: int, accent: str, rounded: bool, letter_size: float) -> bytes:
+    from PIL import Image, ImageDraw
+
+    big = size * 4
+    img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    box = (0, 0, big - 1, big - 1)
+    d.rounded_rectangle(box, radius=big * 0.22, fill=accent) if rounded else d.rectangle(box, fill=accent)
+    font, stroke = _font(int(big * letter_size))
+    x0, y0, x1, y1 = d.textbbox((0, 0), letter, font=font, stroke_width=stroke)
+    at = ((big - (x1 - x0)) / 2 - x0, (big - (y1 - y0)) / 2 - y0)
+    d.text(at, letter, font=font, fill="#ffffff", stroke_width=stroke, stroke_fill="#ffffff")
+    out = io.BytesIO()
+    img.resize((size, size), Image.LANCZOS).save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
+@lru_cache(maxsize=4)
+def _icons(brand: str, accent: str) -> dict[str, tuple[str, bytes]]:
+    """Brand icons by role: (site key, PNG). Empty when Pillow is missing."""
+    try:
+        specs = {
+            "icon-192": (192, True, 0.62),
+            "icon-512": (512, True, 0.62),
+            "icon-maskable-512": (512, False, 0.5),
+            "apple-touch-icon": (180, False, 0.58),
+        }
+        out = {}
+        for name, (size, rounded, frac) in specs.items():
+            body = _icon_png(brand[:1].upper() or "S", size, accent, rounded, frac)
+            out[name] = (f"assets/{name}.{hashlib.sha1(body).hexdigest()[:10]}.png", body)
+        return out
+    except Exception:  # noqa: BLE001 - icons are optional
+        return {}
+
+
+def _sw_page(brand: str) -> Page:
     a = _assets()
+    src = (HERE / "static" / "sw.js").read_text(encoding="utf-8")
+    version = hashlib.sha1((src + a["css"][0] + a["js"][0]).encode()).hexdigest()[:10]
+    body = src.replace("__PREFIX__", _slug(brand)).replace("__VERSION__", version)
+    return Page("sw.js", body.encode(), "text/javascript; charset=utf-8", "no-cache")
+
+
+def render_assets(cfg: dict[str, Any] | None = None) -> tuple[list[Page], str, str]:
+    a = _assets()
+    brand = ((cfg or {}).get("brand") or {}).get("name") or "Site"
     pages = [Page(key, body, ctype, ASSET_CACHE) for key, body, ctype in (a["css"], a["js"])]
+    pages += [Page(key, body, "image/png", ASSET_CACHE) for key, body in _icons(brand, _colors(cfg)["accent"]).values()]
+    pages.append(_sw_page(brand))
     return pages, a["css"][0], a["js"][0]
 
 
@@ -64,6 +138,10 @@ def _tz(cfg: dict[str, Any]) -> ZoneInfo:
 def _seq(s: Story) -> int:
     tail = s.id.rsplit("-", 1)[-1]
     return int(tail) if tail.isdigit() else 0
+
+
+def _num(s: Story) -> str:
+    return s.id.rsplit("-", 1)[-1]
 
 
 def _eligible(window: Window, cfg: dict[str, Any]) -> list[Story]:
@@ -113,6 +191,70 @@ def live_dates(
     return sorted(out)
 
 
+def story_summary(window: Window, s: Story, cfg: dict[str, Any]) -> dict[str, Any]:
+    """What a week page needs from a story, kept in days.json so it survives the story leaving the window."""
+    label = window.articles.get(s.label_url or "")
+    paged = s.source_count >= 2
+    url = label.url if label and label.url.lower().startswith(("http://", "https://")) else None
+    return {
+        "id": s.id,
+        "title": html.unescape(label.title) if label else "",
+        "thumb": s.thumb_key or "",
+        "sources": s.source_count,
+        "size": s.size,
+        "first_published": s.first_published.isoformat(),
+        "page": f"{cfg['edition']}/story/{_num(s)}.html" if paged else None,
+        "url": None if paged else url,
+        "section": _facet(s, cfg) or _ed(cfg)["name"],
+    }
+
+
+def _monday(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+def _week_key(code: str, monday: date) -> str:
+    year, week, _ = monday.isocalendar()
+    return f"{code}/week/{year}-W{week:02d}.html"
+
+
+def _week_tops(
+    window: Window, cfg: dict[str, Any], now: datetime, days: list[dict[str, Any]] | None
+) -> tuple[dict[date, list[dict[str, Any]]], list[date]]:
+    """Top lists per day (stored, with live days recomputed from the window) and the Mondays of weeks to render."""
+    today = _today(cfg, now)
+    n = cfg["limits"].get("week", 10)
+    stored = {date.fromisoformat(d["date"]): d for d in days or []}
+    tops = {d: e["top"] for d, e in stored.items() if e.get("top")}
+    live = live_dates(window, cfg, now, days)
+    for d in live:
+        pool = day_stories(window, d, cfg, limit=False)
+        old = stored.get(d)
+        if d != today and old and old.get("top") and old.get("stories", 0) > len(pool):
+            continue
+        if pool:
+            tops[d] = [story_summary(window, s, cfg) for s in pool[:n]]
+        else:
+            tops.pop(d, None)
+    this = _monday(today)
+    last = this - timedelta(days=7)
+    render = [this]
+    if today.weekday() <= 1 or any(_monday(d) == last for d in live):
+        render.insert(0, last)
+    return tops, render
+
+
+def _week_list(tops: dict[date, list[dict[str, Any]]], monday: date, n: int) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for i in range(7):
+        for item in tops.get(monday + timedelta(days=i), []):
+            merged[item["id"]] = item
+    ranked = sorted(
+        merged.values(), key=lambda x: (-x["sources"], -x["size"], datetime.fromisoformat(x["first_published"]))
+    )
+    return ranked[:n]
+
+
 def selection(
     window: Window, cfg: dict[str, Any], now: datetime, days: list[dict[str, Any]] | None = None
 ) -> list[str]:
@@ -121,7 +263,11 @@ def selection(
         chosen += _section_stories(window, cfg, sec["name"])
     for d in live_dates(window, cfg, now, days):
         chosen += day_stories(window, d, cfg)
-    return list(dict.fromkeys(s.id for s in chosen))
+    ids = [s.id for s in chosen]
+    tops, weeks = _week_tops(window, cfg, now, days)
+    for monday in weeks:
+        ids += [x["id"] for x in _week_list(tops, monday, cfg["limits"].get("week", 10)) if x["id"] in window.stories]
+    return list(dict.fromkeys(ids))
 
 
 def _day_key(code: str, d: date) -> str:
@@ -145,6 +291,8 @@ class _Site:
         self.brand = cfg["brand"]["name"]
         self.arts = window.articles
         self.css, self.js = (_assets()[e][0] for e in ("css", "js"))
+        self.colors = _colors(cfg)
+        self.icons = _icons(self.brand, self.colors["accent"])
 
     def source(self, domain: str) -> str:
         return self.sources.get(domain, domain)
@@ -166,7 +314,7 @@ class _Site:
         return self.t["count_one" if n == 1 else "count_many"].format(n=n)
 
     def num(self, s: Story) -> str:
-        return s.id.rsplit("-", 1)[-1]
+        return _num(s)
 
     def has_page(self, s: Story) -> bool:
         return s.source_count >= 2
@@ -204,6 +352,21 @@ class _Site:
             "sources": self.sources_text(s.source_count),
             "time": self.when(s.last_published),
             "mark": mark,
+            "created": s.created_at.isoformat(),
+        }
+
+    def summary_card(self, x: dict[str, Any], rel: Callable[[str], str]) -> dict[str, Any]:
+        href, ext = (rel(x["page"]), False) if x.get("page") else (x.get("url") or "#", True)
+        return {
+            "title": x["title"],
+            "href": href,
+            "ext": ext,
+            "img": rel(x["thumb"]) if x.get("thumb") else None,
+            "section": x["section"],
+            "sources": self.sources_text(x["sources"]),
+            "time": self.when(datetime.fromisoformat(x["first_published"])),
+            "mark": None,
+            "created": None,
         }
 
     def context(self, key: str, title: str, current: str = "") -> dict[str, Any]:
@@ -226,6 +389,7 @@ class _Site:
             for c, e in self.cfg["editions"].items()
         ]
         today_key = _day_key(self.code, self.today)
+        icon = self.icons.get("apple-touch-icon")
         return {
             "rel": rel,
             "here": here,
@@ -243,6 +407,14 @@ class _Site:
             "foot_archive": rel(today_key),
             "foot_calendar": rel(_month_key(self.code, self.today.year, self.today.month)),
             "foot_about": here("about.html"),
+            "foot_week": rel(_week_key(self.code, _monday(self.today))),
+            "manifest": here("manifest.webmanifest"),
+            "touch_icon": rel(icon[0]) if icon else None,
+            "theme_light": self.colors["theme_light"],
+            "theme_dark": self.colors["theme_dark"],
+            "sw": rel("sw.js"),
+            "visit": f"{_slug(self.brand)}:visit:{self.code}",
+            "share_targets": self.cfg.get("share_targets") or [],
         }
 
     def render(self, template: str, key: str, ctx: dict[str, Any], cache: str) -> Page:
@@ -256,9 +428,13 @@ def _split(cards: list[dict[str, Any]], lead: bool) -> dict[str, Any]:
     return {"lead": first, "grid": rest[:GRID], "more": rest[GRID:]}
 
 
-def _front(site: _Site, window: Window, cache: str) -> Page:
+def _front(site: _Site, window: Window, cache: str, last_week: bool) -> Page:
     key = f"{site.code}/index.html"
     ctx = site.context(key, "", "front")
+    ctx["week_href"] = ctx["foot_week"]
+    ctx["last_week_href"] = (
+        ctx["rel"](_week_key(site.code, _monday(site.today) - timedelta(days=7))) if last_week else None
+    )
     cards = [site.card(s, ctx["rel"]) for s in _front_stories(window, site.cfg)]
     ctx.update(_split(cards, True))
     ctx["top_title"] = site.t["top"]
@@ -276,6 +452,17 @@ def _section(site: _Site, window: Window, sec: dict[str, str], cache: str) -> Pa
     ctx.update(_split(cards, False))
     ctx["heading"] = sec["name"]
     return site.render("listing.html", key, ctx, cache)
+
+
+def _og(site: _Site, key: str, title: str, s: Story) -> dict[str, str]:
+    lang = site.ed["lang"]
+    og = {"title": title, "type": "article", "site_name": site.brand, "locale": f"{lang}_{lang.upper()}"}
+    base = (site.cfg.get("base_url") or "").rstrip("/")
+    if base:
+        og["url"] = f"{base}/{key}"
+        if s.thumb_key:
+            og["image"] = f"{base}/{s.thumb_key}"
+    return og
 
 
 def _story(site: _Site, s: Story, cache: str) -> Page:
@@ -322,9 +509,95 @@ def _story(site: _Site, s: Story, cache: str) -> Page:
             "rows": rows,
             "day_href": ctx["rel"](_day_key(site.code, day)),
             "day_label": site.t["story_day"].format(date=site.date_text(day)),
+            "share_title": title,
+            "og": _og(site, key, title, s),
         }
     )
     return site.render("story.html", key, ctx, cache)
+
+
+def _week_range(site: _Site, monday: date) -> str:
+    sunday = monday + timedelta(days=6)
+    start = site.date_text(monday, "date_short") + (f" {monday.year}" if monday.year != sunday.year else "")
+    return f"{start} – {site.date_text(sunday, 'date_short')} {sunday.year}"
+
+
+def _week(
+    site: _Site,
+    monday: date,
+    tops: dict[date, list[dict[str, Any]]],
+    weeks: list[date],
+    index: dict[date, dict[str, Any]],
+    cache: str,
+) -> Page:
+    key = _week_key(site.code, monday)
+    items = _week_list(tops, monday, site.cfg["limits"].get("week", 10))
+    heading = site.t["week_title"].format(n=len(items)) if items else site.t["this_week"]
+    ctx = site.context(key, heading)
+    rel = ctx["rel"]
+    cards = [site.summary_card(x, rel) for x in items]
+    ctx.update(_split(cards, True))
+    this = _monday(site.today)
+    before = max((w for w in weeks if w < monday), default=None)
+    after = min((w for w in weeks if monday < w <= this), default=None)
+    day_cells = []
+    for i in range(7):
+        d = monday + timedelta(days=i)
+        e = index.get(d)
+        if e and d <= site.today:
+            day_cells.append(
+                {
+                    "href": rel(_day_key(site.code, d)),
+                    "weekday": site.ed["weekdays"][d.weekday()],
+                    "date": site.date_text(d, "date_short"),
+                    "count": site.count_text(e["stories"]),
+                }
+            )
+    ctx.update(
+        {
+            "heading": heading,
+            "range": _week_range(site, monday),
+            "prev": {"href": rel(_week_key(site.code, before)), "label": site.t["prev_week"]} if before else None,
+            "next": {"href": rel(_week_key(site.code, after)), "label": site.t["next_week"]} if after else None,
+            "day_cells": day_cells,
+            "share_title": heading,
+            "empty": site.t["no_stories"] if not cards else None,
+        }
+    )
+    return site.render("week.html", key, ctx, cache)
+
+
+def _manifest(site: _Site, cache: str) -> Page:
+    key = f"{site.code}/manifest.webmanifest"
+    doc: dict[str, Any] = {
+        "name": f"{site.brand} · {site.ed['name']}",
+        "short_name": site.brand,
+        "description": site.ed["tagline"],
+        "start_url": "index.html",
+        "scope": "./",
+        "display": "standalone",
+        "lang": site.ed["lang"],
+        "background_color": site.colors["background"],
+        "theme_color": site.colors["theme_light"],
+    }
+    icons = []
+    for name, size, purpose in (
+        ("icon-192", 192, "any"),
+        ("icon-512", 512, "any"),
+        ("icon-maskable-512", 512, "maskable"),
+    ):
+        if name in site.icons:
+            icons.append(
+                {
+                    "src": posixpath.relpath(site.icons[name][0], site.code),
+                    "sizes": f"{size}x{size}",
+                    "type": "image/png",
+                    "purpose": purpose,
+                }
+            )
+    if icons:
+        doc["icons"] = icons
+    return Page(key, json.dumps(doc, ensure_ascii=False, indent=1).encode(), "application/manifest+json", cache)
 
 
 def _index_map(days: list[dict[str, Any]]) -> dict[date, dict[str, Any]]:
@@ -428,6 +701,7 @@ def _about(site: _Site, window: Window, cache: str) -> Page:
             "contact": site.t["contact"].format(email=cfg_email(site.cfg)),
             "outlets": outlets,
             "outlets_title": site.t["about_sources"],
+            "install_tip": site.t["install_tip"].format(brand=site.brand),
         }
     )
     return site.render("about.html", key, ctx, cache)
@@ -473,6 +747,7 @@ def sitemap_paths(
     code = cfg["edition"]
     paths = [f"{code}/index.html", f"{code}/about.html"]
     paths += [f"{code}/s/{x['slug']}.html" for x in _ed(cfg)["sections"]]
+    paths.append(_week_key(code, _monday(_today(cfg, now))))
     paths += [_day_key(code, date.fromisoformat(d["date"])) for d in days[:30] if d.get("stories")]
     ids = selection(window, cfg, now) if story_ids is None else story_ids
     paths += [f"{code}/story/{i.rsplit('-', 1)[-1]}.html" for i in ids if i in window.stories]
@@ -490,7 +765,10 @@ def render_edition(
     cfg = {**cfg, "edition": cfg.get("edition") or window.edition}
     site = _Site(window, cfg, now, sources)
     html_cache = f"public, max-age={cfg['cache_seconds']['html']}"
-    pages = [_front(site, window, html_cache)]
+    tops, render_weeks = _week_tops(window, cfg, now, days)
+    data_weeks = sorted({_monday(d) for d, v in tops.items() if v})
+    last = _monday(site.today) - timedelta(days=7)
+    pages = [_front(site, window, html_cache, last in data_weeks)]
     pages += [_section(site, window, sec, html_cache) for sec in site.ed["sections"]]
 
     shown = set(selection(window, cfg, now)) | set(touched)
@@ -507,6 +785,9 @@ def render_edition(
     if site.today.day <= 2:
         months.append((site.today.year, site.today.month - 1) if site.today.month > 1 else (site.today.year - 1, 12))
     pages += [_month(site, y, m, index, html_cache) for y, m in months]
+    weeks = sorted(set(data_weeks) | {_monday(site.today)})
+    pages += [_week(site, m, tops, weeks, index, html_cache) for m in render_weeks]
+    pages.append(_manifest(site, html_cache))
     pages.append(_about(site, window, html_cache))
     pages.append(_feed(site, window, html_cache))
     return pages
@@ -527,6 +808,8 @@ def render_root(cfg: dict[str, Any], summaries: list[dict[str, Any]], now: datet
         for c in codes
     ]
     css, js = (_assets()[e][0] for e in ("css", "js"))
+    colors = _colors(cfg)
+    icon = _icons(cfg["brand"]["name"], colors["accent"]).get("apple-touch-icon")
     ctx = {
         "lang": first["lang"],
         "brand": cfg["brand"]["name"],
@@ -538,6 +821,10 @@ def render_root(cfg: dict[str, Any], summaries: list[dict[str, Any]], now: datet
         "sections": [],
         "home": "index.html",
         "chooser": editions,
+        "touch_icon": icon[0] if icon else None,
+        "theme_light": colors["theme_light"],
+        "theme_dark": colors["theme_dark"],
+        "sw": "sw.js",
     }
     cache = f"public, max-age={cfg['cache_seconds']['html']}"
     body = _env().get_template("chooser.html").render(**ctx)

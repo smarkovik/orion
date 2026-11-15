@@ -1,4 +1,10 @@
 {% extends "base.html" %}
+{% import "_share.html" as sh %}
+{% block head %}
+{% for k, v in og.items() %}
+<meta property="og:{{ k }}" content="{{ v }}">
+{% endfor %}
+{% endblock %}
 {% block content %}
 <article class="story">
   <p class="crumbs"><a href="{{ home }}">← {{ t.home }}</a> <a href="{{ day_href }}">{{ day_label }}</a></p>
@@ -13,9 +19,10 @@
     {% if credit %}<figcaption>{{ credit }}</figcaption>{% endif %}
   </figure>
   <h1 class="story-h">{{ heading }}</h1>
-  <p class="meta big">{{ sources }} · {{ span }}{% if mark %} · <span class="mark mark-{{ mark[0] }}">{{ mark[1] }}</span>{% endif %}</p>
+  <p class="meta big">{{ sources }} · {{ span }}{% if mark %}<span class="mk mk-{{ mark[0] }}"> · <span class="mark mark-{{ mark[0] }}">{{ mark[1] }}</span></span>{% endif %}</p>
   {% if first_by %}<p class="meta">{{ first_by }}</p>{% endif %}
   {% if section_href %}<p class="meta"><a href="{{ section_href }}">{{ section }}</a></p>{% endif %}
+  {{ sh.share(t, share_targets, share_title) }}
   <h2 class="cov">{{ t.coverage }}</h2>
   <ol class="rows">
   {% for r in rows %}

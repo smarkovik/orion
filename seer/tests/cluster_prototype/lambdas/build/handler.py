@@ -122,7 +122,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         s = summary if e == edition else store.get_json(store.RAW_BUCKET, summary_key(e))
         if s:
             summaries.append(s)
-    asset_pages, _, _ = web.render_assets()
+    asset_pages, _, _ = web.render_assets(site_cfg)
     site_pages = [
         *asset_pages,
         *web.render_edition(window, site_cfg, now, day_index, names, set(touched_story_ids)),

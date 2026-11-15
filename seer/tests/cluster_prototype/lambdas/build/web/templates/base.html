@@ -6,13 +6,25 @@
 <title>{{ title }}</title>
 <meta name="color-scheme" content="light dark">
 <script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+{% if manifest %}
+<link rel="manifest" href="{{ manifest }}">
+{% endif %}
+<meta name="theme-color" content="{{ theme_light }}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{ theme_dark }}" media="(prefers-color-scheme: dark)">
+{% if touch_icon %}
+<link rel="apple-touch-icon" href="{{ touch_icon }}">
+{% endif %}
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ brand }}">
+{% block head %}{% endblock %}
 <link rel="stylesheet" href="{{ css }}">
 {% if feed %}
 <link rel="alternate" type="application/rss+xml" title="{{ brand }}" href="{{ feed }}">
 {% endif %}
 <script src="{{ js }}" defer></script>
 </head>
-<body>
+<body{% if sw %} data-sw="{{ sw }}"{% endif %}{% if visit %} data-visit="{{ visit }}" data-new="{{ t.new_for_you }}"{% endif %}>
 <a class="skip" href="#main">{{ t.skip }}</a>
 <header class="top">
   <div class="wrap bar">
@@ -47,6 +59,7 @@
   <div class="wrap">
     <nav aria-label="{{ brand }}">
       <a href="{{ foot_archive }}">{{ t.archive }}</a>
+      <a href="{{ foot_week }}">{{ t.this_week }}</a>
       <a href="{{ foot_calendar }}">{{ t.calendar }}</a>
       <a href="{{ foot_about }}">{{ t.about }}</a>
       <a href="{{ feed }}">{{ t.rss }}</a>

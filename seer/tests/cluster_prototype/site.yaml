@@ -2,6 +2,15 @@
 brand:
   name: Seer
   contact_email: contact@example.com  # placeholder until the domain exists
+colors:  # light-theme colours for the app manifest, theme-color meta and icons (match web/static/site.css)
+  accent: "#0a58ad"
+  background: "#f6f5f2"
+  theme_light: "#ffffff"
+  theme_dark: "#1e2024"
+share_targets:  # fallback share links where the browser has no native share sheet; the page URL is appended
+  - {name: Viber, url: "viber://forward?text="}
+  - {name: WhatsApp, url: "https://wa.me/?text="}
+  - {name: Facebook, url: "https://www.facebook.com/sharer/sharer.php?u="}
 base_url: ""  # absolute site URL for feeds and sitemaps, e.g. https://example.com; empty = relative only
 
 # Shared by all editions.
@@ -10,6 +19,7 @@ limits:
   section: 30
   day: 30
   feed: 30
+  week: 10  # stories on a week page
   min_sources: 2
 cache_seconds:
   html: 300  # front, section, story pages, today's and yesterday's day pages
@@ -69,6 +79,18 @@ editions:
       date_long: "{weekday}, {day} {month} {year}"
       date_short: "{day} {month}"
       month_year: "{month} {year}"
+      week_title: "Седмицата во {n} вести"
+      this_week: Оваа седмица
+      last_week: Минатата седмица
+      prev_week: Претходна седмица
+      next_week: Следна седмица
+      new_for_you: Ново за вас
+      new_since_one: "1 нова вест од вашата последна посета"
+      new_since_many: "{n} нови вести од вашата последна посета"
+      share: Сподели
+      copy_link: Копирај линк
+      copied: Линкот е копиран
+      install_tip: "Додајте го {brand} на почетниот екран на телефонот: во прелистувачот отворете „Сподели“ или менито ⋮ и изберете „Додај на почетен екран“."
       about_sources: Медиуми од кои собираме вести
       about_body: |
         {brand} ги собира најновите вести од македонските медиуми и ги групира по настан, за да видите што се случува на едно место. Секоја вест води до оригиналниот текст кај медиумот што ја објавил.
@@ -131,6 +153,18 @@ editions:
       date_long: "{weekday} {day} {month} {year}"
       date_short: "{day} {month}"
       month_year: "{month} {year}"
+      week_title: "La semaine en {n} actualités"
+      this_week: Cette semaine
+      last_week: La semaine dernière
+      prev_week: Semaine précédente
+      next_week: Semaine suivante
+      new_for_you: Nouveau pour vous
+      new_since_one: "1 nouvelle actualité depuis votre dernière visite"
+      new_since_many: "{n} nouvelles actualités depuis votre dernière visite"
+      share: Partager
+      copy_link: Copier le lien
+      copied: Lien copié
+      install_tip: "Ajoutez {brand} à l'écran d'accueil de votre téléphone : dans le navigateur, ouvrez « Partager » ou le menu ⋮, puis choisissez « Sur l'écran d'accueil »."
       about_sources: Médias dont nous réunissons les actualités
       about_body: |
         {brand} rassemble les dernières actualités des médias français et les regroupe par événement, pour voir l'essentiel en un seul endroit. Chaque article renvoie vers le texte original du média qui l'a publié.
