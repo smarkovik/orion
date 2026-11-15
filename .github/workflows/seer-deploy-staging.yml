@@ -1,0 +1,50 @@
+name: Seer deploy (staging)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "seer/**"
+      - ".github/workflows/seer-deploy-*.yml"
+      - ".github/actions/seer-deploy/**"
+  workflow_dispatch:
+
+concurrency:
+  group: seer-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to staging
+    # Off until the AWS accounts are bootstrapped: set the repository variable SEER_DEPLOY_ENABLED=true.
+    if: vars.SEER_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: staging
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Deploy
+        id: deploy
+        uses: ./.github/actions/seer-deploy
+        with:
+          env-dir: staging
+          image-tag: ${{ github.sha }}
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+
+      - name: Summary
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site-url }}
+        run: |
+          {
+            echo "### Staging deployed"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Site: ${SITE_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"

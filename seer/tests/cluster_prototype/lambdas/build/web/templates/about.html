@@ -5,6 +5,8 @@
   <h1 class="page-h">{{ heading }}</h1>
   {% for p in paras %}<p>{{ p }}</p>{% endfor %}
   <p>{{ contact }}</p>
+  <h2 id="privacy">{{ privacy_title }}</h2>
+  {% for p in privacy_paras %}<p>{{ p }}</p>{% endfor %}
   <p class="tip">{{ install_tip }}</p>
   {% if outlets %}
   <h2>{{ outlets_title }}</h2>

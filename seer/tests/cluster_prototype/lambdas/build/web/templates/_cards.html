@@ -15,7 +15,7 @@
 {% endmacro %}
 
 {% macro lead(c) %}
-<a class="lead" href="{{ c.href }}"{% if c.created %} data-created="{{ c.created }}"{% endif %}{% if c.ext %} rel="noopener"{% endif %}>
+<a class="lead" href="{{ c.href }}"{% if c.created %} data-created="{{ c.created }}"{% endif %}{% if c.ext %} rel="noopener"{% endif %}{% if c.ext and c.sid %} data-story="{{ c.sid }}"{% if c.outlet %} data-outlet="{{ c.outlet }}"{% endif %}{% endif %}>
   {{ thumb(c, true) }}
   <span class="body"><h2 class="ttl">{{ c.title }}</h2>{{ meta(c) }}</span>
 </a>
@@ -24,7 +24,7 @@
 {% macro grid(cards) %}
 <div class="grid">
 {% for c in cards %}
-  <a class="card" href="{{ c.href }}"{% if c.created %} data-created="{{ c.created }}"{% endif %}{% if c.ext %} rel="noopener"{% endif %}>
+  <a class="card" href="{{ c.href }}"{% if c.created %} data-created="{{ c.created }}"{% endif %}{% if c.ext %} rel="noopener"{% endif %}{% if c.ext and c.sid %} data-story="{{ c.sid }}"{% if c.outlet %} data-outlet="{{ c.outlet }}"{% endif %}{% endif %}>
     {{ thumb(c) }}
     <span class="body"><h3 class="ttl">{{ c.title }}</h3>{{ meta(c) }}</span>
   </a>
@@ -38,7 +38,7 @@
   <h2 id="more-h">{{ title }}</h2>
   <ul>
   {% for c in cards %}
-    <li{% if c.created %} data-created="{{ c.created }}"{% endif %}><a href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}><span class="t">{{ c.title }}</span> {{ meta(c) }}</a></li>
+    <li{% if c.created %} data-created="{{ c.created }}"{% endif %}><a href="{{ c.href }}"{% if c.ext %} rel="noopener"{% endif %}{% if c.ext and c.sid %} data-story="{{ c.sid }}"{% if c.outlet %} data-outlet="{{ c.outlet }}"{% endif %}{% endif %}><span class="t">{{ c.title }}</span> {{ meta(c) }}</a></li>
   {% endfor %}
   </ul>
 </section>

@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
 <meta name="color-scheme" content="light dark">
+<meta name="seer:page" content="{{ seer.page }}">
+<meta name="seer:kind" content="{{ seer.kind }}">
+<meta name="seer:edition" content="{{ seer.edition }}">
+<meta name="seer:story" content="{{ seer.story }}">
+<meta name="seer:section" content="{{ seer.section }}">
 <script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);var z=localStorage.getItem("textsize");if(z==="115"||z==="130")document.documentElement.setAttribute("data-text",z);if(localStorage.getItem("images")==="off")document.documentElement.setAttribute("data-images","off")}catch(e){}</script>
 {% if manifest %}
 <link rel="manifest" href="{{ manifest }}">
@@ -24,7 +29,7 @@
 {% endif %}
 <script src="{{ js }}" defer></script>
 </head>
-<body{% if sw %} data-sw="{{ sw }}"{% endif %}{% if visit %} data-visit="{{ visit }}" data-new="{{ t.new_for_you }}" data-follow="{{ follow }}" data-follow-json="{{ follow_json }}"{% endif %}>
+<body data-ping="{{ ping }}" data-stats="{{ stats }}"{% if sw %} data-sw="{{ sw }}"{% endif %}{% if visit %} data-visit="{{ visit }}" data-new="{{ t.new_for_you }}" data-follow="{{ follow }}" data-follow-json="{{ follow_json }}"{% endif %}>
 <a class="skip" href="#main">{{ t.skip }}</a>
 <header class="top">
   <div class="wrap bar">
@@ -49,6 +54,9 @@
           <h2 id="disp-img">{{ t.images }}</h2>
           <div class="opts">
             <button type="button" class="btn" id="disp-images" role="switch" aria-checked="true" aria-labelledby="disp-img disp-images" data-on="{{ t.images_on }}" data-off="{{ t.images_off }}"></button>
+          </div>
+          <div class="opts">
+            <button type="button" class="btn" id="disp-count" role="switch" aria-checked="true" data-on="{{ t.count_me }}" data-off="{{ t.count_off }}"></button>
           </div>
         </div>
       </div>

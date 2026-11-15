@@ -3,7 +3,13 @@ const CACHE = PREFIX + "-__VERSION__";
 const MAX = 800;
 const ROOT = new URL("./", self.location.href).pathname;
 
-self.addEventListener("install", (e) => e.waitUntil(self.skipWaiting()));
+self.addEventListener("install", (e) => {
+  const routes =
+    e.addRoutes && typeof e.addRoutes === "function"
+      ? e.addRoutes([{ condition: { urlPattern: { pathname: ROOT + "system/p.gif" } }, source: "network" }]).catch(() => {})
+      : null;
+  e.waitUntil(Promise.all([self.skipWaiting(), routes]));
+});
 
 self.addEventListener("activate", (e) =>
   e.waitUntil(

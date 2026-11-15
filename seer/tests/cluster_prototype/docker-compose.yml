@@ -76,8 +76,10 @@ services:
       MIN_SOURCES: "2"
       THUMBS_PER_RUN: "80"
       SITE_FILE: /var/task/site.yaml
+      LOGS_DIR: /logs
     ports: ["9102:8080"]
     volumes:
+      - ./data/logs:/logs
       - ./sources.yaml:/var/task/sources.yaml:ro
       - ./site.yaml:/var/task/site.yaml:ro
       - ./categories.yaml:/var/task/categories.yaml:ro

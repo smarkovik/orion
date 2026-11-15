@@ -1,0 +1,2 @@
+environment = "staging"      # or "production"
+name_prefix = "seer-staging" # or "seer-production"; same as the envs/ root
