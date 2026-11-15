@@ -261,6 +261,7 @@
     var shown = 0;
     var since = document.visibilityState === "visible" ? Date.now() : 0;
     var left = false;
+    var timer = 0;
     function leave() {
       if (left) return;
       left = true;
@@ -269,8 +270,14 @@
       send({ e: "l", t: Math.min(shown, 1800000) });
     }
     document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "hidden") leave();
-      else if (!left) since = Date.now();
+      if (document.visibilityState === "hidden") {
+        if (since) shown += Date.now() - since;
+        since = 0;
+        timer = setTimeout(leave, 1000);
+      } else if (!left) {
+        clearTimeout(timer);
+        since = Date.now();
+      }
     });
     window.addEventListener("pagehide", leave);
 

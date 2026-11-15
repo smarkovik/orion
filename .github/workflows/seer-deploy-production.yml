@@ -1,0 +1,85 @@
+name: Seer deploy (production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "branch tip, commit SHA or tag"
+        type: string
+        default: main
+        required: true
+
+concurrency:
+  group: seer-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to production
+    # Off until the AWS accounts are bootstrapped: set the repository variable SEER_DEPLOY_ENABLED=true.
+    if: vars.SEER_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout (full history and tags)
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve and verify ref
+        id: resolve
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          git fetch --force origin main:refs/remotes/origin/main
+          ref="${REF}"
+          if [ "${ref}" = "main" ]; then
+            sha=$(git rev-parse --verify "refs/remotes/origin/main^{commit}")
+          elif git rev-parse --verify --quiet "refs/tags/${ref}^{commit}" > /dev/null; then
+            sha=$(git rev-parse --verify "refs/tags/${ref}^{commit}")
+          elif [[ "${ref}" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+            sha=$(git rev-parse --verify --quiet "${ref}^{commit}") || {
+              echo "::error::Commit '${ref}' not found in this repository."; exit 1; }
+            if ! git merge-base --is-ancestor "${sha}" refs/remotes/origin/main; then
+              echo "::error::Commit ${sha} is not reachable from origin/main and '${ref}' is not a tag."; exit 1
+            fi
+          else
+            echo "::error::'${ref}' is not main, a tag or a commit SHA. Other branches are refused."; exit 1
+          fi
+          echo "Resolved '${ref}' to ${sha}"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the resolved commit
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: git checkout --detach "${SHA}"
+
+      - name: Deploy
+        id: deploy
+        uses: ./.github/actions/seer-deploy
+        with:
+          env-dir: production
+          image-tag: ${{ steps.resolve.outputs.sha }}
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+
+      - name: Summary
+        env:
+          REF: ${{ inputs.ref }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+          SITE_URL: ${{ steps.deploy.outputs.site-url }}
+        run: |
+          {
+            echo "### Production deployed"
+            echo "- Ref: \`${REF}\`"
+            echo "- Commit: \`${SHA}\`"
+            echo "- Site: ${SITE_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"

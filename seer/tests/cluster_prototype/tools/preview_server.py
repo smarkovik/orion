@@ -32,6 +32,7 @@ class Handler(SimpleHTTPRequestHandler):
         ".js": "text/javascript",
         ".json": "application/json",
     }
+    protocol_version = "HTTP/1.1"
     logs: Path = Path(".")
 
     def end_headers(self) -> None:
