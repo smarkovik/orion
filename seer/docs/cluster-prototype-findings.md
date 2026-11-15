@@ -161,6 +161,15 @@ The French gap comes from the input, not the logic. Postgres holds 22 extra Fren
 - **Stale writes are rejected.** The window is saved with an S3 conditional write; versitygw enforces it with HTTP 412.
 - **Cost in AWS:** about $2.20–2.55 a month, against $7–11 with Aurora (see the infrastructure doc).
 
+## Public site
+
+The build Lambda now also renders a public site for non-technical readers: front page, sections (mk by region, fr by subject), a page per story listing every outlet with a link to read it there, day pages with previous/next, a month calendar, an about page and RSS. Light and dark themes, no external requests, Macedonian and French interface text in `site.yaml`. The analysis pages moved to `/lab/` (noindex).
+
+- **Thumbnails:** one per story, from its lead image, 640×360 WebP, 5–41 KB (about 19 KB on average). The first live build fetched 241 with 0 failures in about 5–7 s per edition. Then it's only new stories.
+- **Size:** about 284 pages after one live run. The front page is about 14 KB raw or 4 KB gzipped, plus a 10 KB stylesheet and a 1.4 KB script.
+- **Checks:** every one of 6,583 relative links resolves; no console errors or failed requests; no sideways scrolling at 390 px.
+- **Day pages for older days** are rendered once from the window when the day index doesn't hold them yet. A fresh start or a gap after downtime still gets valid links, and a page is never rewritten from a shrinking window.
+
 ## Infrastructure notes
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.

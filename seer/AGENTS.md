@@ -37,7 +37,7 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 | --- | --- |
 | `s3` | Local S3 stand-in ([versitygw](https://github.com/versity/versitygw)); every object is a plain file under `data/s3/` |
 | `fn-scrape` | Lambda 1. Fetches only new or edited items (per-source state in S3) and writes one gzipped JSONL raw batch per edition per run, plus a manifest. |
-| `fn-build` | Lambda 2, no internet; e5 baked into the image. Triggered by the manifest (an S3 event in AWS). Loads the edition's hot window (last 48 h, about 5 MB with vectors), parses the batch, embeds new articles only, joins stories, renders the static pages, and writes the window, scrape state, a 3-year archive file and a build report. |
+| `fn-build` | Lambda 2; e5 baked into the image. Triggered by the manifest (an S3 event in AWS). Loads the edition's hot window (last 48 h, about 5–7 MB with vectors), parses the batch, embeds new articles only, joins stories, fetches one thumbnail per shown story (the only internet it needs), renders the public site (`lambdas/build/web/`, settings and all interface text in `site.yaml`) and the analysis pages under `/lab/`, and writes the window, day index, scrape state, a 3-year archive file and a build report. |
 | `db`, `viewer`, `clusterer` | **Legacy** (Compose profile `legacy`): the earlier Postgres version, kept for threshold experiments (`make cluster`) and for `make compare`. |
 
 `pipeline/run_pipeline.py` stands in for the scheduler and the S3 event. `make replay` rebuilds an edition from scratch by applying every manifest in order; builds use the manifest's own clock, so a replay reproduces the live result. `infra/` holds the S3 event, schedule, lifecycle and Intelligent-Tiering configs.
@@ -60,6 +60,7 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 
 - `make` lists the targets. `make build up` builds and starts S3 and the two Lambdas.
 - `make refresh` scrapes both editions and builds them; `make scrape` only scrapes; `make site` rebuilds from the latest manifests. `EDITION=fr` limits a run to one edition; `HOURS` widens scrape's window (backfills).
+- `make preview` serves the site at http://localhost:8090. Public pages: `index.html`, `{edition}/index.html`, sections `{edition}/s/`, story pages `{edition}/story/`, days `{edition}/YYYY/MM/DD.html`, calendar `{edition}/YYYY/MM/index.html`; the site contract is `lambdas/build/SITE.md`. The brand is a codename set only in `site.yaml`.
 - `make replay` rebuilds the windows and site from all raw batches. `make raw` lists the S3 objects with sizes. The static site is at `data/s3/seer-site/index.html`.
 - Legacy: `make build-legacy up-legacy`, then `make cluster` (threshold experiments) or `make compare` (database-free stories against the Postgres ones).
 - Each run's step outputs and timings land in `out/pipeline-<UTC>.json`.

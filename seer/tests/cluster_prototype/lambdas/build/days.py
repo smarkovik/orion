@@ -27,7 +27,7 @@ def _entry(window: Window, cfg: dict[str, Any], day: date) -> dict[str, Any]:
     label = window.articles.get(lead.label_url or "") if lead else None
     return {
         "date": day.isoformat(),
-        "stories": len(stories),
+        "stories": len(web_render.day_stories(window, day, cfg, limit=False)),
         "lead_title": label.title if label else "",
         "lead_story": lead.id if lead else "",
         "lead_thumb": (lead.thumb_key or "") if lead else "",
@@ -38,7 +38,7 @@ def update(window: Window, cfg: dict[str, Any], now: datetime, previous: list[di
     tz = ZoneInfo(cfg["editions"][cfg["edition"]]["timezone"])
     today = now.astimezone(tz).date()
     by_date = {d["date"]: d for d in previous}
-    for day in (today, today - timedelta(days=1)):
+    for day in web_render.live_dates(window, cfg, now, previous):
         new = _entry(window, cfg, day)
         old = by_date.get(new["date"])
         # Closed stories leave the window, so a recomputed past day may only shrink: keep the fuller entry.

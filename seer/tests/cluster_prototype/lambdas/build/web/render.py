@@ -84,11 +84,11 @@ def _section_stories(window: Window, cfg: dict[str, Any], name: str) -> list[Sto
     return _top(pool, cfg["limits"]["section"])
 
 
-def day_stories(window: Window, day: date, cfg: dict[str, Any]) -> list[Story]:
+def day_stories(window: Window, day: date, cfg: dict[str, Any], limit: bool = True) -> list[Story]:
     tz = _tz(cfg)
     pool = [s for s in _eligible(window, cfg) if s.first_published.astimezone(tz).date() == day]
     pool.sort(key=lambda s: (-s.source_count, -s.size, s.first_published))
-    return pool[: cfg["limits"]["day"]]
+    return pool[: cfg["limits"]["day"]] if limit else pool
 
 
 def _today(cfg: dict[str, Any], now: datetime) -> date:
@@ -99,12 +99,27 @@ def _front_stories(window: Window, cfg: dict[str, Any]) -> list[Story]:
     return _top(_eligible(window, cfg), cfg["limits"]["front"])
 
 
-def selection(window: Window, cfg: dict[str, Any], now: datetime) -> list[str]:
+def live_dates(
+    window: Window, cfg: dict[str, Any], now: datetime, days: list[dict[str, Any]] | None = None
+) -> list[date]:
+    """Today, yesterday, and older days still in the window unless the index already holds a fuller version."""
     today = _today(cfg, now)
+    tz = _tz(cfg)
+    known = {date.fromisoformat(d["date"]): d.get("stories", 0) for d in days or []}
+    out = {today, today - timedelta(days=1)}
+    for d in {s.first_published.astimezone(tz).date() for s in _eligible(window, cfg)}:
+        if d < today - timedelta(days=1) and len(day_stories(window, d, cfg, limit=False)) >= known.get(d, 0):
+            out.add(d)
+    return sorted(out)
+
+
+def selection(
+    window: Window, cfg: dict[str, Any], now: datetime, days: list[dict[str, Any]] | None = None
+) -> list[str]:
     chosen = list(_front_stories(window, cfg))
     for sec in _ed(cfg)["sections"]:
         chosen += _section_stories(window, cfg, sec["name"])
-    for d in (today, today - timedelta(days=1)):
+    for d in live_dates(window, cfg, now, days):
         chosen += day_stories(window, d, cfg)
     return list(dict.fromkeys(s.id for s in chosen))
 
@@ -316,13 +331,14 @@ def _index_map(days: list[dict[str, Any]]) -> dict[date, dict[str, Any]]:
     return {date.fromisoformat(d["date"]): d for d in days if d.get("stories")}
 
 
-def _live_days(site: _Site, window: Window, days: list[dict[str, Any]]) -> dict[date, dict[str, Any]]:
-    """The days index with today and yesterday recomputed from the window."""
+def _live_days(site: _Site, window: Window, days: list[dict[str, Any]], live: list[date]) -> dict[date, dict[str, Any]]:
+    """The days index with the live days recomputed from the window."""
     index = _index_map(days)
-    for d in (site.today, site.today - timedelta(days=1)):
+    for d in live:
         stories = day_stories(window, d, site.cfg)
         if stories:
-            index[d] = {"date": d.isoformat(), "stories": len(stories), "lead_title": site.title(stories[0])}
+            total = len(day_stories(window, d, site.cfg, limit=False))
+            index[d] = {"date": d.isoformat(), "stories": total, "lead_title": site.title(stories[0])}
         else:
             index.pop(d, None)
     return index
@@ -483,8 +499,9 @@ def render_edition(
         if s and site.has_page(s) and s.label_url in window.articles:
             pages.append(_story(site, s, html_cache))
 
-    index = _live_days(site, window, days)
-    for d in (site.today, site.today - timedelta(days=1)):
+    live = live_dates(window, cfg, now, days)
+    index = _live_days(site, window, days, live)
+    for d in live:
         pages.append(_day(site, window, d, index, html_cache))
     months = [(site.today.year, site.today.month)]
     if site.today.day <= 2:
