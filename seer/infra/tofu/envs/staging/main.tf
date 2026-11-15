@@ -34,4 +34,8 @@ module "seer" {
   domain              = var.domain
   route53_zone_id     = var.route53_zone_id
   alarm_email         = var.alarm_email
+
+  block_indexing             = var.block_indexing
+  build_reserved_concurrency = var.build_reserved_concurrency
+  build_memory_mb            = var.build_memory_mb
 }

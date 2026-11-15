@@ -40,6 +40,8 @@ The deploy role trusts only `repo:smarkovik/orion:environment:<env>`, so a job m
 - State uses native S3 locking (`use_lockfile`, OpenTofu >= 1.10): no DynamoDB table.
 - Adding an edition: add its code to `editions` (one schedule and the site lifecycle rules are generated).
 - `reserved_concurrent_executions = 1` on build needs an account Lambda concurrency quota above 10 (AWS keeps 10 unreserved). New accounts may need a quota increase first.
+- New accounts (concurrency quota 10) also cap Lambda memory at 3008 MB, and the first build of an edition (about 900 articles) can exceed the 900 s timeout at that size. Until the quota is raised, set `build_reserved_concurrency = -1` and `build_memory_mb = 3008` in the env's tfvars (as staging does), and backfill a large first batch in chunks.
+- `block_indexing = true` adds `X-Robots-Tag: noindex, nofollow` to every CloudFront response (used for staging).
 - CloudFront logs go to `logs/cloudfront/` of the raw bucket (standard logging v2, W3C, no `c-ip`); the build Lambda reads and deletes them.
 - Rolling back: run the production workflow with the previous tag or SHA.
 

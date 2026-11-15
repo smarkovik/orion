@@ -29,8 +29,29 @@ locals {
   ]
 }
 
-data "aws_cloudfront_cache_policy" "origin_headers" {
-  name = "UseOriginCacheControlHeaders"
+# Honors the origin's Cache-Control. The managed UseOriginCacheControlHeaders policy puts Host in the cache key, which
+# forwards the viewer's Host header to S3 and makes every request fail with NotFound.
+resource "aws_cloudfront_cache_policy" "origin_ttl" {
+  name        = "${var.name_prefix}-origin-ttl"
+  comment     = "Origin Cache-Control, no headers, cookies or query strings forwarded"
+  default_ttl = 0
+  min_ttl     = 0
+  max_ttl     = 31536000
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    headers_config {
+      header_behavior = "none"
+    }
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+  }
 }
 
 resource "aws_cloudfront_origin_access_control" "site" {
@@ -84,6 +105,37 @@ resource "aws_acm_certificate_validation" "site" {
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
+# Directory URLs (/mk/, /system/admin/) map to their index.html; the default root object only covers /.
+resource "aws_cloudfront_function" "index" {
+  name    = "${var.name_prefix}-index"
+  runtime = "cloudfront-js-2.0"
+  comment = "Append index.html to directory URLs"
+  publish = true
+  code    = <<-JS
+    function handler(event) {
+      var request = event.request;
+      if (request.uri.endsWith("/")) {
+        request.uri += "index.html";
+      }
+      return request;
+    }
+  JS
+}
+
+resource "aws_cloudfront_response_headers_policy" "noindex" {
+  count = var.block_indexing ? 1 : 0
+
+  name = "${var.name_prefix}-noindex"
+
+  custom_headers_config {
+    items {
+      header   = "X-Robots-Tag"
+      value    = "noindex, nofollow"
+      override = true
+    }
+  }
+}
+
 # ---------- Distribution ----------
 
 resource "aws_cloudfront_distribution" "site" {
@@ -107,7 +159,14 @@ resource "aws_cloudfront_distribution" "site" {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
     compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.origin_headers.id
+    cache_policy_id        = aws_cloudfront_cache_policy.origin_ttl.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.index.arn
+    }
+
+    response_headers_policy_id = var.block_indexing ? aws_cloudfront_response_headers_policy.noindex[0].id : null
   }
 
   restrictions {
@@ -169,6 +228,7 @@ resource "aws_cloudwatch_log_delivery" "cloudfront" {
 
   s3_delivery_configuration {
     enable_hive_compatible_path = false
+    suffix_path                 = "" # explicit: the provider returns "" and fails on null
   }
 
   depends_on = [aws_s3_bucket_policy.raw]

@@ -55,3 +55,21 @@ variable "log_retention_days" {
   type        = number
   default     = 14
 }
+
+variable "block_indexing" {
+  description = "Send X-Robots-Tag: noindex, nofollow on every response (sandbox and staging)."
+  type        = bool
+  default     = false
+}
+
+variable "build_reserved_concurrency" {
+  description = "Reserved concurrency of the build Lambda (serializes builds). -1 leaves it unreserved, for accounts with the default quota of 10."
+  type        = number
+  default     = 1
+}
+
+variable "build_memory_mb" {
+  description = "Memory of the build Lambda. New accounts are capped at 3008 until AWS raises the limit."
+  type        = number
+  default     = 4096
+}
