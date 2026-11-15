@@ -27,6 +27,23 @@ cache_seconds:
   past_day: 86400
   asset: 31536000  # hashed CSS/JS and thumbnails, immutable
 
+admin:  # cost estimates on the back-office page (/admin/); Frankfurt list prices in USD, before any free tier
+  pricing:
+    lambda_gb_s: 0.0000166667
+    lambda_per_million: 0.20  # requests
+    s3_put_per_1k: 0.0054
+    s3_get_per_1k: 0.00043
+    s3_storage_gb_month: 0.0245  # standard
+    s3_deep_gb_month: 0.0018  # deep archive
+    cloudfront: {gb: 0.085, per_10k_https: 0.012, free_gb: 1000, free_requests: 10000000}
+    fixed_monthly: {domain_route53: 1.75, ecr: 0.25, logs: 0.03}
+  memory_mb: {scrape: 512, build: 4096}
+  assumed_views_month: 1000000
+  page_kb: 30
+  images_per_view: 8
+  thumb_kb: 19
+  retention_days: 400
+
 editions:
   mk:
     name: Македонија

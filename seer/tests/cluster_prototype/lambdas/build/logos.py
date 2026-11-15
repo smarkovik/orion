@@ -21,6 +21,7 @@ MAX_BYTES = 2 * 1024 * 1024
 REFRESH = timedelta(days=30)
 RETRY = timedelta(days=7)
 CACHE = "public, max-age=2592000"
+LAST: dict[str, int] = {"fetched": 0, "failed": 0, "ok": 0}  # counts of the latest ensure() call
 
 
 def key_for(domain: str) -> str:
@@ -109,6 +110,7 @@ def ensure(sources: dict[str, str], now: datetime) -> dict[str, str | None]:
         log.warning("logos state: %s", e)
         state = {}
     todo = [d for d in sources if _due(state.get(d), now)]
+    LAST.update(fetched=0, failed=0, ok=0)
     if todo:
 
         def one(domain: str) -> tuple[str, bool]:
@@ -126,10 +128,13 @@ def ensure(sources: dict[str, str], now: datetime) -> dict[str, str | None]:
                 ThreadPoolExecutor(8) as pool,
             ):
                 for domain, ok in pool.map(one, todo):
+                    LAST["fetched" if ok else "failed"] += 1
                     prev = state.get(domain) or {}
                     # a failed refresh keeps the logo already stored
                     state[domain] = {"fetched_at": now.isoformat(), "ok": ok or (prev.get("ok") is True)}
             store.put_json(store.RAW_BUCKET, STATE_KEY, state)
         except Exception as e:  # noqa: BLE001
             log.warning("logos: %s", e)
-    return {d: (key_for(d) if (state.get(d) or {}).get("ok") else None) for d in sources}
+    result = {d: (key_for(d) if (state.get(d) or {}).get("ok") else None) for d in sources}
+    LAST["ok"] = sum(v is not None for v in result.values())
+    return result

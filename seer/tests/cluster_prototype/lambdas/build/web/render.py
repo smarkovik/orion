@@ -948,7 +948,7 @@ def render_root(cfg: dict[str, Any], summaries: list[dict[str, Any]], now: datet
     cache = f"public, max-age={cfg['cache_seconds']['html']}"
     body = _env().get_template("chooser.html").render(**ctx)
     base = (cfg.get("base_url") or "").rstrip("/")
-    robots = "User-agent: *\nDisallow: /lab/\n" + (f"Sitemap: {base}/sitemap.xml\n" if base else "")
+    robots = "User-agent: *\nDisallow: /lab/\nDisallow: /admin/\n" + (f"Sitemap: {base}/sitemap.xml\n" if base else "")
     pages = [
         Page("index.html", body.encode(), HTML, cache),
         Page("robots.txt", robots.encode(), "text/plain; charset=utf-8", cache),
