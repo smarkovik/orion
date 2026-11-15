@@ -31,22 +31,18 @@ The plan doc is at https://claude.ai/artifact/R8G6t1iVaTFxkMmi7ZsgwQ.
 
 ## Cluster prototype (`tests/cluster_prototype/`)
 
-The hourly pipeline runs as four AWS Lambda container images, invoked locally through AWS's Runtime Interface Emulator. The contract (S3 layout, events, env) is [`lambdas/README.md`](tests/cluster_prototype/lambdas/README.md); the AWS plan and cost are in the infrastructure doc (https://claude.ai/artifact/CDgvfxgsj3SiQJx4Zwsf66).
+The hourly pipeline is two AWS Lambda container images and S3, with no database. Locally they run behind AWS's Runtime Interface Emulator. The contract (S3 layout, events, env, module ownership) is [`lambdas/README.md`](tests/cluster_prototype/lambdas/README.md); the AWS plan and cost are in the infrastructure doc (https://claude.ai/artifact/CDgvfxgsj3SiQJx4Zwsf66).
 
 | Service | Does |
 | --- | --- |
-| `db` | Postgres 16 + pgvector 0.8.7; schema in `db/schema.sql` (idempotent, applied by `make migrate`) |
 | `s3` | Local S3 stand-in ([versitygw](https://github.com/versity/versitygw)); every object is a plain file under `data/s3/` |
-| `fn-scrape` | Lambda 1, outside the VPC. Fetches only new or edited items (per-source state in S3) and writes one gzipped JSONL raw batch per edition per run, plus a manifest. Never touches Postgres. |
-| `fn-ingest` | Lambda 2, VPC, no internet. Parses the raw batch (WordPress mapping, trafilatura, images, categories), upserts articles, flags meaningful changes, rewrites the state file. Idempotent. |
-| `fn-stories` | Lambda 3, VPC, no internet; e5 baked into the image. Embeds new articles only and adds them to stable stories. |
-| `fn-export` | Lambda 4, VPC, no internet. Renders Top and Latest per edition to the site bucket as static HTML. |
-| `clusterer` | Batch experiments only (`make cluster`): re-clusters the whole window at each threshold into `cluster_runs`. |
-| `viewer` | FastAPI pages for inspection. `/stories` shows Top or Latest per edition; `/editions` shows stories in CSS tabs; `/runs/{id}` shows batch experiments. |
+| `fn-scrape` | Lambda 1. Fetches only new or edited items (per-source state in S3) and writes one gzipped JSONL raw batch per edition per run, plus a manifest. |
+| `fn-build` | Lambda 2, no internet; e5 baked into the image. Triggered by the manifest (an S3 event in AWS). Loads the edition's hot window (last 48 h, about 5 MB with vectors), parses the batch, embeds new articles only, joins stories, renders the static pages, and writes the window, scrape state, a 3-year archive file and a build report. |
+| `db`, `viewer`, `clusterer` | **Legacy** (Compose profile `legacy`): the earlier Postgres version, kept for threshold experiments (`make cluster`) and for `make compare`. |
 
-`pipeline/run_pipeline.py` stands in for Step Functions: scrape → ingest per edition, then stories, then export. `infra/` holds the Step Functions definition and the raw bucket's lifecycle and Intelligent-Tiering configs.
+`pipeline/run_pipeline.py` stands in for the scheduler and the S3 event. `make replay` rebuilds an edition from scratch by applying every manifest in order; builds use the manifest's own clock, so a replay reproduces the live result. `infra/` holds the S3 event, schedule, lifecycle and Intelligent-Tiering configs.
 
-**How stories are built** (`MODE=stories`):
+**How stories are built** (`lambdas/build/stories.py`, ported from the Postgres `clusterer/cluster.py`):
 
 - An article joins the best open story only if its average similarity to the story's members is at least `STORY_THRESHOLD` (0.92). That's average linkage; comparing to the mean vector instead drifted into a 96-article mega-story.
 - It must also be within `STORY_MAX_GAP_HOURS` (18) of the story's newest article and within `STORY_MAX_SPAN_HOURS` (24) of its first. The span cap is what splits daily weather forecasts.
@@ -54,28 +50,21 @@ The hourly pipeline runs as four AWS Lambda container images, invoked locally th
 - Score = ln(1 + sources) × 2^(−hours since last activity / 6). Last activity is the newest article, or a member's meaningful text change.
 - **Embed once.** An edited article keeps its first embedding and its story; the edit only bumps the story's activity, so it rises in Top. Nothing is re-embedded or re-clustered.
 
-**Data model:**
+**Data model** (no database):
 
-- `sources.language` holds the edition code.
-- `articles` carries `source_categories`, `image_url` and `source_modified_at`, plus `checked_at`, `content_changed_at` and `change_count` for updates. A change counts as meaningful if the title changed or more than 5% of the text did.
-- `embeddings` hold one vector per article and model, written once.
-- S3 raw bucket (`data/s3/seer-raw/` locally): `raw/` batches are the record (2-year expiry in AWS), `runs/` manifests, `state/` what scrape has already seen.
-- `stories` and `story_articles` hold the live, stable stories; an article belongs to at most one story.
-- `cluster_runs`, `clusters` and `cluster_articles` hold batch experiments, one run per edition and threshold.
+- `lambdas/build/model.py`: `Article`, `Story` and `Window`, stored as `state/{edition}/window.json.gz` (articles of the last 48 h with their vectors, open stories). A change counts as meaningful if the title changed or more than 5% of the text did; each article keeps one vector, written once.
+- `sources.yaml` editions are the unit: each edition has its own window, state, archive and pages, and builds run one at a time.
+- S3 raw bucket (`data/s3/seer-raw/` locally): `raw/` batches are the record (2-year expiry in AWS), `runs/` manifests (their creation triggers build), `state/` scrape state and windows, `archive/` processed articles and stories (3 years), `builds/` build reports.
 
 **Run it:**
 
-- `make` lists the targets.
-- `make all` builds, starts, runs the whole pipeline and opens the viewer.
-- `make refresh` runs scrape → ingest → stories → export; `make scrape`, `make stories` and `make site` run parts. `EDITION=fr` limits a run to one edition; `HOURS` widens scrape's window (backfills).
-- `make raw` lists the raw batches, manifests and state with sizes. The static site is at `data/s3/seer-site/index.html`.
-- `make cluster` runs a batch experiment and `make reset-stories` rebuilds stories from scratch.
+- `make` lists the targets. `make build up` builds and starts S3 and the two Lambdas.
+- `make refresh` scrapes both editions and builds them; `make scrape` only scrapes; `make site` rebuilds from the latest manifests. `EDITION=fr` limits a run to one edition; `HOURS` widens scrape's window (backfills).
+- `make replay` rebuilds the windows and site from all raw batches. `make raw` lists the S3 objects with sizes. The static site is at `data/s3/seer-site/index.html`.
+- Legacy: `make build-legacy up-legacy`, then `make cluster` (threshold experiments) or `make compare` (database-free stories against the Postgres ones).
 - Each run's step outputs and timings land in `out/pipeline-<UTC>.json`.
 
-**Knobs:**
-
-- Make variables: `HOURS`, `EDITION`; for batch runs `THRESHOLDS`, `WINDOW_HOURS`, `MODEL`, `MAX_ARTICLES`, `RUN`, `THRESHOLD`, `VIEW`, `MIN_SOURCES`.
-- Compose environment of the `fn-*` services: `STORY_*`, `REFRESH_HOURS`, `MAX_REFRESH_PER_SOURCE`, `RECHECK_MINUTES`, `CHANGE_MIN_RATIO`, `STATE_HOURS`, `TOP_LIMIT`, `LATEST_LIMIT`, `SITE_CACHE_SECONDS`.
+**Knobs:** Compose environment of `fn-scrape` (`HOURS`, `REFRESH_HOURS`, `MAX_REFRESH_PER_SOURCE`, `RECHECK_MINUTES`, …) and `fn-build` (`STORY_*`, `WINDOW_HOURS`, `STATE_HOURS`, `CHANGE_MIN_RATIO`, `TOP_LIMIT`, `LATEST_LIMIT`, `MIN_SOURCES`, `SITE_CACHE_SECONDS`).
 
 ## Conventions
 
@@ -111,7 +100,8 @@ The hourly pipeline runs as four AWS Lambda container images, invoked locally th
 - **Containers reach the internet only through the HTTPS proxy.** `docker-compose.proxy.yml` adds host networking, proxy variables and the CA. `run.sh` and the Makefile use it when `HTTPS_PROXY` is set.
 - **Compose v5 builds through bake,** which needs `--allow=network.host`. `make build` handles that.
 - **Docker Hub can rate-limit base-image lookups (429).** Retry later or log in.
-- **Only `fn-scrape` gets the proxy.** It runs on the host network with the emulator moved to port 9101; the other three Lambdas sit on the default network with no proxy, so they provably need no internet (like a VPC without NAT).
+- **Disk fills up.** The build image is about 4.4 GB; `docker builder prune -f` and removing old images frees space.
+- **Only `fn-scrape` gets the proxy.** It runs on the host network with the emulator moved to port 9101; `fn-build` sits on the default network with no proxy, so it provably needs no internet.
 - **The Lambda emulator takes one call at a time** and crashes on concurrent calls to the same container. The runner serializes calls per function; real Lambda scales out. Two host-network emulators also clash on the runtime API port 9001.
 
 ## Open questions

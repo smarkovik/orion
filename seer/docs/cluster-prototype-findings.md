@@ -132,6 +132,35 @@ The pipeline now runs as four Lambda container images (scrape, ingest, stories, 
 - **The static pages** are about 170–215 KB each, or 28–39 KB gzipped, with 60 stories per page.
 - **Database growth:** about 14 KB per article across all tables, so about 6 GB a year.
 
+## Database-free build
+
+Postgres is gone from the live pipeline. Two Lambdas remain: `scrape` writes the raw batch, and `build` turns it into pages. Build keeps each edition's hot state in S3 as one gzipped JSON window (the last 48 h of articles with their vectors, and the open stories). The clustering is ported from `cluster.py` unchanged. The old Postgres stack stays under a Compose profile, `legacy`, for comparisons and threshold experiments.
+
+**Same stories as Postgres.** Replaying every raw batch through `build` and comparing with the Postgres stories built from the same scrapes (`make compare`):
+
+| | mk, no database / Postgres | fr, no database / Postgres |
+| --- | --- | --- |
+| Open stories | 574 / 574 | 695 / 705 |
+| Stories with 2+ sources | 195 / 195 | 140 / 143 |
+| Largest story | 15 / 15 | 27 / 28 |
+| Article pairs grouped the same way | 100% | 91.8% |
+
+The French gap comes from the input, not the logic. Postgres holds 22 extra French articles from earlier scrapes, and it built its stories over several runs in a different order. On identical input the port agrees 98.8–100% (run in a separate test).
+
+**Speed and sizes**
+
+| Run | Build mk | Build fr | Window (gzipped) |
+| --- | --- | --- | --- |
+| 48 h backfill (replay) | 260 s, 1,157 embedded | 363 s, 1,182 embedded | — |
+| Hourly batch (replay) | 0.8 s | 7.2 s, 5 new and 105 re-checks | — |
+| Live, 7.5 h of morning news | 16 s, 69 new | 77 s, 278 new | mk 5.4 MB, fr 6.8 MB |
+
+- **Peak memory** of the build Lambda: 1.1 GB, within the planned 4 GB.
+- **Archive files** are 5–400 KB per run, holding the full text of new and changed articles and the stories touched.
+- **Deterministic replay.** Build uses the manifest's own clock, not the wall clock, so replaying the raw batches reproduces what the live runs built.
+- **Stale writes are rejected.** The window is saved with an S3 conditional write; versitygw enforces it with HTTP 412.
+- **Cost in AWS:** about $2.20–2.55 a month, against $7–11 with Aurora (see the infrastructure doc).
+
 ## Infrastructure notes
 
 - **Behind an HTTPS proxy,** containers need host networking, the proxy variables and the proxy's CA. That's `docker-compose.proxy.yml`.

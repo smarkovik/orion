@@ -13,6 +13,18 @@
       "Expiration": {"Days": 730}
     },
     {
+      "ID": "expire-builds",
+      "Status": "Enabled",
+      "Filter": {"Prefix": "builds/"},
+      "Expiration": {"Days": 730}
+    },
+    {
+      "ID": "expire-archive",
+      "Status": "Enabled",
+      "Filter": {"Prefix": "archive/"},
+      "Expiration": {"Days": 1095}
+    },
+    {
       "ID": "abort-incomplete-multipart",
       "Status": "Enabled",
       "Filter": {"Prefix": ""},

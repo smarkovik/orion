@@ -12,6 +12,7 @@ x-s3-env: &s3-env
 
 services:
   db:
+    profiles: ["legacy"]
     image: pgvector/pgvector:0.8.7-pg16
     environment:
       POSTGRES_USER: seer
@@ -51,64 +52,36 @@ services:
     ports: ["9101:8080"]
     volumes: ["./sources.yaml:/var/task/sources.yaml:ro"]
 
-  fn-ingest:
-    build: {context: ., dockerfile: lambdas/ingest/Dockerfile}
-    image: seer-proto-fn-ingest
-    read_only: true
-    tmpfs: ["/tmp:size=512m"]
-    mem_limit: 1g
-    depends_on:
-      s3: {condition: service_started}
-      db: {condition: service_healthy}
-    environment:
-      <<: *s3-env
-      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "1024"
-      DATABASE_URL: *db-url
-      CHANGE_MIN_RATIO: "0.05"
-      STATE_HOURS: "48"
-    ports: ["9102:8080"]
-    volumes: ["./sources.yaml:/var/task/sources.yaml:ro"]
-
-  fn-stories:
-    build: {context: ., dockerfile: lambdas/stories/Dockerfile}
-    image: seer-proto-fn-stories
+  fn-build:
+    build: {context: ., dockerfile: lambdas/build/Dockerfile}
+    image: seer-proto-fn-build
     read_only: true
     tmpfs: ["/tmp:size=512m"]
     mem_limit: 4g
-    depends_on:
-      s3: {condition: service_started}
-      db: {condition: service_healthy}
+    depends_on: [s3]
     environment:
       <<: *s3-env
       AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "4096"
-      DATABASE_URL: *db-url
-      MODEL: intfloat/multilingual-e5-base
+      CHANGE_MIN_RATIO: "0.05"
+      STATE_HOURS: "48"
       WINDOW_HOURS: "48"
+      MODEL: intfloat/multilingual-e5-base
       STORY_THRESHOLD: "0.92"
       STORY_OPEN_HOURS: "48"
       STORY_MAX_GAP_HOURS: "18"
       STORY_MAX_SPAN_HOURS: "24"
-    ports: ["9103:8080"]
-    volumes: ["./categories.yaml:/var/task/categories.yaml:ro"]
-
-  fn-export:
-    build: {context: ., dockerfile: lambdas/export/Dockerfile}
-    image: seer-proto-fn-export
-    read_only: true
-    tmpfs: ["/tmp:size=512m"]
-    mem_limit: 512m
-    depends_on:
-      s3: {condition: service_started}
-      db: {condition: service_healthy}
-    environment:
-      <<: *s3-env
-      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "512"
-      DATABASE_URL: *db-url
-    ports: ["9104:8080"]
+      SITE_CACHE_SECONDS: "300"
+      TOP_LIMIT: "60"
+      LATEST_LIMIT: "60"
+      MIN_SOURCES: "2"
+    ports: ["9102:8080"]
+    volumes:
+      - ./sources.yaml:/var/task/sources.yaml:ro
+      - ./categories.yaml:/var/task/categories.yaml:ro
 
   clusterer:
     build: {context: ., dockerfile: clusterer/Dockerfile}
-    profiles: ["jobs"]
+    profiles: ["legacy"]
     depends_on: {db: {condition: service_healthy}}
     environment:
       DATABASE_URL: *db-url
@@ -123,6 +96,7 @@ services:
     volumes: ["hfcache:/root/.cache/huggingface", "./categories.yaml:/app/categories.yaml:ro"]
 
   viewer:
+    profiles: ["legacy"]
     build: {context: ., dockerfile: viewer/Dockerfile}
     depends_on: {db: {condition: service_healthy}}
     environment:

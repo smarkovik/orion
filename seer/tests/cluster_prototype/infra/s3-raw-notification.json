@@ -1,0 +1,17 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "Id": "build-on-manifest",
+      "LambdaFunctionArn": "${BuildFunctionArn}",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "runs/"},
+            {"Name": "suffix", "Value": ".json"}
+          ]
+        }
+      }
+    }
+  ]
+}
