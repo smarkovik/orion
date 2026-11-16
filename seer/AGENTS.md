@@ -69,7 +69,7 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 - Legacy: `make build-legacy up-legacy`, then `make cluster` (threshold experiments) or `make compare` (database-free stories against the Postgres ones).
 - Each run's step outputs and timings land in `out/pipeline-<UTC>.json`.
 
-**Knobs:** Compose environment of `fn-scrape` (`HOURS`, `REFRESH_HOURS`, `MAX_REFRESH_PER_SOURCE`, `RECHECK_MINUTES`, …) and `fn-build` (`STORY_*`, `WINDOW_HOURS`, `STATE_HOURS`, `CHANGE_MIN_RATIO`, `TOP_LIMIT`, `LATEST_LIMIT`, `MIN_SOURCES`, `SITE_CACHE_SECONDS`).
+**Knobs:** Compose environment of `fn-scrape` (`HOURS`, `REFRESH_HOURS`, `MAX_REFRESH_PER_SOURCE`, `RECHECK_MINUTES`, …) and `fn-build` (`STORY_*`, `WINDOW_HOURS`, `STATE_HOURS`, `CHANGE_MIN_RATIO`, `TOP_LIMIT`, `LATEST_LIMIT`, `MIN_SOURCES`, `SITE_CACHE_SECONDS`, `BATCH_SIZE`).
 
 ## Conventions
 

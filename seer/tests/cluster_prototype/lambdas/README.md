@@ -120,7 +120,7 @@ Each handler is `handler.handler(event, context)` and returns a JSON-serializabl
 | `SITE_CACHE_SECONDS`, `TOP_LIMIT`, `LATEST_LIMIT`, `MIN_SOURCES`, `TEMPLATES_DIR` | build (lab pages only; the public site uses `cache_seconds` and `limits` in `site.yaml`) | `300`, `60`, `60`, `2`, `/var/task/templates` |
 | `SITE_FILE`, `THUMBS_PER_RUN` | build | `/var/task/site.yaml`, `80` |
 | `LOGS_DIR`, `LOGS_BUCKET`, `LOGS_PREFIX` | build (reader statistics) | unset (local: `/logs`), `RAW_BUCKET`, `logs/cloudfront/` |
-| `BATCH_SIZE` | build (embedding batch) | `32` |
+| `BATCH_SIZE` | build (embedding batch) | `32` (`8` in the AWS stack: same vectors, less memory) |
 | `RAW_STORAGE_CLASS` | scrape | `INTELLIGENT_TIERING` |
 
 ## Local run
