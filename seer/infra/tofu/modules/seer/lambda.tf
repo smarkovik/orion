@@ -1,4 +1,7 @@
 locals {
+  # List price per GB-second in Frankfurt; the cost numbers in the admin use it.
+  lambda_gb_s = var.lambda_architecture == "arm64" ? "0.0000133334" : "0.0000166667"
+
   base_env = {
     RAW_BUCKET    = aws_s3_bucket.raw.bucket
     SITE_BUCKET   = aws_s3_bucket.site.bucket
@@ -29,6 +32,7 @@ locals {
     LATEST_LIMIT         = "60"
     MIN_SOURCES          = "2"
     THUMBS_PER_RUN       = "80"
+    LAMBDA_GB_S          = local.lambda_gb_s
     BATCH_SIZE           = "8" # same vectors as 32, about 20% faster and 400 MB less peak memory
     SITE_FILE            = "/var/task/site.yaml"
   })
@@ -49,7 +53,7 @@ resource "aws_lambda_function" "scrape" {
   role          = aws_iam_role.scrape.arn
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.fn["scrape"].repository_url}:${var.image_tag}"
-  architectures = ["x86_64"]
+  architectures = [var.lambda_architecture]
   memory_size   = 512
   timeout       = 600
 
@@ -70,7 +74,7 @@ resource "aws_lambda_function" "build" {
   role                           = aws_iam_role.build.arn
   package_type                   = "Image"
   image_uri                      = "${aws_ecr_repository.fn["build"].repository_url}:${var.image_tag}"
-  architectures                  = ["x86_64"]
+  architectures                  = [var.lambda_architecture]
   memory_size                    = var.build_memory_mb
   timeout                        = 900
   reserved_concurrent_executions = var.build_reserved_concurrency

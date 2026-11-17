@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -43,7 +44,8 @@ def _title(window: Window, story: Any) -> str:
 
 def cost(build: dict[str, Any], scrape_s: float, build_s: float, cfg: dict[str, Any]) -> dict[str, Any]:
     a = cfg["admin"]
-    p, mem = a["pricing"], a["memory_mb"]
+    p, mem = dict(a["pricing"]), a["memory_mb"]
+    p["lambda_gb_s"] = float(os.environ.get("LAMBDA_GB_S", p["lambda_gb_s"]))  # the stack sets it per architecture
     gb_s = scrape_s * mem["scrape"] / 1024 + build_s * mem["build"] / 1024
     lambda_usd = gb_s * p["lambda_gb_s"] + 2 * p["lambda_per_million"] / 1e6
     puts = build.get("puts", 0) + FIXED_PUT["scrape"] + FIXED_PUT["build"]

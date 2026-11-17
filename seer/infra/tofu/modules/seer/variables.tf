@@ -68,6 +68,16 @@ variable "build_reserved_concurrency" {
   default     = 1
 }
 
+variable "lambda_architecture" {
+  description = "Architecture of the three functions: x86_64 or arm64. Images must be built for the same one (arm64 is 20% cheaper per GB-second)."
+  type        = string
+  default     = "x86_64"
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.lambda_architecture)
+    error_message = "lambda_architecture must be x86_64 or arm64."
+  }
+}
+
 variable "build_memory_mb" {
   description = "Memory of the build Lambda. New accounts are capped at 3008 until AWS raises the limit."
   type        = number

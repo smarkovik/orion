@@ -15,6 +15,10 @@ inputs:
     description: Region of ECR and the state bucket.
     required: false
     default: eu-central-1
+  arch:
+    description: Architecture of the Lambda images, amd64 or arm64. Run on a runner of the same architecture.
+    required: false
+    default: amd64
   tofu-version:
     description: OpenTofu version.
     required: false
@@ -72,24 +76,26 @@ runs:
       with:
         context: seer/tests/cluster_prototype
         file: seer/tests/cluster_prototype/lambdas/scrape/Dockerfile
+        platforms: linux/${{ inputs.arch }}
         push: true
         tags: ${{ steps.ecr.outputs.scrape }}:${{ inputs.image-tag }}
         provenance: false
         sbom: false
-        cache-from: type=gha,scope=seer-scrape
-        cache-to: type=gha,scope=seer-scrape,mode=max
+        cache-from: type=gha,scope=seer-scrape-${{ inputs.arch }}
+        cache-to: type=gha,scope=seer-scrape-${{ inputs.arch }},mode=max
 
     - name: Build and push build image
       uses: docker/build-push-action@v7.4.0
       with:
         context: seer/tests/cluster_prototype
         file: seer/tests/cluster_prototype/lambdas/build/Dockerfile
+        platforms: linux/${{ inputs.arch }}
         push: true
         tags: ${{ steps.ecr.outputs.build }}:${{ inputs.image-tag }}
         provenance: false
         sbom: false
-        cache-from: type=gha,scope=seer-build
-        cache-to: type=gha,scope=seer-build,mode=max
+        cache-from: type=gha,scope=seer-build-${{ inputs.arch }}
+        cache-to: type=gha,scope=seer-build-${{ inputs.arch }},mode=max
 
     - name: Plan
       shell: bash

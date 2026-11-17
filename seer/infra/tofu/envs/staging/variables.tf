@@ -51,6 +51,11 @@ variable "control_cooldown_seconds" {
   default = 900
 }
 
+variable "lambda_architecture" {
+  type    = string
+  default = "x86_64"
+}
+
 variable "build_memory_mb" {
   type    = number
   default = 4096
