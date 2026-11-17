@@ -4,7 +4,7 @@ Two AWS accounts, staging and production, each with its own state. Both call the
 
 | Path | Holds |
 | --- | --- |
-| `modules/seer/` | The stack in `eu-central-1` (CloudFront certificate and log delivery in `us-east-1`): buckets, ECR, Lambdas, S3 event, schedules, CloudFront, alarms |
+| `modules/seer/` | The stack in `eu-central-1` (CloudFront certificate and log delivery in `us-east-1`): buckets, ECR, Lambdas, schedule, CloudFront, alarms |
 | `envs/staging/`, `envs/production/` | Thin roots: S3 backend, provider with `allowed_account_ids`, `terraform.tfvars` |
 | `bootstrap/` | Run once per account with local state: state bucket, GitHub OIDC provider, deploy role |
 
@@ -33,7 +33,7 @@ The deploy role trusts only `repo:smarkovik/orion:environment:<env>`, so a job m
 - **Staging:** every push to `main` that touches `seer/**` (or the deploy workflow files or the composite action) runs `seer-deploy-staging.yml`; it can also be started manually.
 - **Production:** run `seer-deploy-production.yml` manually with `ref` = `main` (default), a commit SHA or a tag. Refs not reachable from `origin/main` and not tags are refused.
 - Both use `.github/actions/seer-deploy` (OpenTofu 1.11.6 in CI; `>= 1.10` required): create the ECR repositories (targeted apply, so the first run works), build and push both images tagged with the full commit SHA, then `tofu plan -out` and `tofu apply`. The summary shows the `site_url` output.
-- Schedule: `cron(0 8-22 * * ? *)` in `Europe/Skopje` (staging has `schedule_enabled = false`: scrape by invoking the function, see `seer/README.md`), one schedule per edition. Staging can be slowed to every 3 hours with `schedule_expression = "cron(0 8-22/3 * * ? *)"` in its tfvars, cutting runs from 15 to 5 a day.
+- Schedule: `cron(0 8-22 * * ? *)` in `Europe/Skopje` (staging has `schedule_enabled = false`: scrape by invoking the function, see `seer/README.md`), one schedule for all editions (scrape runs them in a row and starts one build). Staging can be slowed to every 3 hours with `schedule_expression = "cron(0 8-22/3 * * ? *)"` in its tfvars, cutting runs from 15 to 5 a day.
 
 ## Notes
 

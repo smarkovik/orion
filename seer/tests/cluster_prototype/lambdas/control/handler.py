@@ -1,6 +1,6 @@
 """Control Lambda behind CloudFront at /system/control/: start a sync and read Lambda cost from the CloudWatch logs.
 
-POST .../sync  starts a scrape of every edition (the build follows by itself), within a cooldown and a daily limit.
+POST .../sync  starts one scrape of every edition (it starts one build), within a cooldown and a daily limit.
 GET  .../cost  billed duration x memory of every scrape and build invocation in the last N days, failures included.
 Both need the header x-seer-token; only its SHA-256 is configured.
 """
@@ -23,7 +23,7 @@ EDITIONS = [e for e in os.environ.get("EDITIONS", "").split(",") if e]
 LOG_GROUPS = {"scrape": os.environ["SCRAPE_LOG_GROUP"], "build": os.environ["BUILD_LOG_GROUP"]}
 TOKEN_SHA256 = os.environ["TOKEN_SHA256"].strip().lower()
 COOLDOWN_S = int(os.environ.get("COOLDOWN_SECONDS", "900"))
-MAX_STARTS_PER_DAY = int(os.environ.get("MAX_STARTS_PER_DAY", "48"))  # scrape invocations; one sync is one per edition
+MAX_STARTS_PER_DAY = int(os.environ.get("MAX_STARTS_PER_DAY", "24"))  # scrape invocations; one sync is one
 PRICE_GB_S = float(os.environ.get("LAMBDA_GB_S", "0.0000166667"))  # same list price as site.yaml admin.pricing
 PRICE_REQUEST = float(os.environ.get("LAMBDA_PER_MILLION", "0.20")) / 1e6
 MAX_DAYS = 30
@@ -88,7 +88,7 @@ def parse(fn: str, events: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
     for ev in sorted(events, key=lambda e: (e.get("logStreamName", ""), e["timestamp"])):
         msg, ts = ev["message"], ev["timestamp"]
         if (m := START_RE.match(msg)) and msg.startswith("START"):
-            cur = {"fn": fn, "request_id": m.group(1), "start_ms": ts, "edition": None, "run_id": None, "error": None}
+            cur = {"fn": fn, "request_id": m.group(1), "start_ms": ts, "editions": [], "run_ids": [], "error": None}
             starts.append(ts)
         elif (m := REPORT_RE.match(msg)) and msg.startswith("REPORT"):
             rid, dur, billed, mem, used, init, status = m.groups()
@@ -99,8 +99,8 @@ def parse(fn: str, events: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
                     "fn": fn,
                     "request_id": rid,
                     "start_ms": ts - int(float(dur)),
-                    "edition": None,
-                    "run_id": None,
+                    "editions": [],
+                    "run_ids": [],
                     "error": None,
                 }
             )
@@ -121,9 +121,12 @@ def parse(fn: str, events: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
             if msg.startswith("[ERROR] "):  # unhandled exception; logger errors are "[ERROR]<tab>time<tab>id<tab>text"
                 cur["error"] = msg.splitlines()[0][:200]
             elif m := BUILD_RE.search(msg):
-                cur["run_id"], cur["edition"] = m.group(1), m.group(2)
+                cur["run_ids"].append(m.group(1))
+                if m.group(2) not in cur["editions"]:
+                    cur["editions"].append(m.group(2))
             elif m := TOTAL_RE.search(msg):
-                cur["edition"] = m.group(1)
+                if m.group(1) not in cur["editions"]:
+                    cur["editions"].append(m.group(1))
     return out, starts
 
 
@@ -180,8 +183,7 @@ def sync() -> dict[str, Any]:
     wait = COOLDOWN_S - (now - max(times + [_last_sync]))
     if wait > 0:
         return reply(429, {"error": "cooldown", "retry_after_s": int(wait) + 1})
-    for edition in EDITIONS:
-        lam.invoke(FunctionName=SCRAPE_FUNCTION, InvocationType="Event", Payload=json.dumps({"edition": edition}))
+    lam.invoke(FunctionName=SCRAPE_FUNCTION, InvocationType="Event", Payload=json.dumps({"editions": EDITIONS}))
     _last_sync = now
     return reply(202, {"started": EDITIONS, "at": iso(now * 1000), "cooldown_s": COOLDOWN_S})
 

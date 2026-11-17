@@ -34,7 +34,7 @@ alB39UF_chhcD_xifH5GieATV_-HH9Kusq2BDeqiKtA
 2. Click **Sync now**. Wait about two minutes; the page reloads the data by itself.
 
 Limits, enforced by the function: at most one sync every 15 minutes (any scrape start counts, also from the CLI) and
-48 scrape starts per 24 hours (24 syncs).
+24 syncs per 24 hours (one scrape invocation each).
 
 **This repository is public, so this token is public.** Anyone with it can start syncs within those limits and read the
 cost numbers; nothing else. Replace it with real authentication before this is more than a sandbox. To rotate it:

@@ -12,6 +12,7 @@ locals {
     MAX_ARTICLES_PER_SOURCE = "150"
     REFRESH_HOURS           = "6"
     MAX_REFRESH_PER_SOURCE  = "20"
+    BUILD_FUNCTION          = local.build_name # scrape starts one build for all the manifests of a run
   })
 
   build_env = merge(local.base_env, {
@@ -90,32 +91,9 @@ resource "aws_lambda_function" "build" {
   depends_on = [aws_iam_role_policy.build]
 }
 
-# S3 invokes asynchronously; a throttled event (reserved concurrency 1) is retried for up to 6 hours.
+# Scrape and the build itself start the build asynchronously; a throttled event is retried for up to 6 hours.
 resource "aws_lambda_function_event_invoke_config" "build" {
   function_name                = aws_lambda_function.build.function_name
   maximum_retry_attempts       = 2
   maximum_event_age_in_seconds = 21600
-}
-
-resource "aws_lambda_permission" "s3_invoke_build" {
-  statement_id   = "s3-raw"
-  action         = "lambda:InvokeFunction"
-  function_name  = aws_lambda_function.build.function_name
-  principal      = "s3.amazonaws.com"
-  source_arn     = aws_s3_bucket.raw.arn
-  source_account = local.account_id
-}
-
-resource "aws_s3_bucket_notification" "raw" {
-  bucket = aws_s3_bucket.raw.id
-
-  lambda_function {
-    id                  = "build-on-manifest"
-    lambda_function_arn = aws_lambda_function.build.arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "runs/"
-    filter_suffix       = ".json"
-  }
-
-  depends_on = [aws_lambda_permission.s3_invoke_build]
 }

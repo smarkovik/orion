@@ -1,5 +1,6 @@
 """Build: ingest one scrape batch into the edition window, cluster, render, persist."""
 
+import json
 import logging
 import os
 import time
@@ -17,6 +18,7 @@ import render
 import state
 import stories
 import thumbs
+import boto3
 import yaml
 from categories import CategoryMap
 from model import summary_key, build_report_key
@@ -92,7 +94,7 @@ def _record_admin(
         log.exception("admin summary failed")
 
 
-def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+def build_one(manifest_key: str, event: dict[str, Any], context: Any) -> dict[str, Any]:
     t_start = time.perf_counter()
     ratio = float(os.environ.get("CHANGE_MIN_RATIO", "0.05"))
     timings: dict[str, float] = {}
@@ -102,7 +104,6 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         timings[name] = round(t - since, 2)
         return t
 
-    manifest_key = _manifest_key(event)
     manifest = store.get_json(store.RAW_BUCKET, manifest_key)
     if manifest is None:
         raise FileNotFoundError(manifest_key)
@@ -221,3 +222,42 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     _record_admin(manifest, window, now, site_cfg, site_pages, out, t_start)
     log.info("build %s: %s", run_id, out)
     return out
+
+
+def _manifest_keys(event: dict[str, Any]) -> list[str]:
+    if event.get("manifest_keys"):
+        return list(event["manifest_keys"])
+    return [_manifest_key(event)]
+
+
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    """Build one or more manifests in this invocation, so the model loads once for all editions of a sync.
+
+    Event: {"manifest_keys": [...]}, {"manifest_key": ...} or an S3 event. When the time left is short for the next
+    manifest, the rest goes to a new invocation of this function.
+    """
+    keys = _manifest_keys(event)
+    min_next_s = float(os.environ.get("NEXT_BUILD_MIN_S", "300"))
+    outs: list[dict[str, Any]] = []
+    errors: list[Exception] = []
+    for i, key in enumerate(keys):
+        t = time.monotonic()
+        try:
+            outs.append(build_one(key, event, context))
+        except Exception as e:  # noqa: BLE001 - the other manifests still build; the error is re-raised below
+            log.exception("build %s failed", key)
+            errors.append(e)
+        rest = keys[i + 1 :]
+        left = getattr(context, "get_remaining_time_in_millis", lambda: 10**9)() / 1000
+        if rest and left < max(min_next_s, 1.5 * (time.monotonic() - t)):
+            boto3.client("lambda").invoke(
+                FunctionName=context.function_name,
+                InvocationType="Event",
+                Payload=json.dumps({"manifest_keys": rest}).encode(),
+            )
+            log.info("deferred %d manifest(s) to a new invocation: %s", len(rest), rest)
+            outs.append({"deferred": rest})
+            break
+    if errors:
+        raise errors[0]
+    return outs[0] if len(outs) == 1 else {"builds": outs}

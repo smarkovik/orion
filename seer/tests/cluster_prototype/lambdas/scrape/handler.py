@@ -1,5 +1,6 @@
 """Fetch recent articles (WordPress API or news sitemap) for one edition into one raw S3 object."""
 
+import json
 import logging
 import os
 import threading
@@ -12,6 +13,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
+import boto3
 import httpx
 import yaml
 from seer_common import store
@@ -357,10 +359,9 @@ def remaining_deadline(context: Any) -> float | None:
         return None
 
 
-def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+def scrape_edition(edition: str, event: dict[str, Any], context: Any) -> dict[str, Any]:
     t0 = time.monotonic()
     started = datetime.now(timezone.utc)
-    edition = event["edition"]
     env = os.environ
     with open(env.get("SOURCES_FILE", "/var/task/sources.yaml"), encoding="utf-8") as f:
         editions = yaml.safe_load(f)["editions"]
@@ -441,3 +442,31 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "sources": manifest["sources"],
         "duration_s": duration,
     }
+
+
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    """Scrape one edition ({"edition": ...}) or several in a row ({"editions": [...]}), then start one build for all.
+
+    The build is started here only where BUILD_FUNCTION is set (AWS); locally the runner starts it.
+    """
+    editions = event.get("editions") or [event["edition"]]
+    outs: list[dict[str, Any]] = []
+    errors: list[Exception] = []
+    for edition in editions:
+        try:
+            outs.append(scrape_edition(edition, event, context))
+        except Exception as e:  # noqa: BLE001 - the other editions still run; the error is re-raised if none succeeded
+            log.exception("scrape %s failed", edition)
+            errors.append(e)
+    keys = [o["manifest_key"] for o in outs]
+    build_fn = os.environ.get("BUILD_FUNCTION")
+    if build_fn and keys:
+        boto3.client("lambda").invoke(
+            FunctionName=build_fn, InvocationType="Event", Payload=json.dumps({"manifest_keys": keys}).encode()
+        )
+        log.info("build started for %d manifest(s)", len(keys))
+    if errors and not outs:
+        raise errors[0]
+    if "editions" not in event:
+        return outs[0]
+    return {"scrapes": outs, "failed": len(errors), "build_started": bool(build_fn and keys)}

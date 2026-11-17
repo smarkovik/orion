@@ -113,8 +113,8 @@ def test_cost_parses_ok_error_and_timeout():
     ]
     body = json.loads(call("GET", "/system/control/cost", query={"days": "1"})["body"])
     by = {i["request_id"]: i for i in body["invocations"]}
-    assert (by["a"]["status"], by["a"]["edition"], by["a"]["run_id"]) == ("ok", "fr", "20261115T183156Z-fr")
-    assert (by["b"]["status"], by["c"]["status"], by["d"]["edition"]) == ("error", "timeout", "mk")
+    assert (by["a"]["status"], by["a"]["editions"], by["a"]["run_ids"]) == ("ok", ["fr"], ["20261115T183156Z-fr"])
+    assert (by["b"]["status"], by["c"]["status"], by["d"]["editions"]) == ("error", "timeout", ["mk"])
     assert by["b"]["error"].startswith("[ERROR] FileNotFoundError")
     assert by["d"]["status"] == "ok"  # a logged outlet error is not a failed invocation
     gb_s = 1.0 * 3008 / 1024
@@ -128,11 +128,11 @@ def test_cost_parses_ok_error_and_timeout():
 def test_sync_starts_every_edition_then_cools_down():
     r = call("POST", "/system/control/sync")
     assert r["statusCode"] == 202
-    assert [json.loads(c["Payload"])["edition"] for c in handler.lam.calls] == ["mk", "fr"]
+    assert [json.loads(c["Payload"]) for c in handler.lam.calls] == [{"editions": ["mk", "fr"]}]
     assert all(c["InvocationType"] == "Event" for c in handler.lam.calls)
     again = call("POST", "/system/control/sync")
     assert again["statusCode"] == 429 and json.loads(again["body"])["error"] == "cooldown"
-    assert len(handler.lam.calls) == 2
+    assert len(handler.lam.calls) == 1
 
 
 def test_sync_respects_scrape_started_elsewhere_and_daily_limit():
@@ -144,3 +144,19 @@ def test_sync_respects_scrape_started_elsewhere_and_daily_limit():
     ]
     assert json.loads(call("POST", "/system/control/sync")["body"])["error"] == "daily_limit"
     assert handler.lam.calls == []
+
+
+def test_one_invocation_for_two_editions():
+    t = time.time() - 300
+    handler.logs.events["/aws/lambda/build"] = [
+        ev(t, "START RequestId: m Version: $LATEST\n"),
+        ev(t + 1, "[INFO]\t2026\tm\tbuild 20261116T000000Z-mk: {'edition': 'mk'}"),
+        ev(t + 2, "[INFO]\t2026\tm\tbuild 20261116T000000Z-fr: {'edition': 'fr'}"),
+        ev(
+            t + 3,
+            "REPORT RequestId: m\tDuration: 3000.00 ms\tBilled Duration: 3000 ms\tMemory Size: 3008 MB\tMax Memory Used: 700 MB\t\n",
+        ),
+    ]
+    body = json.loads(call("GET", "/system/control/cost", query={"days": "1"})["body"])
+    inv = body["invocations"][0]
+    assert inv["editions"] == ["mk", "fr"] and inv["run_ids"] == ["20261116T000000Z-mk", "20261116T000000Z-fr"]
