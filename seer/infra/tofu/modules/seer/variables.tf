@@ -87,7 +87,7 @@ variable "control_cooldown_seconds" {
 }
 
 variable "control_max_starts_per_day" {
-  description = "Most scrape invocations in 24 hours that the sync button accepts; one sync starts one per edition."
+  description = "Most scrape invocations in 24 hours that the sync button accepts; one sync is one invocation."
   type        = number
-  default     = 48
+  default     = 24
 }

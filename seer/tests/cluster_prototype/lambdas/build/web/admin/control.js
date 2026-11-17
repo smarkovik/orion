@@ -54,7 +54,7 @@
       if (r.error) pill.title = r.error;
       tb.appendChild(h("tr", { class: r.status === "ok" ? "" : "attn" }, [
         h("td", { class: "l", text: K.pad(d.getMonth() + 1) + "-" + K.pad(d.getDate()) + " " + K.pad(d.getHours()) + ":" + K.pad(d.getMinutes()) + ":" + K.pad(d.getSeconds()) }),
-        h("td", { class: "l", text: r.fn }), h("td", { class: "l", text: r.edition || "–" }), h("td", { class: "l" }, [pill]),
+        h("td", { class: "l", text: r.fn }), h("td", { class: "l", text: (r.editions || []).join(" + ") || "–" }), h("td", { class: "l" }, [pill]),
         h("td", { text: (r.billed_ms / 1000).toFixed(1) + " s" }), h("td", { text: r.memory_mb + " MB" }), h("td", { text: usd(r.usd) })]));
     });
     if (!data.invocations.length) tb.appendChild(h("tr", {}, [h("td", { class: "l", colspan: cols.length, text: "No invocations in the logs for this window." })]));
@@ -94,14 +94,17 @@
     if (t !== null) { setToken(t.trim()); load(); }
   }
 
-  // Cost of one run from the logs: its build invocation (by run id) plus its scrape invocation (same edition, same start).
+  // Cost of one run from the logs: its share of the build invocation that built it (by run id) and of the scrape
+  // invocation that fetched it (same edition, started inside it). A sync's two editions share one of each.
   window.AdminControl = {
     runCost: function (run) {
       if (!data) return null;
       var t0 = Date.parse(run.scrape_started), sum = 0, hit = false;
       data.invocations.forEach(function (r) {
-        var own = (r.fn === "build" && r.run_id === run.run_id) || (r.fn === "scrape" && r.edition === run._ed && Math.abs(Date.parse(r.start) - t0) < 20000);
-        if (own) { sum += r.usd; hit = true; }
+        var t = Date.parse(r.start), share = 0;
+        if (r.fn === "build" && (r.run_ids || []).indexOf(run.run_id) >= 0) share = r.run_ids.length;
+        else if (r.fn === "scrape" && (r.editions || []).indexOf(run._ed) >= 0 && t0 >= t - 20000 && t0 <= t + r.duration_ms + 20000) share = r.editions.length;
+        if (share) { sum += r.usd / share; hit = true; }
       });
       return hit ? sum : null;
     }

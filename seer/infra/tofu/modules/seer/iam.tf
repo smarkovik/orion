@@ -37,6 +37,12 @@ data "aws_iam_policy_document" "scrape" {
     resources = ["${aws_s3_bucket.raw.arn}/state/*"]
   }
 
+  statement {
+    sid       = "StartBuild"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:aws:lambda:${data.aws_region.current.region}:${local.account_id}:function:${local.build_name}"]
+  }
+
   # Without ListBucket a missing key reads as AccessDenied instead of NoSuchKey.
   statement {
     sid       = "StateList"
@@ -64,6 +70,13 @@ resource "aws_iam_role" "build" {
 }
 
 data "aws_iam_policy_document" "build" {
+  # Hands the manifests it has no time left for to a new invocation of itself.
+  statement {
+    sid       = "ContinueBuild"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:aws:lambda:${data.aws_region.current.region}:${local.account_id}:function:${local.build_name}"]
+  }
+
   statement {
     sid       = "Logs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]

@@ -2,11 +2,11 @@
 
 **Source of truth: OpenTofu** in `seer/infra/tofu/` (module `modules/seer`), applied by the `seer-deploy-*.yml` GitHub workflows. The files here are kept as reference for the same rules and for applying them by hand; they are not used by the deployment. They match the module on the rules below (lifecycle expiry days, Intelligent-Tiering, the S3 notification, the schedule and its retries). The module adds what these files don't: versioning on the raw bucket (noncurrent versions expire after 7 days, plus a delete-marker cleanup rule), resource names with the `name_prefix` (for example `seer-production-scrape-mk`), function sizing, the CloudFront log delivery and the IAM roles. If the two differ, tofu wins.
 
-No Step Functions and no database: a schedule invokes scrape, and the manifest scrape writes to S3 invokes build. Build also fetches story thumbnails and outlet logos, so it needs internet egress (the tofu stack uses no VPC).
+No Step Functions and no database: one schedule invokes scrape for all editions, and scrape then invokes build once with the manifests it wrote (the OpenTofu stack has no S3 event; `s3-raw-notification.json` is the older way). Build also fetches story thumbnails and outlet logos, so it needs internet egress (the tofu stack uses no VPC).
 
 | File | What | Apply |
 | --- | --- | --- |
-| `scheduler.md` | EventBridge Scheduler: one hourly schedule per edition (08:00-22:00 `Europe/Skopje`) invoking scrape; build's reserved concurrency of 1 | see the file |
+| `scheduler.md` | EventBridge Scheduler: one hourly schedule for all editions (08:00-22:00 `Europe/Skopje`) invoking scrape; build's reserved concurrency of 1 | see the file |
 | `s3-raw-notification.json` | S3 event notification: invoke build on `s3:ObjectCreated:*` under `runs/` ending in `.json`. Replace `${BuildFunctionArn}` first (for example with `envsubst`). | `aws s3api put-bucket-notification-configuration --bucket <raw-bucket> --notification-configuration file://s3-raw-notification.json` |
 | `s3-raw-lifecycle.json` | Expires `raw/`, `runs/` and `builds/` after 730 days, `archive/` after 1095 and `logs/` after 7 (safety net for the reader-statistics logs); aborts incomplete multipart uploads after 1 day | `aws s3api put-bucket-lifecycle-configuration --bucket <raw-bucket> --lifecycle-configuration file://s3-raw-lifecycle.json` |
 | `s3-raw-intelligent-tiering.json` | Intelligent-Tiering archive tiers for `raw/`: Archive Access after 90 days, Deep Archive Access after 180 | `aws s3api put-bucket-intelligent-tiering-configuration --bucket <raw-bucket> --id raw-archive --intelligent-tiering-configuration file://s3-raw-intelligent-tiering.json` |

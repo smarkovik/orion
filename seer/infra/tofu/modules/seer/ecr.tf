@@ -16,11 +16,11 @@ resource "aws_ecr_lifecycle_policy" "fn" {
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "Keep the last 10 images"
+      description  = "Keep the last 2 images"
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 10
+        countNumber = 2
       }
       action = { type = "expire" }
     }]

@@ -3,9 +3,9 @@
 Two AWS Lambda functions and S3, nothing else. Run locally as Lambda container images behind AWS's Runtime Interface Emulator (RIE), with [versitygw](https://github.com/versity/versitygw) as the S3 stand-in; every object is a plain file under `data/s3/`.
 
 ```
-Scheduler (hourly 08:00–22:00, one schedule per edition)
-   └► scrape(edition) ─► S3 raw batch + runs/{edition}/{run_id}.json
-                              └► S3 event on runs/ ─► build(edition)
+Scheduler (hourly 08:00–22:00, one schedule for all editions)
+   └► scrape(editions) ─► per edition: S3 raw batch + runs/{edition}/{run_id}.json
+                              └► then one invoke of build(manifest_keys), in AWS (BUILD_FUNCTION)
                                     reads state/{edition}/window.json.gz (last 48 h)
                                     parse → embed new → join stories → render
                                     writes site pages, window, scrape state, archive, build report,
@@ -75,8 +75,8 @@ Each handler is `handler.handler(event, context)` and returns a JSON-serializabl
 
 | Function | Input | Output |
 | --- | --- | --- |
-| `scrape` | `{"edition": "mk", "hours": 48?}` | `{"edition", "run_id", "started_at", "raw_key", "manifest_key", "records", "bytes_raw", "bytes_gz", "truncated", "sources", "duration_s"}` |
-| `build` | an S3 event (`{"Records": [{"s3": {"bucket": {"name"}, "object": {"key": "runs/{edition}/{run_id}.json"}}}]}`, key URL-encoded) or `{"manifest_key": "runs/..."}` | `{"edition", "run_id", "skipped"?, "inserted", "updated", "changed", "refreshed", "failures", "embedded", "embed_s", "stories": {"unassigned", "joined", "new", "updated", "closed", "open", "multi_source"}, "thumbs": {"fetched", "reused", "failed", "skipped"}, "days": {"entries", "bytes"}, "site_pages": {"count", "skipped", "bytes"}, "readers": {"files", "lines", "pings", "html", "bots", "bad", "deleted", "catalog", "days"?, "unreadable"?, "catalog_error"?, "error"?}, "pages": [{"key", "bytes", "bytes_gz", "stories"}], "window_bytes", "archive_bytes", "pruned", "timings": {"load", "ingest", "embed", "assign", "thumbs", "logos", "days", "render", "readers", "save"}, "duration_s"}` |
+| `scrape` | `{"edition": "mk", "hours": 48?}` or `{"editions": ["mk", "fr"], "hours": 48?}` (editions in a row; with `BUILD_FUNCTION` set it then starts one build for all manifests written) | `{"edition", "run_id", "started_at", "raw_key", "manifest_key", "records", "bytes_raw", "bytes_gz", "truncated", "sources", "duration_s"}` |
+| `build` | `{"manifest_keys": ["runs/...", ...]}` (several manifests in one invocation, so the model loads once; the rest goes to a new invocation when little time is left, `NEXT_BUILD_MIN_S`, default 300), an S3 event (`{"Records": [{"s3": {"bucket": {"name"}, "object": {"key": "runs/{edition}/{run_id}.json"}}}]}`, key URL-encoded) or `{"manifest_key": "runs/..."}` | `{"edition", "run_id", "skipped"?, "inserted", "updated", "changed", "refreshed", "failures", "embedded", "embed_s", "stories": {"unassigned", "joined", "new", "updated", "closed", "open", "multi_source"}, "thumbs": {"fetched", "reused", "failed", "skipped"}, "days": {"entries", "bytes"}, "site_pages": {"count", "skipped", "bytes"}, "readers": {"files", "lines", "pings", "html", "bots", "bad", "deleted", "catalog", "days"?, "unreadable"?, "catalog_error"?, "error"?}, "pages": [{"key", "bytes", "bytes_gz", "stories"}], "window_bytes", "archive_bytes", "pruned", "timings": {"load", "ingest", "embed", "assign", "thumbs", "logos", "days", "render", "readers", "save"}, "duration_s"}` |
 
 `build` skips a manifest whose `started_at` is not newer than `Window.last_run_started_at` (already applied, or out of order) and returns `{"edition", "run_id", "skipped": "<reason>"}`.
 
@@ -131,7 +131,7 @@ Each handler is `handler.handler(event, context)` and returns a JSON-serializabl
 | `fn-scrape` | `lambdas/scrape/Dockerfile` | default, or host network behind the proxy (RIE on `0.0.0.0:9101`) | `http://127.0.0.1:9101/2015-03-31/functions/function/invocations` |
 | `fn-build` | `lambdas/build/Dockerfile` | default, or host network behind the proxy (RIE on `0.0.0.0:9102`, runtime API on `127.0.0.1:9003`); needs internet for thumbnails and logos; mounts `./data/logs` at `/logs` | `http://127.0.0.1:9102/2015-03-31/functions/function/invocations` |
 
-`pipeline/run_pipeline.py` (standard library only) stands in for the scheduler and the S3 event: scrape per edition, then build with an S3-event-shaped payload for the new manifest. `--replay EDITION` deletes the edition's window, summary and scrape state (`days.json`, logos and reader counts stay), then applies every manifest under `data/s3/seer-raw/runs/{edition}/` in order.
+`pipeline/run_pipeline.py` (standard library only) stands in for the scheduler and the build trigger: scrape per edition, then build with an S3-event-shaped payload for the new manifest (the AWS stack has no S3 event: scrape starts the build). `--replay EDITION` deletes the edition's window, summary and scrape state (`days.json`, logos and reader counts stay), then applies every manifest under `data/s3/seer-raw/runs/{edition}/` in order.
 
 **Images** build from `public.ecr.aws/lambda/python:3.12` with the build context `tests/cluster_prototype/`. Behind the proxy, append `certs/*.crt` to `/etc/pki/tls/certs/ca-bundle.crt` and set `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` to it. Copy `lambdas/common/seer_common/` to `/var/task/seer_common/`. Use the base image's boto3; pin everything else exactly. Lambda can write only to `/tmp`; local containers run with `read_only: true` and a `/tmp` tmpfs.
 

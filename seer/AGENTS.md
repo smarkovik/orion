@@ -38,10 +38,10 @@ The hourly pipeline is two AWS Lambda container images and S3, with no database.
 | --- | --- |
 | `s3` | Local S3 stand-in ([versitygw](https://github.com/versity/versitygw)); every object is a plain file under `data/s3/` |
 | `fn-scrape` | Lambda 1. Fetches only new or edited items (per-source state in S3) and writes one gzipped JSONL raw batch per edition per run, plus a manifest. |
-| `fn-build` | Lambda 2; e5 baked into the image. Triggered by the manifest (an S3 event in AWS). Loads the edition's hot window (last 48 h, about 5–7 MB with vectors), parses the batch, embeds new articles only, joins stories, fetches one thumbnail per shown story (the only internet it needs), renders the public site (`lambdas/build/web/`, settings and all interface text in `site.yaml`) and the analysis pages under `/lab/`, and writes the window, day index, scrape state, a 3-year archive file and a build report. |
+| `fn-build` | Lambda 2; e5 baked into the image. Started by scrape with the manifests of a run (one build for all editions, so the model loads once). Loads the edition's hot window (last 48 h, about 5–7 MB with vectors), parses the batch, embeds new articles only, joins stories, fetches one thumbnail per shown story (the only internet it needs), renders the public site (`lambdas/build/web/`, settings and all interface text in `site.yaml`) and the analysis pages under `/lab/`, and writes the window, day index, scrape state, a 3-year archive file and a build report. |
 | `db`, `viewer`, `clusterer` | **Legacy** (Compose profile `legacy`): the earlier Postgres version, kept for threshold experiments (`make cluster`) and for `make compare`. |
 
-`pipeline/run_pipeline.py` stands in for the scheduler and the S3 event. `make replay` rebuilds an edition from scratch by applying every manifest in order; builds use the manifest's own clock, so a replay reproduces the live result. `infra/` holds the S3 event, schedule, lifecycle and Intelligent-Tiering configs.
+`pipeline/run_pipeline.py` stands in for the scheduler and the build trigger. `make replay` rebuilds an edition from scratch by applying every manifest in order; builds use the manifest's own clock, so a replay reproduces the live result. `infra/` holds the S3 event, schedule, lifecycle and Intelligent-Tiering configs.
 
 **How stories are built** (`lambdas/build/stories.py`, ported from the Postgres `clusterer/cluster.py`):
 
