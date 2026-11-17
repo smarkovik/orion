@@ -24,3 +24,6 @@ build_memory_mb = 3008
 # Sync button and Lambda cost in the admin. The token itself is in seer/README.md (temporary, see there to rotate it).
 control_token_sha256     = "7c7606393d8eeaf4bd88599d51f9ab095877770817565ebd2b5142386633c6bc"
 control_cooldown_seconds = 900
+
+# arm64 is 20% cheaper per GB-second; the staging workflow builds the images on an arm runner.
+lambda_architecture = "arm64"

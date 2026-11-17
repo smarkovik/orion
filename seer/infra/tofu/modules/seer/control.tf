@@ -64,7 +64,7 @@ resource "aws_lambda_function" "control" {
   role             = aws_iam_role.control[0].arn
   runtime          = "python3.12"
   handler          = "handler.handler"
-  architectures    = ["x86_64"]
+  architectures    = [var.lambda_architecture]
   memory_size      = 256
   timeout          = 30
   filename         = data.archive_file.control[0].output_path
@@ -77,6 +77,7 @@ resource "aws_lambda_function" "control" {
       SCRAPE_LOG_GROUP   = aws_cloudwatch_log_group.scrape.name
       BUILD_LOG_GROUP    = aws_cloudwatch_log_group.build.name
       TOKEN_SHA256       = var.control_token_sha256
+      LAMBDA_GB_S        = local.lambda_gb_s
       COOLDOWN_SECONDS   = tostring(var.control_cooldown_seconds)
       MAX_STARTS_PER_DAY = tostring(var.control_max_starts_per_day)
     }

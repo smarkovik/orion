@@ -6,6 +6,7 @@ provider "registry.opentofu.org/hashicorp/archive" {
   constraints = ">= 2.4.0"
   hashes = [
     "h1:D0qy1mIABEFzQEwuASo4g+oGRgxodYsHhbU2VzmafkY=",
+    "h1:FwIDfXJo5yqRq9DjC8u3cXfGVQhHje3bpdxUufTT4wI=",
     "zh:167dcb2f3dfef941d300e4899c6b1852592e98cd5e20782289369bf0c81512f0",
     "zh:1e0bbf0e538631a49746ff23c7008c7de7d0850e4477a1aee7685cc9881a942a",
     "zh:4310e3fc60442f17165fef1a97eae8be3778ae9611a526eb5b19647ffbab98bc",
@@ -29,6 +30,7 @@ provider "registry.opentofu.org/hashicorp/aws" {
   constraints = ">= 6.0.0, 6.70.0"
   hashes = [
     "h1:YwOjwe/o7JFnVz9H/xyAEEgHMVCYFtuX0/97iYAZmsc=",
+    "h1:kMw0FvF0bvj1L7fCSPlg6BApfzkBbTITDBtplJ1Vtek=",
     "zh:0e28c73ffe0c518db0f1dbcf6260f95e4a423267ec1888d08bc0f7cb7c02fec1",
     "zh:2b4c26d4570d03cc2ebbe43a74034286ee66c85f0bcf5cf52a4c8652f3bccaa2",
     "zh:3957610bbc3e6271f37260ba4bea151a4e3e0b7884a9f0fc448ee277a3ab730b",

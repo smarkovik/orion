@@ -24,7 +24,7 @@ env:
 jobs:
   deploy:
     name: Deploy to staging
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm # the Lambdas run on arm64, so the images are built natively
     timeout-minutes: 60
     environment: staging
     permissions:
@@ -40,6 +40,7 @@ jobs:
         with:
           env-dir: staging
           image-tag: ${{ github.sha }}
+          arch: arm64
           role-arn: ${{ env.AWS_ROLE_ARN }}
 
       - name: Summary
