@@ -42,6 +42,8 @@ The deploy role trusts only `repo:smarkovik/orion:environment:<env>`, so a job m
 - `reserved_concurrent_executions = 1` on build needs an account Lambda concurrency quota above 10 (AWS keeps 10 unreserved). New accounts may need a quota increase first.
 - New accounts (concurrency quota 10) also cap Lambda memory at 3008 MB, and the first build of an edition (about 900 articles) can exceed the 900 s timeout at that size. Until the quota is raised, set `build_reserved_concurrency = -1` and `build_memory_mb = 3008` in the env's tfvars (as staging does), and backfill a large first batch in chunks.
 - `control_token_sha256` turns on the control function (`modules/seer/control.tf`, code in `tests/cluster_prototype/lambdas/control/`): the admin's sync button and Lambda cost. CloudFront reaches it at `/system/control/*` through an origin access control; the function URL itself needs AWS IAM. See `seer/README.md` for the token and its rotation.
+- `lambda_architecture` is `arm64` in staging (about 20% cheaper per GB-second) and `x86_64` by default. The images must match: the staging workflow runs on `ubuntu-24.04-arm` and passes `arch: arm64` to the deploy action. Production needs the same two changes in its workflow before its tfvars set `arm64`. Going back is `x86_64` plus `ubuntu-latest` and `arch: amd64`.
+- `lambda_architecture` also sets the price per GB-second (`LAMBDA_GB_S`) that the admin cost numbers use.
 - `block_indexing = true` adds `X-Robots-Tag: noindex, nofollow` to every CloudFront response (used for staging).
 - CloudFront logs go to `logs/cloudfront/` of the raw bucket (standard logging v2, W3C, no `c-ip`); the build Lambda reads and deletes them.
 - Rolling back: run the production workflow with the previous tag or SHA.
